@@ -1,20 +1,39 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import AppNavigator from './navigation/AppNavigator';
+import { FavoritesProvider } from './context/FavoritesContext';
+import { ListingsProvider } from './context/ListingsContext';
+import { UserProfileProvider } from './context/UserProfileContext';
+import { PaymentMethodsProvider } from './context/PaymentMethodsContext';
+import { GuestBookingsProvider } from './context/GuestBookingsContext';
+import {
+  useFonts,
+  Nunito_300Light,
+  Nunito_400Regular,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+} from '@expo-google-fonts/nunito';
+import AppLoading from 'expo-app-loading';
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Nunito_300Light,
+    Nunito_400Regular,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+  });
+  console.log('fontsLoaded:', fontsLoaded);
+  if (!fontsLoaded) return null;
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <ListingsProvider>
+      <UserProfileProvider>
+        <PaymentMethodsProvider>
+          <GuestBookingsProvider>
+            <FavoritesProvider>
+              <AppNavigator />
+            </FavoritesProvider>
+          </GuestBookingsProvider>
+        </PaymentMethodsProvider>
+      </UserProfileProvider>
+    </ListingsProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

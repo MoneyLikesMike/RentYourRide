@@ -1,0 +1,171 @@
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Svg, Path } from 'react-native-svg';
+import { COLORS } from '../constants/colors';
+import { FONTS } from '../constants/fonts';
+
+const BASE_WIDTH = 375;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const scale = SCREEN_WIDTH / BASE_WIDTH;
+
+const INVITE_COPY =
+  'Share your referral link. When a friend completes their first trip as a guest, you can earn account credit.';
+const HOST_COPY =
+  'Invite someone to list their vehicle. When they become a host and complete qualifying trips, you can earn credit.';
+
+function InviteFriendIcon({ size = 44 }) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Image
+        source={require('../assets/usersAdd.png')}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+      />
+    </View>
+  );
+}
+
+function ReferHostIcon({ size = 44 }) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Image
+        source={require('../assets/icons/list-a-new-ride.png')}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+      />
+    </View>
+  );
+}
+
+export default function ReferralsCreditsScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
+
+  const onInviteFriend = useCallback(() => {
+    navigation.navigate('InviteFriendScreen');
+  }, [navigation]);
+
+  const onReferHost = useCallback(() => {
+    navigation.navigate('ReferHostScreen');
+  }, [navigation]);
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} hitSlop={12}>
+          <Svg width={23 * scale} height={23 * scale} viewBox="0 0 48 48" fill="none">
+            <Path
+              d="M31 8L17 24L31 40"
+              stroke={COLORS.MANGO_TWO}
+              strokeWidth={4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </TouchableOpacity>
+        <View style={styles.headerTextFlexWrapper}>
+          <Text style={styles.headerText}>REFERRALS & CREDITS</Text>
+        </View>
+        <View style={styles.headerRightSpacer} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <TouchableOpacity style={styles.row} onPress={onInviteFriend} activeOpacity={0.85}>
+          <View style={styles.rowTextCol}>
+            <Text style={styles.rowTitle}>INVITE FRIEND</Text>
+            <Text style={styles.rowDesc}>{INVITE_COPY}</Text>
+          </View>
+          <InviteFriendIcon />
+        </TouchableOpacity>
+
+        <View style={styles.rowDivider} />
+
+        <TouchableOpacity style={styles.row} onPress={onReferHost} activeOpacity={0.85}>
+          <View style={styles.rowTextCol}>
+            <Text style={styles.rowTitle}>REFER A HOST</Text>
+            <Text style={styles.rowDesc}>{HOST_COPY}</Text>
+          </View>
+          <ReferHostIcon />
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 16 * scale,
+    paddingHorizontal: 20 * scale,
+    backgroundColor: '#fff',
+  },
+  backButton: {
+    marginRight: 16,
+    justifyContent: 'center',
+  },
+  headerTextFlexWrapper: {
+    flex: 1,
+    marginLeft: 39,
+    marginRight: 39,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerRightSpacer: {
+    width: 39,
+  },
+  headerText: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 15 * scale,
+    color: 'rgb(100,100,100)',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+  scrollContent: {
+    paddingHorizontal: 24 * scale,
+    paddingTop: 8 * scale,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 20 * scale,
+  },
+  rowTextCol: {
+    flex: 1,
+    paddingRight: 16 * scale,
+  },
+  rowTitle: {
+    width: 166 * scale,
+    height: 15 * scale,
+    textAlign: 'left',
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 11 * scale,
+    lineHeight: 15 * scale,
+    color: 'rgba(0, 0, 0, 0.6994977678571429)',
+    letterSpacing: 0.2,
+    marginBottom: 8 * scale,
+  },
+  rowDesc: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 13 * scale,
+    lineHeight: 19 * scale,
+    color: 'rgb(171, 171, 171)',
+    letterSpacing: 0.1,
+  },
+  rowDivider: {
+    width: 313 * scale,
+    height: 2 * scale,
+    alignSelf: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgb(235, 235, 235)',
+  },
+});
