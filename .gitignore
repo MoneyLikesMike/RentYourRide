@@ -11,6 +11,11 @@ expo-env.d.ts
 
 # Native
 .kotlin/
+ios/Pods/
+ios/build/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
 *.orig.*
 *.jks
 *.p8
