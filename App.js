@@ -12,7 +12,6 @@ import {
   Nunito_600SemiBold,
   Nunito_700Bold,
 } from '@expo-google-fonts/nunito';
-import AppLoading from 'expo-app-loading';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
