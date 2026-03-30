@@ -76,9 +76,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - EXSplashScreen (0.17.5):
+  - ExpoSplashScreen (0.30.10):
     - ExpoModulesCore
-    - React-Core
   - fast_float (6.1.4)
   - FBLazyVector (0.79.5)
   - fmt (11.0.2)
@@ -2069,7 +2068,7 @@ DEPENDENCIES:
   - ExpoImagePicker (from `../node_modules/expo-image-picker/ios`)
   - ExpoLocation (from `../node_modules/expo-location/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
-  - EXSplashScreen (from `../node_modules/expo-splash-screen/ios`)
+  - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
   - fast_float (from `../node_modules/react-native/third-party-podspecs/fast_float.podspec`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
@@ -2190,7 +2189,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-location/ios"
   ExpoModulesCore:
     :path: "../node_modules/expo-modules-core"
-  EXSplashScreen:
+  ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
   fast_float:
     :podspec: "../node_modules/react-native/third-party-podspecs/fast_float.podspec"
@@ -2359,7 +2358,7 @@ SPEC CHECKSUMS:
   ExpoImagePicker: 0963da31800c906e01c03e25d7c849f16ebf02a2
   ExpoLocation: a43df2ff15f2fae9504b23a77060e7cd16b3e326
   ExpoModulesCore: 00a1b5c73248465bd0b93f59f8538c4573dac579
-  EXSplashScreen: 6e50152f09892f452583fb7ecbdd572e38a0fd8d
+  ExpoSplashScreen: 0ad5acac1b5d2953c6e00d4319f16d616f70d4dd
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6
   FBLazyVector: d2a9cd223302b6c9aa4aa34c1a775e9db609eb52
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
