@@ -4,7 +4,7 @@
     "slug": "rentyourride",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icons/RYRAppStoreIcon-1024.png",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
