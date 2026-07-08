@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 
@@ -46,7 +46,15 @@ export default function ChangeEmailScreen({ navigation, route }) {
         </View>
         {/* Done Button */}
         <View style={styles.bottomContainer}>
-          <TouchableOpacity style={styles.doneButton}>
+          <TouchableOpacity
+            style={styles.doneButton}
+            onPress={() => {
+              Alert.alert(
+                'Coming soon',
+                'Email changes are not available on the dev API yet. Contact support if you need help.',
+              );
+            }}
+          >
             <Text style={styles.doneButtonText}>Done</Text>
           </TouchableOpacity>
         </View>

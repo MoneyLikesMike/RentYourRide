@@ -15,6 +15,7 @@ import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 import PictureDocumentationPlaceholderGrid from '../components/PictureDocumentationPlaceholderGrid';
 
@@ -38,7 +39,8 @@ export default function HostRentalAgreementScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId, checkoutFlow } = route.params || {};
   const isCheckoutFlow = checkoutFlow === true;
-  const { getBookingById, updateGuestBooking } = useGuestBookings();
+  const { getBookingById } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
 
   const [photoTab, setPhotoTab] = useState('host');
   const [damageNotes, setDamageNotes] = useState('');
@@ -103,21 +105,19 @@ export default function HostRentalAgreementScreen({ navigation, route }) {
       return;
     }
     if (!booking?.id) return;
-    if (isCheckoutFlow) {
-      await updateGuestBooking(booking.id, {
-        hostCheckoutDamageNotes: damageNotes.trim(),
-      });
-    } else {
-      await updateGuestBooking(booking.id, {
-        hostRentalAgreementDamageNotes: damageNotes.trim(),
-        hostCheckInDamageNotes: damageNotes.trim(),
-      });
-    }
+    const patch = isCheckoutFlow
+      ? { hostCheckoutDamageNotes: damageNotes.trim() }
+      : {
+          hostRentalAgreementDamageNotes: damageNotes.trim(),
+          hostCheckInDamageNotes: damageNotes.trim(),
+        };
+    const ok = await applyBookingUpdate(booking.id, patch);
+    if (!ok) return;
     navigation.navigate('HostRentalAgreementSignScreen', {
       bookingId: booking.id,
       checkoutFlow: isCheckoutFlow,
     });
-  }, [agreeInspect, agreeTerms, booking?.id, damageNotes, navigation, updateGuestBooking, isCheckoutFlow]);
+  }, [agreeInspect, agreeTerms, booking?.id, damageNotes, navigation, applyBookingUpdate, isCheckoutFlow]);
 
   const onUploadPhotos = useCallback(() => {
     navigation.navigate('HostVehicleConditionPhotosScreen', {
@@ -182,7 +182,7 @@ export default function HostRentalAgreementScreen({ navigation, route }) {
         style={styles.scroll}
         contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 24 * scale }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="never"
       >
         <View style={styles.participantsRow}>
           <View style={styles.participant}>

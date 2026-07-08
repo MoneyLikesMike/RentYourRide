@@ -2,31 +2,76 @@
   "expo": {
     "name": "RentYourRide",
     "slug": "rentyourride",
-    "version": "1.0.0",
+    "version": "3.0.3",
     "orientation": "portrait",
     "icon": "./assets/icons/RYRAppStoreIcon-1024.png",
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#DFF2F1"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.micahelokoye.rentyourride"
+      "bundleIdentifier": "com.rentyourride.ios",
+      "buildNumber": "13",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "RentYourRide uses your location to search nearby vehicles and set pickup addresses."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#DFF2F1"
       }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "extra": {
+      "apiUrl": "http://127.0.0.1:8080",
+      "useDevApi": true,
+      "devApiUrl": "https://bedev.rentyourride.ca",
+      "stripePublishableKey": "",
+      "stripeMerchantIdentifier": "merchant.com.rentyourride.ios"
+    },
     "plugins": [
       "expo-font",
       "expo-asset",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "expo-video",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.72018389432-rb2t4cj7pda7on5rj4bigvjkipgoqp2k"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow RentYourRide to access your photos so you can upload profile and listing images.",
+          "cameraPermission": "Allow RentYourRide to use your camera to take profile and listing photos."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "RentYourRide uses your location to search nearby vehicles and set pickup addresses."
+        }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.rentyourride.ios",
+          "enableGooglePay": false
+        }
+      ],
+      [
+        "@didit-protocol/sdk-react-native",
+        {
+          "iosVariant": "core",
+          "androidVariant": "core"
+        }
+      ]
     ]
   }
 }

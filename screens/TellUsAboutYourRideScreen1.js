@@ -11,6 +11,14 @@ import {
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
+import { useSaveListingStep } from '../hooks/useSaveListingStep';
+import {
+  applyVinVehicleFields,
+  DEFAULT_FUEL_TYPE_OPTIONS,
+  DEFAULT_STYLE_OPTIONS,
+  DEFAULT_TRANSMISSION_OPTIONS,
+  DEFAULT_TRIM_OPTIONS,
+} from '../utils/vinVehicleFields';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375; // Base width is 375;
@@ -21,6 +29,30 @@ function parseTitleToVehicleData(title) {
   const m = title.trim().match(/^(\d{4})\s+(.+?)\s+(.+)$/);
   if (!m) return null;
   return { year: m[1], make: m[2], model: m[3] };
+}
+
+function formatVehicleSummary(vehicle, overrides = {}) {
+  if (!vehicle) return 'Identify your car';
+  const v = { ...vehicle, ...overrides };
+  const main = [v.year, v.make, v.model].filter(Boolean).join(' ');
+  const details = [v.trim, v.style, v.transmission, v.fuelType]
+    .filter(Boolean)
+    .join(' · ');
+  if (main && details) return `${main} · ${details}`;
+  return main || details || 'Identify your car';
+}
+
+function vinFieldHandlers(handlers) {
+  return {
+    setTransmission: handlers.setTransmission,
+    setFuelType: handlers.setFuelType,
+    setTrim: handlers.setTrim,
+    setStyle: handlers.setStyle,
+    setTransmissionOptions: handlers.setTransmissionOptions,
+    setFuelTypeOptions: handlers.setFuelTypeOptions,
+    setTrimOptions: handlers.setTrimOptions,
+    setStyleOptions: handlers.setStyleOptions,
+  };
 }
 
 /** Rebuild structured address from stored pickup line "addr, city, country". */
@@ -41,6 +73,7 @@ function pickupStringToCompletedAddress(pickup, cityFallback, countryFallback) {
 
 const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
   const { setDraftCity, setDraftListing, editingListingId, draft } = useListings();
+  const { saveStep, saving } = useSaveListingStep();
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [completedAddress, setCompletedAddress] = useState(route?.params?.completedAddress || null);
   const [vehicleData, setVehicleData] = useState(route?.params?.vehicleData || null);
@@ -70,11 +103,9 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
   const [showFuelTypePicker, setShowFuelTypePicker] = useState(false);
   const [showLicenseProvincePicker, setShowLicenseProvincePicker] = useState(false);
 
-  const transmissionOptions = ['Automatic', 'Manual'];
-  
-  // Additional vehicle detail options
-  const trimOptions = ['Base', 'LE', 'XLE', 'Limited', 'Sport', 'Premium'];
-  const styleOptions = ['4dr Sedan (Electric DD)', '2dr Coupe', '4dr Hatchback', '5dr SUV', '4dr Wagon'];
+  const [transmissionOptions, setTransmissionOptions] = useState(DEFAULT_TRANSMISSION_OPTIONS);
+  const [trimOptions, setTrimOptions] = useState(DEFAULT_TRIM_OPTIONS);
+  const [styleOptions, setStyleOptions] = useState(DEFAULT_STYLE_OPTIONS);
   const colorOptions = [
     { name: 'White', value: '#FFFFFF' },
     { name: 'Black', value: '#000000' },
@@ -90,7 +121,7 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
     { name: 'Purple', value: '#800080' },
     { name: 'Pink', value: '#FF69B4' }
   ];
-  const fuelTypeOptions = ['Gasoline', 'Diesel', 'Hybrid', 'Electricity', 'Plug-in Hybrid'];
+  const [fuelTypeOptions, setFuelTypeOptions] = useState(DEFAULT_FUEL_TYPE_OPTIONS);
   
   // US States
   const usStates = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'];
@@ -131,6 +162,19 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
       if (vd) {
         setVehicleData(vd);
         setShowVehicleInfo(true);
+        applyVinVehicleFields(
+          vd,
+          vinFieldHandlers({
+            setTransmission,
+            setFuelType,
+            setTrim,
+            setStyle,
+            setTransmissionOptions,
+            setFuelTypeOptions,
+            setTrimOptions,
+            setStyleOptions,
+          }),
+        );
       }
       if (d.odometerReading) setOdometerReading(String(d.odometerReading));
       if (d.transmission) setTransmission(d.transmission);
@@ -170,6 +214,19 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
         ...(title ? { title } : {}),
         ...(vehicleType ? { vehicleType } : {}),
       });
+      applyVinVehicleFields(
+        v,
+        vinFieldHandlers({
+          setTransmission,
+          setFuelType,
+          setTrim,
+          setStyle,
+          setTransmissionOptions,
+          setFuelTypeOptions,
+          setTrimOptions,
+          setStyleOptions,
+        }),
+      );
     }
   }, [route?.params?.completedAddress, route?.params?.vehicleData, completedAddress]);
 
@@ -236,44 +293,62 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
     });
   };
 
-  const handleNext = () => {
-    if (allRequiredFieldsFilled) {
-      const year = vehicleData?.year ? String(vehicleData.year).trim() : '';
-      const make = vehicleData?.make ? String(vehicleData.make).trim() : '';
-      const model = vehicleData?.model ? String(vehicleData.model).trim() : '';
-      const title = [year, make, model].filter(Boolean).join(' ').trim();
-      const pickupAddress = completedAddress
-        ? `${completedAddress.address || ''}${completedAddress.city ? `, ${completedAddress.city}` : ''}${completedAddress.country ? `, ${completedAddress.country}` : ''}`
-        : '';
+  const handleNext = async () => {
+    if (!allRequiredFieldsFilled) return;
+    const year = vehicleData?.year ? String(vehicleData.year).trim() : '';
+    const make = vehicleData?.make ? String(vehicleData.make).trim() : '';
+    const model = vehicleData?.model ? String(vehicleData.model).trim() : '';
+    const title = [year, make, model].filter(Boolean).join(' ').trim();
+    const pickupAddress = completedAddress
+      ? `${completedAddress.address || ''}${completedAddress.city ? `, ${completedAddress.city}` : ''}${completedAddress.country ? `, ${completedAddress.country}` : ''}`
+      : '';
+    const city = completedAddress?.city ?? draft.city;
 
-      setDraftListing({
-        ...(title ? { title } : {}),
-        odometerReading,
-        transmission,
-        salvageTitle,
-        trim,
-        style,
-        color,
-        fuelType,
-        licensePlate,
-        licenseProvince,
-        pickupAddress,
-        ...(completedAddress ? { completedAddress } : {}),
-        ...(vehicleData && typeof vehicleData === 'object' ? { vehicleData } : {}),
-        ...(editingListingId
-          ? {
-              description: description.trim(),
-              checkInInstructions: checkInInstructions.trim(),
-              checkOutInstructions: checkOutInstructions.trim(),
-              carFeatures: Array.from(selectedFeatures),
-            }
-          : {}),
-      });
-      if (editingListingId) {
-        navigation.navigate('EditYourRideScreen');
-      } else {
-        navigation.navigate('AvailabilityLandingScreen');
-      }
+    const patch = {
+      ...(title ? { title } : {}),
+      ...(city ? { city } : {}),
+      odometerReading,
+      transmission,
+      salvageTitle,
+      trim,
+      style,
+      color,
+      fuelType,
+      licensePlate,
+      licenseProvince,
+      pickupAddress,
+      latitude: completedAddress?.latitude ?? draft.latitude,
+      longitude: completedAddress?.longitude ?? draft.longitude,
+      ...(completedAddress ? { completedAddress } : {}),
+      ...(vehicleData && typeof vehicleData === 'object'
+        ? {
+            vehicleData: {
+              ...vehicleData,
+              odometerReading,
+              transmission,
+              salvageTitle,
+              trim,
+              style,
+              color,
+              fuelType,
+            },
+          }
+        : {}),
+      ...(editingListingId
+        ? {
+            description: description.trim(),
+            checkInInstructions: checkInInstructions.trim(),
+            checkOutInstructions: checkOutInstructions.trim(),
+            carFeatures: Array.from(selectedFeatures),
+          }
+        : {}),
+    };
+    const ok = await saveStep(patch);
+    if (!ok) return;
+    if (editingListingId) {
+      navigation.navigate('EditYourRideScreen');
+    } else {
+      navigation.navigate('AvailabilityLandingScreen');
     }
   };
 
@@ -282,7 +357,7 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
       <ScrollView 
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="never"
         contentContainerStyle={[
           styles.scrollContentContainer,
           editingListingId && styles.scrollContentContainerEditing,
@@ -321,7 +396,7 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
       >
         <Text style={styles.sectionHeader}>WHAT KIND OF VEHICLE DO YOU HAVE</Text>
         <Text style={styles.sectionText}>
-          {vehicleData ? `${vehicleData.year} ${vehicleData.make} ${vehicleData.model}` : 'Identify your car'}
+          {formatVehicleSummary(vehicleData, { trim, style, transmission, fuelType })}
         </Text>
         <Image
           source={require('../assets/icons/arrow-button.png')}
@@ -424,8 +499,8 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
             </View>
           </View>
 
-          {/* Additional sections - only show after odometer and transmission are completed */}
-          {(odometerReading && transmission) && (
+          {/* Additional sections - show once odometer is set and VIN data is available */}
+          {(odometerReading && vehicleData) && (
             <>
               {/* Section 6: TRIM (Optional) */}
               <View style={[styles.sectionButton, styles.transmissionSection]}>
@@ -437,7 +512,7 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
                   >
                     <View style={styles.dropdownRow}>
                       <Text style={[styles.dropdownText, { color: trim ? '#000' : '#A9A9A9' }]}>
-                        {trim || 'Base'}
+                        {trim || 'Select trim'}
                       </Text>
                       <View style={{ flex: 1 }} />
                       <Image
@@ -482,7 +557,7 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
                   >
                     <View style={styles.dropdownRow}>
                       <Text style={[styles.dropdownText, { color: style ? '#000' : '#A9A9A9' }]}>
-                        {style || '4dr Sedan (Electric DD)'}
+                        {style || 'Select style'}
                       </Text>
                       <View style={{ flex: 1 }} />
                       <Image
@@ -564,7 +639,7 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
                   >
                     <View style={styles.dropdownRow}>
                       <Text style={[styles.dropdownText, { color: fuelType ? '#000' : '#A9A9A9' }]}>
-                        {fuelType || 'Gasoline'}
+                        {fuelType || 'Select fuel type'}
                       </Text>
                       <View style={{ flex: 1 }} />
                       <Image
@@ -779,12 +854,17 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
 
               {/* Next Button */}
               <View style={styles.nextButtonContainer}>
-                <TouchableOpacity 
-                  style={[styles.nextButton, !allRequiredFieldsFilled && styles.nextButtonDisabled]}
+                <TouchableOpacity
+                  style={[
+                    styles.nextButton,
+                    (!allRequiredFieldsFilled || saving) && styles.nextButtonDisabled,
+                  ]}
                   onPress={handleNext}
-                  disabled={!allRequiredFieldsFilled}
+                  disabled={!allRequiredFieldsFilled || saving}
                 >
-                  <Text style={styles.nextButtonText}>{editingListingId ? 'SAVE' : 'Next'}</Text>
+                  <Text style={styles.nextButtonText}>
+                    {saving ? 'Saving…' : editingListingId ? 'SAVE' : 'Next'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </>

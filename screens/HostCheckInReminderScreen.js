@@ -16,6 +16,7 @@ import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -27,7 +28,8 @@ const CHECK_IN_FLOW_DEPTH = 5;
 export default function HostCheckInReminderScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId } = route.params || {};
-  const { getBookingById, updateGuestBooking } = useGuestBookings();
+  const { getBookingById } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
   const startBtnScale = useRef(new Animated.Value(1)).current;
   const [startTripBusy, setStartTripBusy] = useState(false);
 
@@ -77,18 +79,26 @@ export default function HostCheckInReminderScreen({ navigation, route }) {
         setStartTripBusy(false);
         return;
       }
-      updateGuestBooking(booking.id, { hostTripStartedAt: Date.now() });
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 1,
-          routes: [
-            { name: 'RentalManagerScreen' },
-            { name: 'ActiveRentalsScreen', params: { initialTab: 'host' } },
-          ],
-        })
-      );
+      void (async () => {
+        const ok = await applyBookingUpdate(
+          booking.id,
+          { hostTripStartedAt: Date.now() },
+          { errorTitle: 'Could not start trip' },
+        );
+        setStartTripBusy(false);
+        if (!ok) return;
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 1,
+            routes: [
+              { name: 'RentalManagerScreen' },
+              { name: 'ActiveRentalsScreen', params: { initialTab: 'host' } },
+            ],
+          }),
+        );
+      })();
     });
-  }, [booking?.id, startTripBusy, startBtnScale, updateGuestBooking, navigation]);
+  }, [booking?.id, startTripBusy, startBtnScale, applyBookingUpdate, navigation]);
 
   if (!booking) {
     return (

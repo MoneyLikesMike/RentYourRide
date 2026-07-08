@@ -11,10 +11,12 @@ import {
   Dimensions,
   Modal,
   Alert,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { PlatformPayButton, PlatformPay } from '@stripe/stripe-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
-import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
@@ -23,8 +25,17 @@ import { useFocusEffect } from '@react-navigation/native';
 import { usePaymentMethods } from '../context/PaymentMethodsContext';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 import { useUserProfile } from '../context/UserProfileContext';
+import { useAuth } from '../context/AuthContext';
+import * as bookingsApi from '../services/bookingsApi';
+import { isRemoteListingId } from '../utils/listingId';
 import { brandLabel } from '../utils/paymentMethodUtils';
 import { TRIP_FEE_DISCLOSURE_TEXT } from '../constants/tripFeeDisclosure';
+import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocompleteField';
+import { getCurrentCoordinates } from '../utils/currentLocation';
+import { reverseGeocode } from '../services/geocodeApi';
+import { MAP_PROVIDER } from '../utils/mapProvider';
+import { isApplePayConfigured } from '../constants/stripe';
+import { useApplePayCheckout } from '../hooks/useApplePayCheckout';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375;
@@ -55,6 +66,7 @@ const parsePercent = (value) => {
 function checkoutMethodSubtitle(m) {
   if (!m) return '';
   if (m.type === 'paypal') return m.email || '';
+  if (m.type === 'apple_pay' || m.brand === 'apple_pay') return 'Apple Pay';
   return `XXXX - ${m.last4 || '????'}`;
 }
 
@@ -64,6 +76,13 @@ function CheckoutBrandChip({ method }) {
     return (
       <View style={checkoutChipStyles.chipPaypal}>
         <Text style={checkoutChipStyles.chipText}>PayPal</Text>
+      </View>
+    );
+  }
+  if (method.type === 'apple_pay' || method.brand === 'apple_pay') {
+    return (
+      <View style={[checkoutChipStyles.chip, { backgroundColor: '#000000' }]}>
+        <Text style={checkoutChipStyles.chipText}>APPLE PAY</Text>
       </View>
     );
   }
@@ -112,11 +131,17 @@ const checkoutChipStyles = StyleSheet.create({
 export default function BookingCheckoutScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { listing = {}, bookingDates } = route.params || {};
-  const { methods, defaultMethodId } = usePaymentMethods();
+  const { methods, defaultMethodId, refreshFromApi } = usePaymentMethods();
   const { addGuestBooking } = useGuestBookings();
   const { firstName, lastName, photoUri: profilePhotoUri } = useUserProfile();
+  const { isAuthenticated, isReady } = useAuth();
+  const { supported: applePaySupported, payForBooking, savePaymentMethod } = useApplePayCheckout();
+  const [quotePricing, setQuotePricing] = useState(null);
   const [selectedMethodId, setSelectedMethodId] = useState(null);
   const [paymentPickerVisible, setPaymentPickerVisible] = useState(false);
+  const [applePayLoading, setApplePayLoading] = useState(false);
+  const [confirmedPaymentIntentId, setConfirmedPaymentIntentId] = useState(null);
+  const [applePayMethod, setApplePayMethod] = useState(null);
 
   const checkoutSessionKey = useMemo(() => {
     const lid =
@@ -128,7 +153,6 @@ export default function BookingCheckoutScreen({ navigation, route }) {
 
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const [deliveryLocation, setDeliveryLocation] = useState('');
-  const [deliverySuggestions, setDeliverySuggestions] = useState([]);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [mapRegion, setMapRegion] = useState({
     latitude: typeof listing?.latitude === 'number' ? listing.latitude : 49.8951,
@@ -151,13 +175,14 @@ export default function BookingCheckoutScreen({ navigation, route }) {
     });
     setDeliveryEnabled(false);
     setDeliveryLocation('');
-    setDeliverySuggestions([]);
     setMapModalVisible(false);
     setExtraUnlimitedKm(false);
     setExtraPrepaidFuel(false);
     setExtraPrepaidClean(false);
     setIntroMessage('');
     setSelectedMethodId(null);
+    setConfirmedPaymentIntentId(null);
+    setApplePayMethod(null);
   }, [checkoutSessionKey]);
 
   useFocusEffect(
@@ -170,6 +195,7 @@ export default function BookingCheckoutScreen({ navigation, route }) {
   );
 
   const selectedPaymentMethod = useMemo(() => {
+    if (applePayMethod) return applePayMethod;
     if (!methods.length) return null;
     if (selectedMethodId && methods.some((m) => m.id === selectedMethodId)) {
       return methods.find((m) => m.id === selectedMethodId);
@@ -178,7 +204,10 @@ export default function BookingCheckoutScreen({ navigation, route }) {
       return methods.find((m) => m.id === defaultMethodId);
     }
     return methods[0];
-  }, [methods, defaultMethodId, selectedMethodId]);
+  }, [methods, defaultMethodId, selectedMethodId, applePayMethod]);
+
+  const showApplePayButton =
+    Platform.OS === 'ios' && isApplePayConfigured() && applePaySupported && isAuthenticated && isReady;
 
   const sortedPaymentMethods = useMemo(() => {
     const copy = [...methods];
@@ -211,6 +240,51 @@ export default function BookingCheckoutScreen({ navigation, route }) {
     return getTripBillingDays(bookingDates.start, bookingDates.end);
   }, [bookingDates?.start, bookingDates?.end]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (
+      !isAuthenticated ||
+      !isReady ||
+      !isRemoteListingId(listing?.id) ||
+      bookingDates?.start == null ||
+      bookingDates?.end == null
+    ) {
+      setQuotePricing(null);
+      return undefined;
+    }
+    (async () => {
+      try {
+        const q = await bookingsApi.quoteBooking({
+          listingId: String(listing.id),
+          bookingDates,
+          extraUnlimitedKm,
+          extraPrepaidFuel,
+          extraPrepaidClean,
+          deliveryEnabled: !!(deliveryEnabled && canDeliver),
+        });
+        if (!cancelled) setQuotePricing(q);
+      } catch {
+        if (!cancelled) setQuotePricing(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isAuthenticated,
+    isReady,
+    listing?.id,
+    bookingDates?.start,
+    bookingDates?.end,
+    bookingDates?.startTime,
+    bookingDates?.endTime,
+    extraUnlimitedKm,
+    extraPrepaidFuel,
+    extraPrepaidClean,
+    deliveryEnabled,
+    canDeliver,
+  ]);
+
   const weeklyDiscountPct = parsePercent(listing.weeklyDiscount);
   const monthlyDiscountPct = parsePercent(listing.monthlyDiscount);
 
@@ -236,6 +310,21 @@ export default function BookingCheckoutScreen({ navigation, route }) {
   // Platform trip fee: 10% of daily rental only (after trip-length discount), not extras/delivery
   const tripFee = discountedTripSubtotal * 0.1;
   const grandTotal = subtotal + tripFee;
+
+  const effectiveTripDays = quotePricing?.tripDays ?? tripDays;
+  const effectiveDiscountedTripSubtotal =
+    quotePricing?.discountedTripSubtotal ?? discountedTripSubtotal;
+  const effectiveBaseTripSubtotal = quotePricing?.baseTripSubtotal ?? baseTripSubtotal;
+  const effectiveTripDiscountSavings = quotePricing?.tripDiscountSavings ?? tripDiscountSavings;
+  const effectiveTripFee = quotePricing?.tripFee ?? tripFee;
+  const effectiveSubtotal = quotePricing?.subtotal ?? subtotal;
+  const effectiveGrandTotal = quotePricing?.grandTotal ?? grandTotal;
+  const effectiveKmLabel = quotePricing?.kmIncludedLabel
+    ? quotePricing.kmIncludedLabel
+    : extraUnlimitedKm
+      ? 'Unlimited kms'
+      : `${kmPerDayNumber * effectiveTripDays} km`;
+
   const selectedExtras = [
     extraPrepaidClean ? { key: 'clean', label: 'Pre paid clean', amount: prepaidCleanFee, icon: require('../assets/icons/cleanCar.png') } : null,
     extraUnlimitedKm ? { key: 'kms', label: 'Unlimited kms', amount: unlimitedKmFee, icon: require('../assets/icons/road.png') } : null,
@@ -243,61 +332,180 @@ export default function BookingCheckoutScreen({ navigation, route }) {
     selectedDeliveryFee > 0 ? { key: 'delivery', label: 'Delivery', amount: selectedDeliveryFee, icon: require('../assets/icons/shorttrip.png') } : null,
   ].filter(Boolean);
 
-  const queryAddressSuggestions = async (text) => {
-    setDeliveryLocation(text);
-    if (!text?.trim()) {
-      setDeliverySuggestions([]);
+  const submitBooking = useCallback(
+    async ({ paymentIntentId = confirmedPaymentIntentId, paymentMethod = selectedPaymentMethod } = {}) => {
+      const guestName = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Guest';
+      const dropAddr =
+        deliveryEnabled && canDeliver && deliveryLocation?.trim()
+          ? deliveryLocation.trim()
+          : pickupAddress;
+      const bookingId = await addGuestBooking({
+        instantBooking: listing.instantBooking === true,
+        guestName,
+        guestPhotoUri: profilePhotoUri || null,
+        listingSnapshot: {
+          id: listing.id,
+          title: listing.title,
+          photos: listing.photos,
+          pickupAddress: listing.pickupAddress,
+          hostName: listing.hostName,
+          hostPhotoUri: listing.hostPhotoUri,
+          hostEmail: listing.hostEmail,
+          hostPhone: listing.hostPhone,
+          year: listing.year ?? listing.vehicleData?.year,
+          make: listing.make ?? listing.vehicleData?.make,
+          model: listing.model ?? listing.vehicleData?.model,
+          vin: listing.vin ?? listing.vehicleData?.vin,
+          licensePlate: listing.licensePlate,
+          licenseProvince: listing.licenseProvince,
+          vehicleData: listing.vehicleData ? { ...listing.vehicleData } : undefined,
+        },
+        bookingDates: { ...(bookingDates || {}) },
+        pickupAddress,
+        dropoffAddress: dropAddr,
+        deliveryEnabled: !!(deliveryEnabled && canDeliver),
+        extras: selectedExtras.map((e) => ({ key: e.key, label: e.label, amount: e.amount })),
+        introMessage: introMessage.trim(),
+        pricing: {
+          tripDays: effectiveTripDays,
+          pricePerDay,
+          baseTripSubtotal: effectiveBaseTripSubtotal,
+          discountedTripSubtotal: effectiveDiscountedTripSubtotal,
+          tripDiscountSavings: effectiveTripDiscountSavings,
+          appliesWeeklyDiscount,
+          appliesMonthlyDiscount,
+          weeklyDiscountPct,
+          monthlyDiscountPct,
+          unlimitedKmFee,
+          prepaidFuelFee,
+          prepaidCleanFee,
+          selectedDeliveryFee,
+          subtotal: effectiveSubtotal,
+          tripFee: effectiveTripFee,
+          grandTotal: effectiveGrandTotal,
+          kmIncludedLabel: effectiveKmLabel,
+        },
+        selectedPaymentMethod: paymentMethod,
+        stripePaymentIntentId: paymentIntentId || null,
+      });
+      navigation.navigate('BookingRequestConfirmationScreen', {
+        listing,
+        bookingDates,
+        selectedPaymentMethod: paymentMethod,
+        bookingId,
+      });
+      return bookingId;
+    },
+    [
+      addGuestBooking,
+      appliesMonthlyDiscount,
+      appliesWeeklyDiscount,
+      bookingDates,
+      canDeliver,
+      confirmedPaymentIntentId,
+      deliveryEnabled,
+      deliveryLocation,
+      effectiveBaseTripSubtotal,
+      effectiveDiscountedTripSubtotal,
+      effectiveGrandTotal,
+      effectiveKmLabel,
+      effectiveSubtotal,
+      effectiveTripDays,
+      effectiveTripDiscountSavings,
+      effectiveTripFee,
+      firstName,
+      introMessage,
+      lastName,
+      listing,
+      monthlyDiscountPct,
+      navigation,
+      pickupAddress,
+      prepaidCleanFee,
+      prepaidFuelFee,
+      pricePerDay,
+      profilePhotoUri,
+      selectedExtras,
+      selectedPaymentMethod,
+      selectedDeliveryFee,
+      unlimitedKmFee,
+      weeklyDiscountPct,
+    ],
+  );
+
+  const handleApplePay = useCallback(async () => {
+    if (!isAuthenticated || !isReady) {
+      Alert.alert('Sign in required', 'Please sign in to pay with Apple Pay.');
       return;
     }
-    const key = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
-    if (key) {
-      try {
-        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&types=address&key=${key}`;
-        const res = await fetch(url);
-        const json = await res.json();
-        const preds = Array.isArray(json?.predictions) ? json.predictions : [];
-        setDeliverySuggestions(preds.slice(0, 5).map((p) => p.description));
+    const isInstant = listing.instantBooking === true;
+    const rentalLabel = listing.title || 'Vehicle rental';
+    setApplePayLoading(true);
+    try {
+      if (isInstant && effectiveGrandTotal > 0) {
+        const result = await payForBooking({
+          amountDollars: effectiveGrandTotal,
+          description: rentalLabel,
+          metadata: {
+            listingId: listing?.id != null ? String(listing.id) : '',
+            purpose: 'booking',
+          },
+        });
+        setConfirmedPaymentIntentId(result.paymentIntentId);
+        setApplePayMethod(result.paymentMethod);
+        await submitBooking({
+          paymentIntentId: result.paymentIntentId,
+          paymentMethod: result.paymentMethod,
+        });
         return;
-      } catch (_err) {
-        // Fall back to local suggestions below.
       }
+      const method = await savePaymentMethod({
+        amountDollars: effectiveGrandTotal,
+        description: rentalLabel,
+      });
+      setApplePayMethod(method);
+      setConfirmedPaymentIntentId(null);
+      await refreshFromApi();
+      if (method.id) setSelectedMethodId(method.id);
+      Alert.alert(
+        'Apple Pay ready',
+        'Your payment method is saved. Tap Send booking request to continue.',
+      );
+    } catch (err) {
+      Alert.alert('Apple Pay', err?.message || 'Could not complete Apple Pay.');
+    } finally {
+      setApplePayLoading(false);
     }
-    const fallback = [
-      `${text}, Winnipeg, MB`,
-      `${text}, Toronto, ON`,
-      `${text}, Vancouver, BC`,
-      `${text}, Calgary, AB`,
-      `${text}, Montreal, QC`,
-    ];
-    setDeliverySuggestions(fallback.slice(0, 4));
-  };
+  }, [
+    effectiveGrandTotal,
+    isAuthenticated,
+    isReady,
+    listing,
+    payForBooking,
+    refreshFromApi,
+    savePaymentMethod,
+    submitBooking,
+  ]);
 
   const openCurrentLocationPicker = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return;
-    const current = await Location.getCurrentPositionAsync({});
-    const nextRegion = {
-      latitude: current.coords.latitude,
-      longitude: current.coords.longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    };
-    setMapRegion(nextRegion);
-    setMapModalVisible(true);
+    try {
+      const coords = await getCurrentCoordinates();
+      const nextRegion = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+      setMapRegion(nextRegion);
+      setMapModalVisible(true);
+    } catch (_) {
+      /* permission denied */
+    }
   };
 
   const confirmCurrentLocation = async () => {
     try {
-      const result = await Location.reverseGeocodeAsync({
-        latitude: mapRegion.latitude,
-        longitude: mapRegion.longitude,
-      });
-      const first = result?.[0];
-      const formatted = first
-        ? [first.name, first.street, first.city, first.region, first.postalCode].filter(Boolean).join(', ')
-        : `${mapRegion.latitude.toFixed(5)}, ${mapRegion.longitude.toFixed(5)}`;
-      setDeliveryLocation(formatted);
-      setDeliverySuggestions([]);
+      const geo = await reverseGeocode(mapRegion.latitude, mapRegion.longitude);
+      setDeliveryLocation(geo.formatted || geo.city || `${mapRegion.latitude.toFixed(5)}, ${mapRegion.longitude.toFixed(5)}`);
     } finally {
       setMapModalVisible(false);
     }
@@ -347,29 +555,13 @@ export default function BookingCheckoutScreen({ navigation, route }) {
             {deliveryEnabled ? (
               <>
                 <Text style={[styles.label, styles.deliveryLocationLabel]}>LOCATION</Text>
-                <TextInput
+                <GooglePlacesAutocompleteField
                   placeholder="Enter delivery address"
-                  placeholderTextColor="#B3B3B3"
-                  value={deliveryLocation}
-                  onChangeText={queryAddressSuggestions}
-                  style={styles.input}
+                  types="address"
+                  onPlaceSelected={({ selection }) => setDeliveryLocation(selection.query)}
+                  containerStyle={styles.deliveryPlacesField}
+                  inputStyle={styles.input}
                 />
-                {deliverySuggestions.length > 0 ? (
-                  <View style={styles.suggestionsWrap}>
-                    {deliverySuggestions.map((item) => (
-                      <TouchableOpacity
-                        key={item}
-                        style={styles.suggestionRow}
-                        onPress={() => {
-                          setDeliveryLocation(item);
-                          setDeliverySuggestions([]);
-                        }}
-                      >
-                        <Text style={styles.suggestionText}>{item}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                ) : null}
                 <TouchableOpacity style={styles.currentLocationBtn} activeOpacity={0.85} onPress={openCurrentLocationPicker}>
                   <Image source={require('../assets/icons/currentLocationPin.png')} style={styles.currentLocationIcon} resizeMode="contain" />
                   <Text style={styles.currentLocationText}>Current location</Text>
@@ -432,30 +624,30 @@ export default function BookingCheckoutScreen({ navigation, route }) {
         <View style={[styles.section, styles.tripSummarySection]}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Kilometres included in this trip</Text>
-            <Text style={styles.summaryValue}>{extraUnlimitedKm ? 'Unlimited kms' : `${kmPerDayNumber * tripDays} kms`}</Text>
+            <Text style={styles.summaryValue}>{effectiveKmLabel}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Price per day</Text>
             <Text style={styles.summaryValue}>${pricePerDay.toFixed(2)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>{tripDays} days</Text>
-            <Text style={styles.summaryValue}>${baseTripSubtotal.toFixed(2)}</Text>
+            <Text style={styles.summaryLabel}>{effectiveTripDays} days</Text>
+            <Text style={styles.summaryValue}>${effectiveBaseTripSubtotal.toFixed(2)}</Text>
           </View>
-          {tripDiscountSavings > 0 ? (
+          {effectiveTripDiscountSavings > 0 ? (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>
                 {appliesMonthlyDiscount
                   ? `Monthly discount (${listing.monthlyDiscount || `${monthlyDiscountPct}%`})`
                   : `Weekly discount (${listing.weeklyDiscount || `${weeklyDiscountPct}%`})`}
               </Text>
-              <Text style={[styles.summaryValue, styles.discountValue]}>- ${tripDiscountSavings.toFixed(2)}</Text>
+              <Text style={[styles.summaryValue, styles.discountValue]}>- ${effectiveTripDiscountSavings.toFixed(2)}</Text>
             </View>
           ) : null}
-          {tripDiscountSavings > 0 ? (
+          {effectiveTripDiscountSavings > 0 ? (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Trip total (after discount)</Text>
-              <Text style={styles.summaryValue}>${discountedTripSubtotal.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>${effectiveDiscountedTripSubtotal.toFixed(2)}</Text>
             </View>
           ) : null}
 
@@ -479,7 +671,7 @@ export default function BookingCheckoutScreen({ navigation, route }) {
           ) : null}
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
+            <Text style={styles.summaryValue}>${effectiveSubtotal.toFixed(2)}</Text>
           </View>
           <View style={styles.summaryRow}>
             <View style={styles.tripFeeRowLeft}>
@@ -496,11 +688,11 @@ export default function BookingCheckoutScreen({ navigation, route }) {
                 </TouchableOpacity>
               </View>
             </View>
-            <Text style={styles.summaryValue}>${tripFee.toFixed(2)}</Text>
+            <Text style={styles.summaryValue}>${effectiveTripFee.toFixed(2)}</Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total Price</Text>
-            <Text style={styles.totalValue}>${grandTotal.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>${effectiveGrandTotal.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -532,12 +724,24 @@ export default function BookingCheckoutScreen({ navigation, route }) {
               ) : null}
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity activeOpacity={0.85} style={styles.applePayBtn}>
-            <View style={styles.applePayContent}>
-              <Text style={styles.appleGlyph}></Text>
-              <Text style={styles.applePayText}>Pay</Text>
+          {showApplePayButton ? (
+            <View style={styles.applePayBtnWrap}>
+              {applePayLoading ? (
+                <View style={[styles.applePayBtn, styles.applePayLoading]}>
+                  <ActivityIndicator color="#000000" />
+                </View>
+              ) : (
+                <PlatformPayButton
+                  onPress={handleApplePay}
+                  type={PlatformPay.ButtonType.Book}
+                  appearance={PlatformPay.ButtonStyle.Black}
+                  borderRadius={4 * scale}
+                  disabled={applePayLoading}
+                  style={styles.applePayNativeBtn}
+                />
+              )}
             </View>
-          </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.addPaymentBtn}
@@ -556,67 +760,12 @@ export default function BookingCheckoutScreen({ navigation, route }) {
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.sendRequestBtn}
-            onPress={() => {
-              const guestName = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Guest';
-              const dropAddr =
-                deliveryEnabled && canDeliver && deliveryLocation?.trim()
-                  ? deliveryLocation.trim()
-                  : pickupAddress;
-              const bookingId = addGuestBooking({
-                instantBooking: listing.instantBooking === true,
-                guestName,
-                guestPhotoUri: profilePhotoUri || null,
-                listingSnapshot: {
-                  id: listing.id,
-                  title: listing.title,
-                  photos: listing.photos,
-                  pickupAddress: listing.pickupAddress,
-                  hostName: listing.hostName,
-                  hostPhotoUri: listing.hostPhotoUri,
-                  hostEmail: listing.hostEmail,
-                  hostPhone: listing.hostPhone,
-                  year: listing.year ?? listing.vehicleData?.year,
-                  make: listing.make ?? listing.vehicleData?.make,
-                  model: listing.model ?? listing.vehicleData?.model,
-                  vin: listing.vin ?? listing.vehicleData?.vin,
-                  licensePlate: listing.licensePlate,
-                  licenseProvince: listing.licenseProvince,
-                  /** Preserved so Verify & sign can read VIN even when flat `vin` was not copied on older snapshots. */
-                  vehicleData: listing.vehicleData ? { ...listing.vehicleData } : undefined,
-                },
-                bookingDates: { ...(bookingDates || {}) },
-                pickupAddress,
-                dropoffAddress: dropAddr,
-                deliveryEnabled: !!(deliveryEnabled && canDeliver),
-                extras: selectedExtras.map((e) => ({ key: e.key, label: e.label, amount: e.amount })),
-                introMessage: introMessage.trim(),
-                pricing: {
-                  tripDays,
-                  pricePerDay,
-                  baseTripSubtotal,
-                  discountedTripSubtotal,
-                  tripDiscountSavings,
-                  appliesWeeklyDiscount,
-                  appliesMonthlyDiscount,
-                  weeklyDiscountPct,
-                  monthlyDiscountPct,
-                  unlimitedKmFee,
-                  prepaidFuelFee,
-                  prepaidCleanFee,
-                  selectedDeliveryFee,
-                  subtotal,
-                  tripFee,
-                  grandTotal,
-                  kmIncludedLabel: extraUnlimitedKm ? 'Unlimited kms' : `${kmPerDayNumber * tripDays} km`,
-                },
-                selectedPaymentMethod,
-              });
-              navigation.navigate('BookingRequestConfirmationScreen', {
-                listing,
-                bookingDates,
-                selectedPaymentMethod,
-                bookingId,
-              });
+            onPress={async () => {
+              try {
+                await submitBooking();
+              } catch (err) {
+                Alert.alert('Booking failed', err?.message || 'Could not send booking request.');
+              }
             }}
           >
             <Text style={styles.sendRequestText}>SEND BOOKING REQUEST</Text>
@@ -645,6 +794,8 @@ export default function BookingCheckoutScreen({ navigation, route }) {
                   key={m.id}
                   style={[styles.paymentPickerRow, active && styles.paymentPickerRowActive]}
                   onPress={() => {
+                    setApplePayMethod(null);
+                    setConfirmedPaymentIntentId(null);
                     setSelectedMethodId(m.id);
                     setPaymentPickerVisible(false);
                   }}
@@ -676,6 +827,7 @@ export default function BookingCheckoutScreen({ navigation, route }) {
           <View style={styles.mapModalCard}>
             <Text style={styles.mapModalTitle}>Adjust delivery location</Text>
             <MapView
+              provider={MAP_PROVIDER}
               style={styles.mapModal}
               region={mapRegion}
               onRegionChangeComplete={setMapRegion}
@@ -860,7 +1012,11 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   deliveryLocationLabel: {
-    marginTop: 12,
+    marginBottom: 8,
+  },
+  deliveryPlacesField: {
+    marginBottom: 8,
+    zIndex: 20,
   },
   currentLocationText: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
@@ -1130,6 +1286,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
+  },
+  applePayBtnWrap: {
+    width: 323 * scale,
+    height: 56,
+    alignSelf: 'center',
+    marginTop: 0,
+  },
+  applePayNativeBtn: {
+    width: '100%',
+    height: 56,
+  },
+  applePayLoading: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#111',
+    borderRadius: 14,
   },
   applePayContent: {
     flexDirection: 'row',

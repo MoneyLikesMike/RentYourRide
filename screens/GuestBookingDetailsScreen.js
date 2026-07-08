@@ -19,6 +19,9 @@ import { FONTS } from '../constants/fonts';
 import { TRIP_FEE_DISCLOSURE_TEXT } from '../constants/tripFeeDisclosure';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
+import { listingFromBookingSnapshot } from '../utils/bookingListing';
+import { navigateToUserProfile, navigateToVehicleDetail } from '../utils/navigateRootStack';
+import { openBookingChat } from '../utils/openBookingChat';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375;
@@ -98,13 +101,33 @@ export default function GuestBookingDetailsScreen({ navigation, route }) {
 
   const hostName = ls.hostName || 'Host';
 
+  const openHostProfile = () => {
+    navigateToUserProfile(navigation, {
+      profileUser: {
+        userId: booking.hostUserId || null,
+        displayName: hostName,
+        photoUri: ls.hostPhotoUri || null,
+      },
+      highlightListings: (() => {
+        const listing = listingFromBookingSnapshot(booking);
+        return listing ? [listing] : [];
+      })(),
+    });
+  };
+
+  const openVehicleDetail = () => {
+    const listing = listingFromBookingSnapshot(booking);
+    if (!listing) return;
+    navigateToVehicleDetail(navigation, listing);
+  };
+
   const openCancellationPolicy = () => {
     Linking.openURL(CANCELLATION_POLICY_URL).catch(() => {});
   };
 
-  const confirmCancelTrip = () => {
+  const confirmCancelTrip = async () => {
     setCancelModalVisible(false);
-    cancelGuestBooking(booking.id);
+    await cancelGuestBooking(booking.id);
     navigation.goBack();
   };
 
@@ -124,15 +147,15 @@ export default function GuestBookingDetailsScreen({ navigation, route }) {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 24 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.rowPair}>
+        <TouchableOpacity style={styles.rowPair} onPress={openHostProfile} activeOpacity={0.7}>
           <Text style={styles.labelLeft}>HOST</Text>
           <Text style={styles.valueRight}>{hostName}</Text>
-        </View>
+        </TouchableOpacity>
         <View style={styles.hairline} />
-        <View style={styles.rowPair}>
+        <TouchableOpacity style={styles.rowPair} onPress={openVehicleDetail} activeOpacity={0.7}>
           <Text style={styles.labelLeft}>VEHICLE</Text>
           <Text style={styles.valueRight}>{ls.title || '—'}</Text>
-        </View>
+        </TouchableOpacity>
         <View style={styles.hairline} />
 
         <View style={styles.twoCol}>
@@ -242,7 +265,7 @@ export default function GuestBookingDetailsScreen({ navigation, route }) {
         <TouchableOpacity
           style={styles.messageBtn}
           activeOpacity={0.85}
-          onPress={() => navigation.navigate('ChatScreen')}
+          onPress={() => openBookingChat(navigation, bookingId)}
         >
           <Text style={styles.messageBtnText}>MESSAGE HOST</Text>
         </TouchableOpacity>

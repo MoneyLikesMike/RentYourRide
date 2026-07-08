@@ -9,6 +9,7 @@ import HostRentalRequestCard from '../components/HostRentalRequestCard';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useListings } from '../context/ListingsContext';
+import { useAuth } from '../context/AuthContext';
 import { filterBookingsForHost } from '../utils/hostBookingFilter';
 
 const BASE_WIDTH = 375;
@@ -18,6 +19,7 @@ const scale = SCREEN_WIDTH / BASE_WIDTH;
 export default function ActiveRentalsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const { user } = useAuth();
   const { activeRentals } = useGuestBookings();
   const { firstName, lastName } = useUserProfile();
   const { listings } = useListings();
@@ -32,8 +34,8 @@ export default function ActiveRentalsScreen() {
   }, [route.params?.initialTab]);
 
   const hostActiveRentals = useMemo(
-    () => filterBookingsForHost(activeRentals, listings, firstName, lastName),
-    [activeRentals, listings, firstName, lastName]
+    () => filterBookingsForHost(activeRentals, listings, firstName, lastName, user?.id),
+    [activeRentals, listings, firstName, lastName, user?.id]
   );
 
   return (

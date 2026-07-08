@@ -9,6 +9,7 @@ import HostRentalRequestCard from '../components/HostRentalRequestCard';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useListings } from '../context/ListingsContext';
+import { useAuth } from '../context/AuthContext';
 import { filterBookingsForHost } from '../utils/hostBookingFilter';
 
 const BASE_WIDTH = 375;
@@ -17,16 +18,25 @@ const scale = SCREEN_WIDTH / BASE_WIDTH;
 
 export default function RentalRequestScreen() {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const { pendingRequests } = useGuestBookings();
   const { firstName, lastName } = useUserProfile();
   const { listings } = useListings();
   const [activeTab, setActiveTab] = useState('guest');
 
+  const guestOutboundPending = useMemo(() => {
+    return pendingRequests.filter((b) => {
+      if (!user?.id) return true;
+      if (!b.guestUserId) return true;
+      return String(b.guestUserId) === String(user.id);
+    });
+  }, [pendingRequests, user?.id]);
+
   const hostRentalRequests = useMemo(() => {
-    return filterBookingsForHost(pendingRequests, listings, firstName, lastName).filter(
+    return filterBookingsForHost(pendingRequests, listings, firstName, lastName, user?.id).filter(
       (b) => b.instantBooking !== true
     );
-  }, [pendingRequests, listings, firstName, lastName]);
+  }, [pendingRequests, listings, firstName, lastName, user?.id]);
 
   // Tab label/underline widths
   const tabWidths = { guest: 50 * scale, host: 43 * scale };
@@ -65,7 +75,7 @@ export default function RentalRequestScreen() {
       {/* Content Area */}
       <View style={styles.contentArea}>
         {activeTab === 'guest' ? (
-          pendingRequests.length === 0 ? (
+          guestOutboundPending.length === 0 ? (
             <View style={styles.emptyStateContainer}>
               <Image source={require('../assets/icons/EmptyRoad.png')} style={styles.emptyIcon} />
               <Text style={styles.emptyHeader}>You haven't sent any rental requests</Text>
@@ -81,7 +91,7 @@ export default function RentalRequestScreen() {
               contentContainerStyle={styles.guestListContent}
               showsVerticalScrollIndicator={false}
             >
-              {pendingRequests.map((b) => (
+              {guestOutboundPending.map((b) => (
                 <GuestBookingCard
                   key={b.id}
                   booking={b}

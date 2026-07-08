@@ -23,6 +23,12 @@ public class AppDelegate: ExpoAppDelegate {
 
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)
+    window?.backgroundColor = UIColor(
+      red: 223.0 / 255.0,
+      green: 242.0 / 255.0,
+      blue: 241.0 / 255.0,
+      alpha: 1.0
+    )
     factory.startReactNative(
       withModuleName: "main",
       in: window,
@@ -55,6 +61,22 @@ public class AppDelegate: ExpoAppDelegate {
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
+  private func metroPackagerHost() -> String {
+#if targetEnvironment(simulator)
+    return "localhost"
+#else
+    if let url = Bundle.main.url(forResource: "MetroHost", withExtension: "config"),
+       let data = try? Data(contentsOf: url),
+       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+       let host = json["host"] as? String,
+       !host.isEmpty
+    {
+      return host
+    }
+    return RCTBundleURLProvider.sharedSettings().jsLocation ?? "localhost"
+#endif
+  }
+
   override func sourceURL(for bridge: RCTBridge) -> URL? {
     // needed to return the correct URL for expo-dev-client.
     bridge.bundleURL ?? bundleURL()
@@ -62,7 +84,15 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
-    return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
+    let provider = RCTBundleURLProvider.sharedSettings()
+    provider.jsLocation = metroPackagerHost()
+    if let url = provider.jsBundleURL(forBundleRoot: "index") {
+      return url
+    }
+    let host = metroPackagerHost()
+    let fallback =
+      "http://\(host):8081/index.bundle?platform=ios&dev=true&lazy=true&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true&excludeSource=true&sourcePaths=url-server"
+    return URL(string: fallback)
 #else
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif

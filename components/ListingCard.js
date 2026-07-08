@@ -54,7 +54,7 @@ export default function ListingCard({
       style={[styles.card, forSwipeRow ? styles.cardInSwipeRow : styles.cardDefaultRadius]}
       activeOpacity={0.9}
       onPress={onPress}
-      delayPressIn={heartInteractive ? 0 : 70}
+      delayPressIn={forSwipeRow ? 120 : heartInteractive ? 0 : 70}
     >
       <View style={styles.cardImageWrap}>
         {listing.photos && listing.photos[0]?.uri ? (

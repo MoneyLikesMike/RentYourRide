@@ -1,8 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, ScrollView, Image } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  Platform,
+  ScrollView,
+  Image,
+  Alert,
+  Linking,
+} from 'react-native';
 import { COLORS } from '../constants/colors';
 import Svg, { Path } from 'react-native-svg';
 import { useListings } from '../context/ListingsContext';
+import { useAuth } from '../context/AuthContext';
+import { connectOnboardingLink } from '../services/payoutsApi';
 
 const CURRENCIES = [
   { code: 'CAD', label: 'CAD - Canadian Dollar' },
@@ -16,6 +29,7 @@ const BANK_COUNTRIES = [
 
 export default function GetPaidStep3Screen({ navigation }) {
   const { setPayoutSetupComplete } = useListings();
+  const { isAuthenticated, isReady } = useAuth();
   const [currency, setCurrency] = useState('CAD');
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [bankCountry, setBankCountry] = useState('CA');
@@ -215,13 +229,25 @@ export default function GetPaidStep3Screen({ navigation }) {
       </ScrollView>
       <TouchableOpacity
         style={[styles.nextBtn, !isFormValid() && { opacity: 0.5 }]}
-        onPress={() => {
+        onPress={async () => {
           setTouched(true);
-          if (isFormValid()) {
-            // TODO: Save payout details to backend
-            setPayoutSetupComplete(true);
-            navigation.navigate('ListRideStack');
+          if (!isFormValid()) return;
+          if (isAuthenticated && isReady) {
+            try {
+              const { url } = await connectOnboardingLink({
+                refreshUrl: 'https://rentyourride.com',
+                returnUrl: 'https://rentyourride.com',
+              });
+              if (url) {
+                const opened = await Linking.canOpenURL(url);
+                if (opened) await Linking.openURL(url);
+              }
+            } catch (e) {
+              Alert.alert('Connect setup', e?.message || 'Could not open Stripe Connect.');
+            }
           }
+          setPayoutSetupComplete(true);
+          navigation.navigate('ListRideStack');
         }}
         disabled={!isFormValid()}
       >

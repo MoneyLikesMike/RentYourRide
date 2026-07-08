@@ -1,18 +1,63 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  ActivityIndicator,
+} from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Svg, Path } from 'react-native-svg';
+import { extractVinFromText, isValidVin, processVinForListing } from '../utils/vinListingFlow';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const scale = screenWidth / 375; // Base width is 375
+const { width: screenWidth } = Dimensions.get('window');
+const scale = screenWidth / 375;
 
 const ScanVINScreen = ({ navigation, route }) => {
   const { completedAddress } = route.params || {};
   const [permission, requestPermission] = useCameraPermissions();
+  const [loading, setLoading] = useState(false);
+  const [scanEnabled, setScanEnabled] = useState(true);
+  const lastScanRef = useRef('');
 
   const handleTypeVINInstead = () => {
     navigation.navigate('TypeVINScreen', { completedAddress });
   };
+
+  const handleVinDetected = useCallback(
+    async (rawVin) => {
+      const vin = extractVinFromText(rawVin);
+      if (!vin || !isValidVin(vin)) return;
+      if (lastScanRef.current === vin || loading) return;
+      lastScanRef.current = vin;
+      setScanEnabled(false);
+      setLoading(true);
+      try {
+        await processVinForListing({
+          navigation,
+          vin,
+          completedAddress,
+          isModelYear1981OrLater: true,
+        });
+      } finally {
+        setLoading(false);
+        setTimeout(() => {
+          setScanEnabled(true);
+          lastScanRef.current = '';
+        }, 2000);
+      }
+    },
+    [completedAddress, loading, navigation],
+  );
+
+  const handleBarcodeScanned = useCallback(
+    ({ data }) => {
+      if (!scanEnabled || loading) return;
+      handleVinDetected(data);
+    },
+    [handleVinDetected, loading, scanEnabled],
+  );
 
   if (!permission) {
     return (
@@ -49,7 +94,6 @@ const ScanVINScreen = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      {/* Back Button */}
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Svg width={23 * scale} height={23 * scale} viewBox="0 0 48 48" fill="none">
@@ -58,30 +102,41 @@ const ScanVINScreen = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Camera View */}
       <CameraView
         style={styles.camera}
         facing="back"
         autofocus="on"
+        barcodeScannerSettings={{
+          barcodeTypes: ['code39', 'code128', 'codabar', 'itf14'],
+        }}
+        onBarcodeScanned={scanEnabled && !loading ? handleBarcodeScanned : undefined}
       >
         <View style={styles.cameraOverlay}>
-          {/* Scanning frame */}
           <View style={styles.scanFrame}>
             <View style={[styles.corner, styles.topLeft]} />
             <View style={[styles.corner, styles.topRight]} />
             <View style={[styles.corner, styles.bottomLeft]} />
             <View style={[styles.corner, styles.bottomRight]} />
           </View>
-          
+
           <Text style={styles.instructionText}>
-            Position VIN within the frame to scan
+            Scan the VIN barcode on your door jamb sticker
+          </Text>
+          <Text style={styles.instructionSubtext}>
+            Can&apos;t scan? Type your VIN manually below.
           </Text>
         </View>
       </CameraView>
 
-      {/* Type VIN Instead Button */}
+      {loading ? (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#FFB131" />
+          <Text style={styles.loadingText}>Looking up vehicle…</Text>
+        </View>
+      ) : null}
+
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.typeVINButton} onPress={handleTypeVINInstead}>
+        <TouchableOpacity style={styles.typeVINButton} onPress={handleTypeVINInstead} disabled={loading}>
           <Text style={styles.typeVINButtonText}>Type VIN instead</Text>
         </TouchableOpacity>
       </View>
@@ -160,11 +215,33 @@ const styles = StyleSheet.create({
     paddingVertical: 10 * scale,
     borderRadius: 10 * scale,
   },
+  instructionSubtext: {
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: 13 * scale,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 10 * scale,
+    textAlign: 'center',
+    paddingHorizontal: 24 * scale,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  loadingText: {
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: 16 * scale,
+    color: '#FFFFFF',
+    marginTop: 12 * scale,
+  },
   buttonContainer: {
     position: 'absolute',
     bottom: 50 * scale,
     width: '100%',
     alignItems: 'center',
+    zIndex: 10,
   },
   typeVINButton: {
     width: 250 * scale,
@@ -179,8 +256,6 @@ const styles = StyleSheet.create({
     fontSize: 16 * scale,
     color: '#F7F7F7',
     letterSpacing: 0.2,
-    width: 170 * scale,
-    height: 22 * scale,
     textAlign: 'center',
   },
   noAccessText: {
@@ -208,4 +283,3 @@ const styles = StyleSheet.create({
 });
 
 export default ScanVINScreen;
-

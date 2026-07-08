@@ -1,69 +1,56 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Dimensions, Switch } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+  Dimensions,
+  Switch,
+  ActivityIndicator,
+} from 'react-native';
 import { Svg, Path } from 'react-native-svg';
+import { processVinForListing } from '../utils/vinListingFlow';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375; // Base width is 375
+const scale = screenWidth / 375;
 
 const TypeVINScreen = ({ navigation, route }) => {
   const { completedAddress } = route.params || {};
   const [isModelYear1981OrLater, setIsModelYear1981OrLater] = useState(true);
   const [vinNumber, setVinNumber] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Mock list of existing VINs - in real app this would come from your database
-  const existingVINs = ['DLKHFKLHE3HJKH23J', 'ABC123DEF456GHI78', 'XYZ789JKL012MNO34'];
-
-  const handleContinue = () => {
-    // Validate VIN format (basic check for 17 characters)
-    if (vinNumber.length !== 17) {
-      alert('VIN must be exactly 17 characters long');
-      return;
-    }
-
-    // Check if VIN already exists
-    if (existingVINs.includes(vinNumber.toUpperCase())) {
-      // Navigate to VIN already exists screen
-      navigation.navigate('VINAlreadyExistsScreen');
-    } else {
-      // Mock vehicle data - in real app this would come from VIN lookup API
-      const vehicleData = {
-        year: '2020',
-        make: 'Toyota',
-        model: 'Camry',
-        body: 'Sedan',
-        vin: vinNumber.toUpperCase(),
-        isModelYear1981OrLater: isModelYear1981OrLater
-      };
-      
-      // Navigate back to Tell Us About Your Ride screen with vehicle data and address
-      navigation.navigate('TellUsAboutYourRideScreen1', { 
-        vehicleData: vehicleData,
-        showVehicleInfo: true,
-        completedAddress: completedAddress
+  const handleContinue = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      await processVinForListing({
+        navigation,
+        vin: vinNumber,
+        completedAddress,
+        isModelYear1981OrLater,
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Header with Back Button */}
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Svg width={23 * scale} height={23 * scale} viewBox="0 0 48 48" fill="none">
             <Path d="M31 8L17 24L31 40" stroke="#FFB131" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </TouchableOpacity>
-        
-        {/* Header Text */}
+
         <View style={styles.headerTextWrapper}>
           <Text style={styles.headerText}>TYPE VIN</Text>
         </View>
       </View>
 
-      {/* Main Content */}
       <View style={styles.contentContainer}>
-        
-        {/* Model Year Toggle Section */}
         <View style={styles.section}>
           <Text style={styles.sectionText}>MY MODEL YEAR IS 1981 OR LATER</Text>
           <Switch
@@ -75,36 +62,37 @@ const TypeVINScreen = ({ navigation, route }) => {
           />
         </View>
 
-        {/* Divider */}
         <View style={styles.divider} />
 
-        {/* Enter VIN Manually Section */}
         <View style={styles.vinSection}>
           <Text style={styles.sectionText}>ENTER VIN MANUALLY</Text>
           <TextInput
             style={styles.vinInput}
             value={vinNumber}
-            onChangeText={setVinNumber}
+            onChangeText={(text) => setVinNumber(text.toUpperCase())}
             placeholder="Enter VIN"
             placeholderTextColor="rgba(0, 0, 0, 0.3)"
             autoCapitalize="characters"
+            autoCorrect={false}
             maxLength={17}
+            editable={!loading}
           />
         </View>
 
-        {/* Bottom Divider */}
         <View style={styles.bottomDivider} />
-
       </View>
 
-      {/* Continue Button */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={[styles.continueButton, !vinNumber && styles.continueButtonDisabled]} 
+        <TouchableOpacity
+          style={[styles.continueButton, (!vinNumber || loading) && styles.continueButtonDisabled]}
           onPress={handleContinue}
-          disabled={!vinNumber}
+          disabled={!vinNumber || loading}
         >
-          <Text style={styles.continueButtonText}>Continue</Text>
+          {loading ? (
+            <ActivityIndicator color="#F7F7F7" />
+          ) : (
+            <Text style={styles.continueButtonText}>Continue</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -130,7 +118,7 @@ const styles = StyleSheet.create({
   headerTextWrapper: {
     flex: 1,
     alignItems: 'center',
-    marginRight: 43 * scale, // Compensate for back button width
+    marginRight: 43 * scale,
   },
   headerText: {
     fontFamily: 'Nunito-Bold',
@@ -222,4 +210,3 @@ const styles = StyleSheet.create({
 });
 
 export default TypeVINScreen;
-

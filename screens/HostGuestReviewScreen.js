@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -53,7 +54,8 @@ function StarRow({ value, onChange }) {
 export default function HostGuestReviewScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId } = route.params || {};
-  const { getBookingById, updateGuestBooking } = useGuestBookings();
+  const { getBookingById } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
 
   const [rating, setRating] = useState(5);
   const [selectedBadges, setSelectedBadges] = useState(() => new Set());
@@ -110,17 +112,24 @@ export default function HostGuestReviewScreen({ navigation, route }) {
     goHomeHostRentals();
   }, [goHomeHostRentals]);
 
-  const onSubmit = useCallback(() => {
+  const onSubmit = useCallback(async () => {
     if (!booking?.id) return;
-    updateGuestBooking(booking.id, {
-      hostReviewOfGuestRating: rating,
-      hostReviewOfGuestBadgeKeys: Array.from(selectedBadges),
-      hostReviewOfGuestPublic: publicReview.trim(),
-      hostReviewOfGuestPrivateNote: privateNote.trim(),
-      hostReviewOfGuestSubmittedAt: Date.now(),
-    });
-    goHomeHostRentals();
-  }, [booking?.id, rating, selectedBadges, publicReview, privateNote, updateGuestBooking, goHomeHostRentals]);
+    const ok = await applyBookingUpdate(
+      booking.id,
+      {
+        hostReviewOfGuestRating: rating,
+        hostReviewOfGuestBadgeKeys: Array.from(selectedBadges),
+        hostReviewOfGuestPublic: publicReview.trim(),
+        hostReviewOfGuestPrivateNote: privateNote.trim(),
+        hostReviewOfGuestSubmittedAt: Date.now(),
+        reviewRole: 'host',
+        rating,
+        reviewText: publicReview.trim(),
+      },
+      { errorTitle: 'Could not submit review' },
+    );
+    if (ok) goHomeHostRentals();
+  }, [booking?.id, rating, selectedBadges, publicReview, privateNote, applyBookingUpdate, goHomeHostRentals]);
 
   if (!booking) {
     return (
@@ -139,7 +148,7 @@ export default function HostGuestReviewScreen({ navigation, route }) {
         style={styles.scroll}
         contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 28 * scale }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="never"
       >
         <Text style={styles.pageTitle}>REVIEW</Text>
 

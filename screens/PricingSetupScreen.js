@@ -12,12 +12,14 @@ import {
   Switch,
   Modal,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
+import { useSaveListingStep } from '../hooks/useSaveListingStep';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375;
@@ -36,7 +38,8 @@ const KM_OVERAGE_OPTIONS = (() => {
 const formatKmOverageLabel = (fee) => `$${Number(fee).toFixed(2)}/km`;
 
 const PricingSetupScreen = ({ navigation }) => {
-  const { setDraftListing, editingListingId, draft } = useListings();
+  const { editingListingId, draft } = useListings();
+  const { saveStep, saving } = useSaveListingStep();
   const insets = useSafeAreaInsets();
   const [dailyPrice, setDailyPrice] = useState('');
   const [deliveryOn, setDeliveryOn] = useState(false);
@@ -107,14 +110,15 @@ const PricingSetupScreen = ({ navigation }) => {
     });
   };
 
-  const handleContinue = () => {
-    setDraftListing({
+  const handleContinue = async () => {
+    const ok = await saveStep({
       pricePerDay: dailyPrice ? Number(dailyPrice) : null,
       kmOverageFee: typeof kmOverageFee === 'number' ? kmOverageFee : 0.25,
       deliveryPrice: deliveryOn ? (deliveryPrice ? Number(deliveryPrice) : 0) : 0,
       weeklyDiscount,
       monthlyDiscount,
     });
+    if (!ok) return;
     if (editingListingId) {
       navigation.navigate('EditYourRideScreen');
     } else {
@@ -170,7 +174,7 @@ const PricingSetupScreen = ({ navigation }) => {
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="never"
       >
         {/* Daily Price */}
         <View style={styles.section}>
@@ -365,8 +369,17 @@ const PricingSetupScreen = ({ navigation }) => {
       </Modal>
 
       <View style={[styles.saveButtonContainer, { paddingBottom: 24 + insets.bottom }]}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleContinue} activeOpacity={0.8}>
-          <Text style={styles.saveButtonText}>{editingListingId ? 'SAVE' : 'CONTINUE'}</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, saving && { opacity: 0.7 }]}
+          onPress={handleContinue}
+          activeOpacity={0.8}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.saveButtonText}>{editingListingId ? 'SAVE' : 'CONTINUE'}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActionSheetIOS,
+  Keyboard,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +21,8 @@ import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useUserProfile } from '../context/UserProfileContext';
+import { patchMe, uploadAvatar } from '../services/usersApi';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -43,9 +47,37 @@ function CloseIcon() {
 
 export default function EditProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { photoUri, aboutBio, saveProfileDetails } = useUserProfile();
+  const scrollRef = useRef(null);
+  const aboutSectionY = useRef(0);
+  const { photoUri, aboutBio, saveProfileDetails, refreshProfileFromApi } = useUserProfile();
   const [localBio, setLocalBio] = useState(aboutBio || '');
   const [localPhoto, setLocalPhoto] = useState(photoUri);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const keyboardVisible = keyboardHeight > 0;
+
+  const scrollAboutIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, aboutSectionY.current - 8 * scale),
+        animated: true,
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates?.height ?? 0);
+      setTimeout(scrollAboutIntoView, Platform.OS === 'ios' ? 50 : 100);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollAboutIntoView]);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,14 +86,14 @@ export default function EditProfileScreen({ navigation }) {
     }, [aboutBio, photoUri])
   );
 
-  const pickImage = async () => {
+  const pickFromLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Allow photo library access to change your profile picture.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.85,
@@ -71,17 +103,77 @@ export default function EditProfileScreen({ navigation }) {
     }
   };
 
-  const handleSave = async () => {
-    await saveProfileDetails(localPhoto ?? null, localBio);
-    navigation.goBack();
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera access is required to take a profile photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setLocalPhoto(result.assets[0].uri);
+    }
   };
 
+  const showPhotoOptions = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Take Photo', 'Choose from Library', 'Cancel'], cancelButtonIndex: 2 },
+        (buttonIndex) => {
+          if (buttonIndex === 0) takePhoto();
+          if (buttonIndex === 1) pickFromLibrary();
+        },
+      );
+      return;
+    }
+    Alert.alert('Profile photo', undefined, [
+      { text: 'Take Photo', onPress: takePhoto },
+      { text: 'Choose from Library', onPress: pickFromLibrary },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const handleSave = async () => {
+    try {
+      await patchMe({ aboutBio: localBio });
+      let savedPhotoUri = localPhoto ?? null;
+      const isLocalAsset =
+        localPhoto &&
+        (localPhoto.startsWith('file') ||
+          localPhoto.startsWith('content') ||
+          localPhoto.startsWith('ph'));
+      if (isLocalAsset) {
+        const uploaded = await uploadAvatar({
+          uri: localPhoto,
+          name: 'avatar.jpg',
+          type: 'image/jpeg',
+        });
+        savedPhotoUri = uploaded?.avatarUrl
+          ? resolveMediaUrl(uploaded.avatarUrl) || localPhoto
+          : localPhoto;
+      } else if (localPhoto) {
+        savedPhotoUri = resolveMediaUrl(localPhoto) || localPhoto;
+      }
+      await saveProfileDetails(savedPhotoUri, localBio);
+      await refreshProfileFromApi?.();
+      navigation.goBack();
+    } catch (e) {
+      Alert.alert('Save failed', e?.message || 'Could not update profile.');
+    }
+  };
+
+  const headerHeight = insets.top + 10 + 12 * scale + 20 * scale;
+  const scrollBottomPad = keyboardVisible
+    ? keyboardHeight + 24
+    : TAB_BAR_HEIGHT + 24 + insets.bottom;
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={insets.top}
-    >
+    <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn} hitSlop={14}>
           <CloseIcon />
@@ -92,61 +184,79 @@ export default function EditProfileScreen({ navigation }) {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
       >
-        <View style={styles.photoBlock}>
-          <View style={styles.avatarOuter}>
-            {localPhoto ? (
-              <Image source={{ uri: localPhoto }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarPlaceholderHint}>Add photo</Text>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: scrollBottomPad },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+        >
+          {!keyboardVisible && (
+            <View style={styles.photoBlock}>
+              <View style={styles.avatarOuter}>
+                {localPhoto ? (
+                  <Image source={{ uri: localPhoto }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarPlaceholderHint}>Add photo</Text>
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={styles.cameraBadge}
+                  onPress={showPhotoOptions}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Change profile photo"
+                >
+                  <Image
+                    source={require('../assets/icons/camera2.png')}
+                    style={styles.cameraIcon}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
               </View>
-            )}
-            <TouchableOpacity
-              style={styles.cameraBadge}
-              onPress={pickImage}
-              activeOpacity={0.85}
-              accessibilityLabel="Change profile photo"
-            >
-              <Image
-                source={require('../assets/icons/camera2.png')}
-                style={styles.cameraIcon}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
+            </View>
+          )}
+
+          <View
+            style={[styles.aboutSection, keyboardVisible && styles.aboutSectionFocused]}
+            onLayout={(e) => {
+              aboutSectionY.current = e.nativeEvent.layout.y;
+            }}
+          >
+            <View style={styles.aboutTitleFrame}>
+              <Text style={styles.aboutLabel}>ABOUT</Text>
+            </View>
+            <TextInput
+              style={[styles.aboutInput, keyboardVisible && styles.aboutInputFocused]}
+              multiline
+              placeholder="About"
+              placeholderTextColor="rgb(171, 171, 171)"
+              value={localBio}
+              onChangeText={setLocalBio}
+              onFocus={scrollAboutIntoView}
+              textAlignVertical="top"
+            />
           </View>
-        </View>
 
-        <View style={styles.aboutTitleFrame}>
-          <Text style={styles.aboutLabel}>ABOUT</Text>
-        </View>
-        <TextInput
-          style={styles.aboutInput}
-          multiline
-          placeholder="About"
-          placeholderTextColor="rgb(171, 171, 171)"
-          value={localBio}
-          onChangeText={setLocalBio}
-          textAlignVertical="top"
-        />
-      </ScrollView>
-
-      <View
-        style={[
-          styles.footer,
-          { paddingBottom: TAB_BAR_HEIGHT + 24 + insets.bottom },
-        ]}
-      >
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-          <Text style={styles.saveBtnText}>SAVE</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          <TouchableOpacity
+            style={styles.saveBtn}
+            onPress={handleSave}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.saveBtnText}>SAVE</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -186,6 +296,9 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 44 * scale,
   },
+  keyboardAvoid: {
+    flex: 1,
+  },
   scroll: {
     flex: 1,
   },
@@ -197,6 +310,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12 * scale,
     marginBottom: 36 * scale,
+  },
+  aboutSection: {
+    alignSelf: 'stretch',
+  },
+  aboutSectionFocused: {
+    marginTop: 12 * scale,
   },
   avatarOuter: {
     width: AVATAR_SIZE,
@@ -271,14 +390,11 @@ const styles = StyleSheet.create({
     fontSize: 15 * scale,
     color: 'rgb(14, 38, 43)',
   },
-  footer: {
-    paddingHorizontal: 22 * scale,
-    paddingTop: 12 * scale,
-    backgroundColor: '#fff',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+  aboutInputFocused: {
+    minHeight: 140 * scale,
   },
   saveBtn: {
+    marginTop: 24 * scale,
     height: 52 * scale,
     borderRadius: 26 * scale,
     backgroundColor: COLORS.GREENY_BLUE_TWO,

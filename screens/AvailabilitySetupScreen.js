@@ -10,12 +10,22 @@ import {
   Image,
   Pressable,
   Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
+import { useAuth } from '../context/AuthContext';
+import { isRemoteListingId } from '../utils/listingId';
+import {
+  apiRangesToCalendarData,
+  buildListingAvailabilityPatch,
+  calendarDataToApiRanges,
+} from '../utils/listingAvailability';
+import { getHostListingAvailability } from '../services/listingsApi';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375;
@@ -27,8 +37,10 @@ const DAILY_KM_OPTIONS = ['100 km', '200 km', '300 km', '500 km', 'Unlimited'];
 
 const AvailabilitySetupScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const { setDraftListing, editingListingId, draft } = useListings();
+  const { setDraftListing, editingListingId, draft, saveRemoteListingPatch } = useListings();
+  const { isAuthenticated, isReady } = useAuth();
   const [savedCalendarData, setSavedCalendarData] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [advanceNotice, setAdvanceNotice] = useState('');
   const [shortestTrip, setShortestTrip] = useState('');
   const [longestTrip, setLongestTrip] = useState('');
@@ -47,19 +59,54 @@ const AvailabilitySetupScreen = ({ navigation, route }) => {
   const dailyRef = useRef(null);
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  const remoteAvailLoadedRef = useRef(null);
 
   useFocusEffect(
     useCallback(() => {
       if (!editingListingId) return;
       const d = draftRef.current;
-      let adv = d.advanceNotice || '';
+      const extras = d.extras && typeof d.extras === 'object' ? d.extras : {};
+      let adv = d.advanceNotice || extras.advanceNotice || '';
       if (!adv && d.instantBooking === true) adv = 'Instant booking';
       if (adv) setAdvanceNotice(adv);
-      if (d.shortestTrip) setShortestTrip(d.shortestTrip);
-      if (d.longestTrip) setLongestTrip(d.longestTrip);
+      if (d.shortestTrip || extras.shortestTrip) {
+        setShortestTrip(d.shortestTrip || extras.shortestTrip);
+      }
+      if (d.longestTrip || extras.longestTrip) {
+        setLongestTrip(d.longestTrip || extras.longestTrip);
+      }
       if (d.dailyKm) setDailyKm(d.dailyKm);
       if (d.calendarData != null) setSavedCalendarData(d.calendarData);
+      else if (Array.isArray(d.availability) && d.availability.length > 0) {
+        setSavedCalendarData(apiRangesToCalendarData(d.availability));
+      }
     }, [editingListingId])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const id = editingListingId;
+      if (!id || !isRemoteListingId(id) || !isAuthenticated || !isReady) return;
+      if (remoteAvailLoadedRef.current === id) return;
+      remoteAvailLoadedRef.current = id;
+      let cancelled = false;
+      (async () => {
+        try {
+          const ranges = await getHostListingAvailability(id);
+          if (cancelled || !Array.isArray(ranges)) return;
+          const cal = apiRangesToCalendarData(ranges);
+          if (cal) {
+            setSavedCalendarData(cal);
+            setDraftListing({ calendarData: cal, availability: ranges });
+          }
+        } catch {
+          /* keep draft/local calendar */
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [editingListingId, isAuthenticated, isReady, setDraftListing])
   );
 
   const isAnyPickerOpen =
@@ -83,15 +130,40 @@ const AvailabilitySetupScreen = ({ navigation, route }) => {
     }
   }, [route.params?.availabilityData]);
 
-  const handleSave = () => {
-    setDraftListing({
+  const handleSave = async () => {
+    const ranges = calendarDataToApiRanges(savedCalendarData);
+    const listingPatch = buildListingAvailabilityPatch({
+      advanceNotice,
+      shortestTrip,
+      longestTrip,
+      dailyKm,
+      existingExtras: draft.extras,
+    });
+    const draftPatch = {
       instantBooking: advanceNotice === 'Instant booking',
       advanceNotice,
       shortestTrip,
       longestTrip,
       dailyKm,
       calendarData: savedCalendarData ?? null,
-    });
+      availability: ranges,
+      ...listingPatch,
+    };
+
+    if (isAuthenticated && isReady) {
+      setSaving(true);
+      try {
+        await saveRemoteListingPatch(draftPatch, { syncAvailability: true });
+      } catch (e) {
+        Alert.alert('Could not save availability', e?.message || 'Try again later.');
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+    } else {
+      setDraftListing(draftPatch);
+    }
+
     if (editingListingId) {
       navigation.navigate('EditYourRideScreen');
     } else {
@@ -188,7 +260,7 @@ const AvailabilitySetupScreen = ({ navigation, route }) => {
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="never"
       >
         {renderDropdown(
           'ADVANCE NOTICE',
@@ -359,8 +431,17 @@ const AvailabilitySetupScreen = ({ navigation, route }) => {
       </Modal>
 
       <View style={[styles.saveButtonContainer, { paddingBottom: 24 + insets.bottom }]}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.8}>
-          <Text style={styles.saveButtonText}>{editingListingId ? 'SAVE' : 'CONTINUE'}</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          activeOpacity={0.8}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>{editingListingId ? 'SAVE' : 'CONTINUE'}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -603,6 +684,9 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
   },
   saveButtonText: {
     fontFamily: FONTS.NUNITO_BOLD,

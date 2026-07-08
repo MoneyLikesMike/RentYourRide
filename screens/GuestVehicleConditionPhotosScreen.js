@@ -59,7 +59,7 @@ export default function GuestVehicleConditionPhotosScreen({ navigation, route })
         style={styles.scroll}
         contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 24 * scale }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="never"
       >
         <Text style={styles.instruction}>{INSTRUCTION_COPY}</Text>
 

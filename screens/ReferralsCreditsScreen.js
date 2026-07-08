@@ -1,9 +1,12 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { useAuth } from '../context/AuthContext';
+import { getReferralsSummary } from '../services/referralsApi';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -40,14 +43,41 @@ function ReferHostIcon({ size = 44 }) {
 
 export default function ReferralsCreditsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { isAuthenticated, isReady } = useAuth();
+  const [accountSummary, setAccountSummary] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      if (!isAuthenticated || !isReady) {
+        setAccountSummary(null);
+        return undefined;
+      }
+      (async () => {
+        try {
+          const row = await getReferralsSummary();
+          if (!cancelled && row) setAccountSummary(row);
+        } catch {
+          if (!cancelled) setAccountSummary(null);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [isAuthenticated, isReady]),
+  );
 
   const onInviteFriend = useCallback(() => {
-    navigation.navigate('InviteFriendScreen');
-  }, [navigation]);
+    navigation.navigate('InviteFriendScreen', {
+      referralCode: accountSummary?.referralCode || '',
+    });
+  }, [navigation, accountSummary?.referralCode]);
 
   const onReferHost = useCallback(() => {
-    navigation.navigate('ReferHostScreen');
-  }, [navigation]);
+    navigation.navigate('ReferHostScreen', {
+      referralCode: accountSummary?.referralCode || '',
+    });
+  }, [navigation, accountSummary?.referralCode]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -73,6 +103,22 @@ export default function ReferralsCreditsScreen({ navigation }) {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
+        {accountSummary && isAuthenticated ? (
+          <View style={styles.summaryBanner}>
+            <Text style={styles.summaryBannerTitle}>Referrals & credits</Text>
+            <Text style={styles.summaryBannerLine}>
+              Your code:{' '}
+              <Text style={styles.summaryBannerEmphasis}>{accountSummary.referralCode || '—'}</Text>
+            </Text>
+            <Text style={styles.summaryBannerLine}>
+              Credit balance:{' '}
+              <Text style={styles.summaryBannerEmphasis}>
+                ${Number(accountSummary.creditsBalance ?? 0).toFixed(2)}
+              </Text>
+            </Text>
+          </View>
+        ) : null}
+
         <TouchableOpacity style={styles.row} onPress={onInviteFriend} activeOpacity={0.85}>
           <View style={styles.rowTextCol}>
             <Text style={styles.rowTitle}>INVITE FRIEND</Text>
@@ -131,6 +177,30 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24 * scale,
     paddingTop: 8 * scale,
+  },
+  summaryBanner: {
+    backgroundColor: 'rgb(250, 250, 250)',
+    borderRadius: 12 * scale,
+    padding: 16 * scale,
+    marginBottom: 16 * scale,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgb(235, 235, 235)',
+  },
+  summaryBannerTitle: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 14 * scale,
+    color: COLORS.BLACK,
+    marginBottom: 10 * scale,
+  },
+  summaryBannerLine: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 13 * scale,
+    color: 'rgb(100, 100, 100)',
+    marginBottom: 6 * scale,
+  },
+  summaryBannerEmphasis: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    color: COLORS.GREENY_BLUE_TWO,
   },
   row: {
     flexDirection: 'row',

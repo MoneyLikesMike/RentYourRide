@@ -15,6 +15,7 @@ import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { useListings } from '../context/ListingsContext';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 import { GUEST_RENTAL_ACKNOWLEDGMENT_TERMS } from '../constants/guestRentalAcknowledgmentTerms';
@@ -62,7 +63,8 @@ export default function GuestRentalAgreementSignScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId, checkoutFlow } = route.params || {};
   const isCheckoutFlow = checkoutFlow === true;
-  const { getBookingById, updateGuestBooking } = useGuestBookings();
+  const { getBookingById } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
   const { listings } = useListings();
 
   const [reviewedSummary, setReviewedSummary] = useState(false);
@@ -181,7 +183,7 @@ export default function GuestRentalAgreementSignScreen({ navigation, route }) {
     termsViewportHRef.current = e.nativeEvent.layout.height;
   }, []);
 
-  const onSignComplete = useCallback(() => {
+  const onSignComplete = useCallback(async () => {
     if (!canSign || !booking?.id) {
       Alert.alert(
         'Required',
@@ -192,21 +194,33 @@ export default function GuestRentalAgreementSignScreen({ navigation, route }) {
       return;
     }
     if (isCheckoutFlow) {
-      updateGuestBooking(booking.id, {
-        guestCheckoutRentalAgreementSignedAt: Date.now(),
-        guestCheckoutRentalAgreementSignerName: signerName.trim(),
-      });
-      navigation.navigate('GuestCheckoutTripCompleteScreen', { bookingId: booking.id });
+      const ok = await applyBookingUpdate(
+        booking.id,
+        {
+          guestCheckoutRentalAgreementSignedAt: Date.now(),
+          guestCheckoutRentalAgreementSignerName: signerName.trim(),
+        },
+        { errorTitle: 'Could not sign agreement' },
+      );
+      if (ok) {
+        navigation.navigate('GuestCheckoutTripCompleteScreen', { bookingId: booking.id });
+      }
       return;
     }
-    updateGuestBooking(booking.id, {
-      guestCheckedInAt: Date.now(),
-      rentalAgreementCompletedAt: Date.now(),
-      rentalAgreementSignedAt: Date.now(),
-      rentalAgreementSignerName: signerName.trim(),
-    });
-    navigation.navigate('GuestCheckInReminderScreen', { bookingId: booking.id });
-  }, [canSign, booking?.id, signerName, navigation, updateGuestBooking, termsReachedEnd, isCheckoutFlow]);
+    const ok = await applyBookingUpdate(
+      booking.id,
+      {
+        guestCheckedInAt: Date.now(),
+        rentalAgreementCompletedAt: Date.now(),
+        rentalAgreementSignedAt: Date.now(),
+        rentalAgreementSignerName: signerName.trim(),
+      },
+      { errorTitle: 'Could not sign agreement' },
+    );
+    if (ok) {
+      navigation.navigate('GuestCheckInReminderScreen', { bookingId: booking.id });
+    }
+  }, [canSign, booking?.id, signerName, navigation, applyBookingUpdate, termsReachedEnd, isCheckoutFlow]);
 
   if (!booking) {
     return (
@@ -247,7 +261,7 @@ export default function GuestRentalAgreementSignScreen({ navigation, route }) {
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 28 * scale }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="never"
       >
         <Text style={styles.lead}>
           {isCheckoutFlow

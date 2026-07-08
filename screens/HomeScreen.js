@@ -1,71 +1,116 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, TextInput, Platform, Animated } from 'react-native';
+import React, { useRef, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  Platform,
+  Animated,
+} from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
+import { useAuth } from '../context/AuthContext';
+import { searchListings } from '../services/listingsApi';
+import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocompleteField';
+import { resolveCurrentLocationQueryWithAlert } from '../utils/currentLocation';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = SCREEN_WIDTH / BASE_WIDTH;
 
 export default function HomeScreen({ navigation }) {
-  const { getListingsByCity } = useListings();
+  const { isAuthenticated, isReady } = useAuth();
+  const { getListingsByCity, mergeRemoteListings } = useListings();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [selectedTab, setSelectedTab] = useState('home');
-  const [searchText, setSearchText] = useState('');
-  // Car moves right as you scroll down: interpolate scrollY to translateX
+
   const carTranslateX = scrollY.interpolate({
     inputRange: [0, 300 * scale],
     outputRange: [0, 120 * scale],
     extrapolate: 'clamp',
   });
+
+  const runSearch = useCallback(
+    async (rawLocation) => {
+      const location = (rawLocation || '').trim();
+      if (!location) return;
+
+      const city = location.includes(',') ? location.split(',')[0].trim() : location;
+
+      if (isAuthenticated && isReady) {
+        try {
+          const remote = await searchListings({ city });
+          if (Array.isArray(remote) && remote.length > 0) {
+            mergeRemoteListings(remote);
+          }
+        } catch (_) {
+          /* fall through */
+        }
+      }
+
+      const listings = getListingsByCity(city);
+      if (listings.length > 0) {
+        navigation.navigate('SearchResultsScreen', { city, listings });
+      } else {
+        navigation.navigate('EmptyVehicleSearchScreen', { location: city });
+      }
+    },
+    [getListingsByCity, isAuthenticated, isReady, mergeRemoteListings, navigation],
+  );
+
+  const handlePlaceSelected = useCallback(
+    ({ selection }) => {
+      runSearch(selection.query || selection.city);
+    },
+    [runSearch],
+  );
+
+  const handleCurrentLocation = async () => {
+    const loc = await resolveCurrentLocationQueryWithAlert();
+    if (!loc) return;
+    runSearch(loc.query);
+  };
+
   return (
     <View style={styles.container}>
-      {/* Title (stationary) */}
       <Text style={styles.title}>Experience more together</Text>
+      <View style={styles.searchSection}>
+        <Text style={styles.locationHeading}>LOCATION</Text>
+        <View style={styles.searchBarContainer}>
+          <GooglePlacesAutocompleteField
+            placeholder="City, airport, address, or hotel"
+            onPlaceSelected={handlePlaceSelected}
+            containerStyle={styles.placesContainer}
+            inputStyle={styles.searchBar}
+          />
+        </View>
+        <TouchableOpacity style={styles.currentLocationRow} onPress={handleCurrentLocation} activeOpacity={0.85}>
+          <Image
+            source={require('../assets/icons/current-location.png')}
+            style={styles.currentLocationIcon}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+      </View>
       <Animated.ScrollView
+        style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
+          { useNativeDriver: true },
         )}
         scrollEventThrottle={16}
       >
-        {/* Location Heading */}
-        <Text style={styles.locationHeading}>LOCATION</Text>
-        {/* Search Bar */}
-        <View style={styles.searchBarContainer}>
-          <TextInput
-            style={styles.searchBar}
-            placeholder="City, airport, address, or hotel"
-            placeholderTextColor={"#D0D0D0"}
-            value={searchText}
-            onChangeText={setSearchText}
-            onSubmitEditing={() => {
-              const city = searchText.trim();
-              if (!city) return;
-              const listings = getListingsByCity(city);
-              if (listings.length > 0) {
-                navigation.navigate('SearchResultsScreen', { city, listings });
-              } else {
-                navigation.navigate('EmptyVehicleSearchScreen', { location: city });
-              }
-            }}
-          />
-        </View>
-        {/* Current Location Button */}
-        <TouchableOpacity style={styles.currentLocationRow}>
-          <Image source={require('../assets/icons/current-location.png')} style={styles.currentLocationIcon} resizeMode="contain" />
-        </TouchableOpacity>
-        {/* Spacer */}
-        <View style={{ height: 40 * scale }} />
+        <View style={styles.scrollSpacer} />
       </Animated.ScrollView>
-      {/* Car Illustration (animated) */}
       <Animated.View style={[styles.carImageContainer, { transform: [{ translateX: carTranslateX }] }]}>
         <Image source={require('../assets/icons/home-screen-car.png')} style={styles.carImage} resizeMode="contain" />
       </Animated.View>
-      {/* Menu Bar */}
       <View style={styles.menuBar}>
         <TouchableOpacity style={styles.menuItem} onPress={() => setSelectedTab('home')}>
           <Image
@@ -75,10 +120,13 @@ export default function HomeScreen({ navigation }) {
           />
           {selectedTab === 'home' && <View style={styles.menuDot} />}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => {
-          setSelectedTab('rental');
-          navigation.navigate('RentalManagerScreen');
-        }}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => {
+            setSelectedTab('rental');
+            navigation.navigate('RentalManagerScreen');
+          }}
+        >
           <Image
             source={require('../assets/icons/shape2.png')}
             style={[styles.menuIcon, selectedTab === 'rental' && styles.menuIconSelected]}
@@ -94,10 +142,13 @@ export default function HomeScreen({ navigation }) {
           />
           {selectedTab === 'chat' && <View style={styles.menuDot} />}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => {
-          setSelectedTab('profile');
-          navigation.navigate('ProfileScreen');
-        }}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => {
+            setSelectedTab('profile');
+            navigation.navigate('ProfileScreen');
+          }}
+        >
           <Image
             source={require('../assets/icons/shape.png')}
             style={[styles.menuIcon, selectedTab === 'profile' && styles.menuIconSelected]}
@@ -136,29 +187,33 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginLeft: 12 * scale,
   },
+  searchSection: {
+    width: '100%',
+    alignItems: 'center',
+    zIndex: 1000,
+    elevation: 1000,
+  },
   searchBarContainer: {
     width: 331 * scale,
-    height: 49 * scale,
-    borderRadius: 5 * scale,
-    borderWidth: 1.5,
-    borderColor: 'rgb(224,224,224)',
-    backgroundColor: '#fff',
-    justifyContent: 'center',
     marginBottom: 18 * scale,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  placesContainer: {
+    width: '100%',
   },
   searchBar: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 12 * scale,
-    color: '#222',
-    letterSpacing: 0.2,
-    paddingHorizontal: 16 * scale,
-    width: '100%',
     height: 49 * scale,
+    borderWidth: 1.5,
+    borderColor: 'rgb(224,224,224)',
+    borderRadius: 5 * scale,
+    paddingHorizontal: 16 * scale,
   },
   currentLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: -1 * scale,
+    marginTop: 4 * scale,
     marginLeft: 12 * scale,
     opacity: 0.89,
     marginBottom: 24 * scale,
@@ -167,17 +222,6 @@ const styles = StyleSheet.create({
   currentLocationIcon: {
     width: 119 * scale,
     height: 27 * scale,
-  },
-  currentLocationText: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 12 * scale,
-    color: COLORS.MANGO,
-    letterSpacing: 0.2,
-    width: 174 * scale,
-    height: 20 * scale,
-    textAlign: 'left',
-    marginLeft: 15 * scale,
-    opacity: 0.89,
   },
   carImage: {
     width: 375 * scale,
@@ -192,19 +236,13 @@ const styles = StyleSheet.create({
     height: 78 * scale,
     backgroundColor: '#fff',
     paddingHorizontal: 24 * scale,
-    marginBottom: 10 * scale, // moved menu up by 10pts
+    marginBottom: 10 * scale,
   },
   menuItem: {
     alignItems: 'center',
     justifyContent: 'center',
     width: 24 * scale,
     height: 22 * scale,
-  },
-  menuItemSelected: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 20 * scale,
-    height: 20 * scale,
   },
   menuIcon: {
     width: 24 * scale,
@@ -219,19 +257,24 @@ const styles = StyleSheet.create({
     height: 4 * scale,
     backgroundColor: COLORS.GREENY_BLUE_TWO,
     borderRadius: 2 * scale,
-    marginTop: 7 * scale, // moved dot down by 5pts
+    marginTop: 7 * scale,
+  },
+  scrollArea: {
+    flex: 1,
+    width: '100%',
   },
   scrollContent: {
-    alignItems: 'center',
-    paddingBottom: 40 * scale,
     flexGrow: 1,
+  },
+  scrollSpacer: {
+    height: 120 * scale,
   },
   carImageContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 78 * scale, // height of menu bar
+    bottom: 78 * scale,
     alignItems: 'center',
     width: '100%',
   },
-}); 
+});

@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375;
@@ -35,7 +36,7 @@ function normalizePhoto(p, index) {
 
 export default function HostConditionPhotoReviewScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { updateGuestBooking } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
   const { bookingId, photos: routePhotos = [], checkoutFlow: checkoutFlowParam } = route.params || {};
   const checkoutFlow = checkoutFlowParam === true;
   const [photos, setPhotos] = useState(() => routePhotos.map((p, i) => normalizePhoto(p, i)));
@@ -112,12 +113,17 @@ export default function HostConditionPhotoReviewScreen({ navigation, route }) {
     }
   }, [photos.length, openCamera, openLibrary]);
 
-  const onComplete = useCallback(() => {
+  const onComplete = useCallback(async () => {
     if (bookingId && photos.length) {
-      updateGuestBooking(bookingId, checkoutFlow ? { hostCheckoutConditionPhotos: photos } : { hostCheckInConditionPhotos: photos });
+      const ok = await applyBookingUpdate(
+        bookingId,
+        checkoutFlow ? { hostCheckoutConditionPhotos: photos } : { hostCheckInConditionPhotos: photos },
+        { errorTitle: 'Could not upload photos' },
+      );
+      if (!ok) return;
     }
     navigation.pop(3);
-  }, [bookingId, photos, navigation, updateGuestBooking, checkoutFlow]);
+  }, [bookingId, photos, navigation, applyBookingUpdate, checkoutFlow]);
 
   const onBack = useCallback(() => {
     navigation.pop(2);

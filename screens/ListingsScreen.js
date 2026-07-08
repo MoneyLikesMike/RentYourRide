@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useMemo, useState } from 'react';
+import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -12,12 +12,16 @@ import {
   Image,
   Modal,
   Pressable,
+  Easing,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { STORAGE_LISTINGS_SWIPE_HINT_DONE } from '../constants/storageKeys';
 import { useListings } from '../context/ListingsContext';
+import { useAuth } from '../context/AuthContext';
 import ListingCard from '../components/ListingCard';
 import { navigateRootStack, navigateToVehicleDetail } from '../utils/navigateRootStack';
 
@@ -25,9 +29,10 @@ const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = SCREEN_WIDTH / BASE_WIDTH;
 const TAB_BAR_HEIGHT = 78 * scale;
-const ACTION_WIDTH = 104 * scale;
+/** Width revealed when a row is fully swiped open (matches legacy ~25vw). */
+const OPEN_WIDTH = 118 * scale;
 /** Extra width so action strip underlaps the card and hides grey seam / anti-aliasing. */
-const ACTION_STRIP_OVERLAP = 6 * scale;
+const ACTION_STRIP_OVERLAP = 4 * scale;
 const ACTION_ICON_SIZE = 25 * scale;
 /** Tab highlight: design stroke rgb(255, 199, 83), 54×2, corner radius 5 */
 const TAB_HIGHLIGHT_COLOR = 'rgb(255, 199, 83)';
@@ -56,20 +61,24 @@ function PencilIcon({ color = '#fff', size = ACTION_ICON_SIZE }) {
   );
 }
 
-function SwipeableListingRow({ children, actions }) {
+function SwipeableListingRow({ children, actions, showSwipeHint = false, hintPlayKey = 0 }) {
   const panX = useRef(new Animated.Value(0)).current;
+  const hintOpacity = useRef(new Animated.Value(0)).current;
   const startOffset = useRef(0);
   const currentX = useRef(0);
+  const hintAnimRef = useRef(null);
 
   const snap = useCallback(
-    (open) => {
-      const to = open ? -ACTION_WIDTH : 0;
+    (open, velocity = 0) => {
+      const to = open ? -OPEN_WIDTH : 0;
       Animated.spring(panX, {
         toValue: to,
-        useNativeDriver: false,
-        friction: 9,
-      }).start(() => {
-        currentX.current = to;
+        useNativeDriver: true,
+        tension: 68,
+        friction: 12,
+        velocity,
+      }).start(({ finished }) => {
+        if (finished) currentX.current = to;
       });
     },
     [panX]
@@ -77,30 +86,130 @@ function SwipeableListingRow({ children, actions }) {
 
   const close = useCallback(() => snap(false), [snap]);
 
+  const stopHintAnimation = useCallback(() => {
+    if (hintAnimRef.current) {
+      hintAnimRef.current.stop();
+      hintAnimRef.current = null;
+    }
+    hintOpacity.stopAnimation();
+    hintOpacity.setValue(0);
+  }, [hintOpacity]);
+
+  useEffect(() => {
+    if (!showSwipeHint) return undefined;
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+
+      const peek = -OPEN_WIDTH * 0.78;
+      hintAnimRef.current = Animated.sequence([
+        Animated.parallel([
+          Animated.timing(hintOpacity, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(panX, {
+            toValue: peek,
+            duration: 520,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.timing(panX, {
+          toValue: 0,
+          duration: 420,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(hintOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.delay(450),
+        Animated.parallel([
+          Animated.timing(hintOpacity, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(panX, {
+            toValue: peek,
+            duration: 520,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.timing(panX, {
+          toValue: 0,
+          duration: 420,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(hintOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]);
+
+      hintAnimRef.current.start(({ finished }) => {
+        hintAnimRef.current = null;
+        if (finished && !cancelled) {
+          currentX.current = 0;
+          panX.setValue(0);
+        }
+      });
+    }, 700);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      stopHintAnimation();
+      panX.stopAnimation(() => {
+        currentX.current = 0;
+        panX.setValue(0);
+      });
+    };
+  }, [showSwipeHint, hintPlayKey, panX, hintOpacity, stopHintAnimation]);
+
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 0.7,
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.25,
+      onMoveShouldSetPanResponderCapture: (_, g) =>
+        Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
-        panX.stopAnimation((v) => {
-          startOffset.current = typeof v === 'number' ? v : currentX.current;
+        stopHintAnimation();
+        panX.stopAnimation((value) => {
+          const v = typeof value === 'number' ? value : currentX.current;
+          startOffset.current = v;
+          currentX.current = v;
         });
       },
       onPanResponderMove: (_, g) => {
-        const next = Math.min(0, Math.max(-ACTION_WIDTH, startOffset.current + g.dx));
+        const next = Math.min(0, Math.max(-OPEN_WIDTH, startOffset.current + g.dx));
         currentX.current = next;
         panX.setValue(next);
       },
       onPanResponderRelease: (_, g) => {
-        const projected = currentX.current + g.vx * 40;
-        const open = projected < -ACTION_WIDTH / 2;
-        snap(open);
+        const releaseX = currentX.current;
+        let open;
+        if (g.vx < -0.35) open = true;
+        else if (g.vx > 0.35) open = false;
+        else open = releaseX < -OPEN_WIDTH * 0.38;
+        snap(open, g.vx);
       },
     })
   ).current;
 
   return (
     <View style={styles.swipeWrap}>
-      <View style={[styles.swipeActions, { width: ACTION_WIDTH + ACTION_STRIP_OVERLAP }]}>
+      <View style={[styles.swipeActions, { width: OPEN_WIDTH + ACTION_STRIP_OVERLAP }]}>
         {actions({ close })}
       </View>
       <Animated.View
@@ -108,6 +217,11 @@ function SwipeableListingRow({ children, actions }) {
         {...panResponder.panHandlers}
       >
         {children}
+        {showSwipeHint ? (
+          <Animated.View pointerEvents="none" style={[styles.swipeHintPill, { opacity: hintOpacity }]}>
+            <Text style={styles.swipeHintText}>Swipe for options</Text>
+          </Animated.View>
+        ) : null}
       </Animated.View>
     </View>
   );
@@ -115,12 +229,45 @@ function SwipeableListingRow({ children, actions }) {
 
 export default function ListingsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { getMyListings, setListingActive, removeListing, canUseListingsHub, clearEditListingSession } =
-    useListings();
+  const {
+    getMyListings,
+    setListingActive,
+    removeListing,
+    canUseListingsHub,
+    clearEditListingSession,
+    refreshMyListingsFromApi,
+  } = useListings();
+  const { isAuthenticated, isReady } = useAuth();
   const [tab, setTab] = useState('active'); // 'active' | 'deactivated'
   const [deleteModal, setDeleteModal] = useState(null); // { id: string } | null
+  const [swipeHintDone, setSwipeHintDone] = useState(true);
+  const [hintPlayKey, setHintPlayKey] = useState(0);
   const deleteModalCloseSwipeRef = useRef(null);
   const myListings = getMyListings();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_LISTINGS_SWIPE_HINT_DONE);
+        if (!cancelled) setSwipeHintDone(stored === '1');
+      } catch (_) {
+        if (!cancelled) setSwipeHintDone(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const markSwipeHintDone = useCallback(async () => {
+    setSwipeHintDone(true);
+    try {
+      await AsyncStorage.setItem(STORAGE_LISTINGS_SWIPE_HINT_DONE, '1');
+    } catch (_) {
+      /* ignore */
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -129,14 +276,30 @@ export default function ListingsScreen({ navigation }) {
         if (navigation.canGoBack()) {
           navigation.goBack();
         }
+        return;
       }
-    }, [canUseListingsHub, navigation])
+      if (isAuthenticated && isReady) {
+        refreshMyListingsFromApi();
+      }
+    }, [canUseListingsHub, navigation, isAuthenticated, isReady, refreshMyListingsFromApi])
   );
 
   const activeListings = useMemo(() => myListings.filter((l) => l.active !== false), [myListings]);
   const deactivatedListings = useMemo(() => myListings.filter((l) => l.active === false), [myListings]);
 
   const data = tab === 'active' ? activeListings : deactivatedListings;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (swipeHintDone || data.length === 0) return;
+      setHintPlayKey((k) => k + 1);
+    }, [swipeHintDone, data.length, tab])
+  );
+
+  useEffect(() => {
+    if (swipeHintDone || data.length === 0) return;
+    setHintPlayKey((k) => k + 1);
+  }, [swipeHintDone, tab, data.length]);
 
   const goToDetail = useCallback(
     (listing) => {
@@ -147,12 +310,13 @@ export default function ListingsScreen({ navigation }) {
 
   const goToEditFlow = useCallback(
     (listing) => {
+      markSwipeHintDone();
       navigateRootStack(navigation, 'ListRideStack', {
         screen: 'EditYourRideScreen',
         params: { listingId: listing.id },
       });
     },
-    [navigation]
+    [navigation, markSwipeHintDone]
   );
 
   const goListNew = useCallback(() => {
@@ -178,19 +342,31 @@ export default function ListingsScreen({ navigation }) {
 
   const confirmDeleteListing = useCallback(() => {
     if (deleteModal?.id) {
+      markSwipeHintDone();
       removeListing(deleteModal.id);
     }
     const closeSwipe = deleteModalCloseSwipeRef.current;
     deleteModalCloseSwipeRef.current = null;
     setDeleteModal(null);
     closeSwipe?.();
-  }, [deleteModal, removeListing]);
+  }, [deleteModal, removeListing, markSwipeHintDone]);
+
+  const handleSetListingActive = useCallback(
+    (id, active) => {
+      markSwipeHintDone();
+      setListingActive(id, active);
+    },
+    [markSwipeHintDone, setListingActive]
+  );
 
   const renderItem = useCallback(
-    ({ item }) => {
+    ({ item, index }) => {
       const isActiveTab = tab === 'active';
       return (
-        <SwipeableListingRow actions={({ close }) => (
+        <SwipeableListingRow
+          showSwipeHint={!swipeHintDone && index === 0}
+          hintPlayKey={hintPlayKey}
+          actions={({ close }) => (
           <View style={styles.actionsColumn}>
             {isActiveTab ? (
               <>
@@ -208,7 +384,7 @@ export default function ListingsScreen({ navigation }) {
                 <TouchableOpacity
                   style={[styles.actionBtn, styles.actionDeactivate, styles.actionBtnRoundedBottom]}
                   onPress={() => {
-                    setListingActive(item.id, false);
+                    handleSetListingActive(item.id, false);
                     close();
                   }}
                   activeOpacity={0.85}
@@ -226,7 +402,7 @@ export default function ListingsScreen({ navigation }) {
                 <TouchableOpacity
                   style={[styles.actionBtn, styles.actionActivate, styles.actionBtnRoundedTop]}
                   onPress={() => {
-                    setListingActive(item.id, true);
+                    handleSetListingActive(item.id, true);
                     close();
                   }}
                   activeOpacity={0.85}
@@ -260,7 +436,15 @@ export default function ListingsScreen({ navigation }) {
         </SwipeableListingRow>
       );
     },
-    [tab, goToDetail, goToEditFlow, setListingActive, openDeleteModal]
+    [
+      tab,
+      swipeHintDone,
+      hintPlayKey,
+      goToDetail,
+      goToEditFlow,
+      handleSetListingActive,
+      openDeleteModal,
+    ]
   );
 
   const listPadBottom = TAB_BAR_HEIGHT + 100 + insets.bottom;
@@ -498,6 +682,21 @@ const styles = StyleSheet.create({
   swipeFront: {
     width: SCREEN_WIDTH - 40 * scale,
     backgroundColor: 'transparent',
+  },
+  swipeHintPill: {
+    position: 'absolute',
+    right: 14 * scale,
+    bottom: 14 * scale,
+    backgroundColor: 'rgba(32, 42, 68, 0.82)',
+    borderRadius: 999,
+    paddingHorizontal: 12 * scale,
+    paddingVertical: 6 * scale,
+  },
+  swipeHintText: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 12 * scale,
+    color: '#fff',
+    letterSpacing: 0.2,
   },
   actionsColumn: {
     flex: 1,

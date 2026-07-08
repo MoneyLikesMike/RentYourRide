@@ -16,6 +16,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useListings } from '../context/ListingsContext';
+import { useAuth } from '../context/AuthContext';
 import { filterBookingsForHost } from '../utils/hostBookingFilter';
 
 const BASE_WIDTH = 375;
@@ -43,6 +44,7 @@ export default function RentalAgreementsScreen() {
   const { pendingRequests, activeRentals } = useGuestBookings();
   const { firstName, lastName } = useUserProfile();
   const { listings } = useListings();
+  const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState(() =>
     route.params?.initialTab === 'host' ? 'host' : 'guest'
@@ -70,13 +72,13 @@ export default function RentalAgreementsScreen() {
   }, [allBookings]);
 
   const hostCompletedAgreements = useMemo(() => {
-    return filterBookingsForHost(allBookings, listings, firstName, lastName)
+    return filterBookingsForHost(allBookings, listings, firstName, lastName, user?.id)
       .filter((b) => b.hostCheckoutRentalAgreementSignedAt != null)
       .sort(
         (a, b) =>
           (b.hostCheckoutRentalAgreementSignedAt || 0) - (a.hostCheckoutRentalAgreementSignedAt || 0)
       );
-  }, [allBookings, listings, firstName, lastName]);
+  }, [allBookings, listings, firstName, lastName, user?.id]);
 
   const onPressGuestAgreement = useCallback(
     (bookingId) => {

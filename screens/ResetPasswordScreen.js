@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { resetPassword } from '../services/referralsApi';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -10,13 +11,37 @@ const scale = SCREEN_WIDTH / BASE_WIDTH;
 
 export default function ResetPasswordScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
+  const [resetToken, setResetToken] = useState(route.params?.token || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const handleResetPassword = () => {
-    // TODO: Implement reset password logic
-    // For now, just show an alert or navigate
-    alert('Password reset (mock)');
+  const handleResetPassword = async () => {
+    const token = resetToken.trim();
+    if (!token) {
+      Alert.alert('Token required', 'Paste the reset token from your email (or server logs in development).');
+      return;
+    }
+    if (newPassword.length < 8) {
+      Alert.alert('Password too short', 'Use at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Mismatch', 'Passwords do not match.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await resetPassword(token, newPassword);
+      Alert.alert('Success', 'Your password was updated. You can sign in.', [
+        { text: 'OK', onPress: () => navigation.navigate('AuthScreen', { tab: 'login' }) },
+      ]);
+    } catch (e) {
+      Alert.alert('Reset failed', e?.message || 'Invalid or expired token.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -34,6 +59,17 @@ export default function ResetPasswordScreen() {
       <Text style={styles.paragraph}>
         Please create a new password
       </Text>
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Reset token (from email)"
+          placeholderTextColor="rgba(142,142,142,0.4)"
+          value={resetToken}
+          onChangeText={setResetToken}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
       {/* New Password Input */}
       <View style={styles.inputContainer}>
         <TextInput
@@ -57,8 +93,8 @@ export default function ResetPasswordScreen() {
         />
       </View>
       {/* Reset Password Button */}
-      <TouchableOpacity style={styles.resetButton} onPress={handleResetPassword}>
-        <Text style={styles.resetButtonText}>RESET PASSWORD</Text>
+      <TouchableOpacity style={styles.resetButton} onPress={handleResetPassword} disabled={busy}>
+        {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.resetButtonText}>RESET PASSWORD</Text>}
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );

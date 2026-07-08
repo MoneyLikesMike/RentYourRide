@@ -1,15 +1,21 @@
-import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  STORAGE_FIRST,
+  STORAGE_LAST,
+  STORAGE_YEAR,
+  STORAGE_PHOTO,
+  STORAGE_ABOUT,
+} from '../constants/storageKeys';
+import { useAuth } from './AuthContext';
+import * as usersApi from '../services/usersApi';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const UserProfileContext = createContext(null);
 
-const STORAGE_FIRST = '@ryr_user_first_name';
-const STORAGE_LAST = '@ryr_user_last_name';
-const STORAGE_YEAR = '@ryr_user_join_year';
-const STORAGE_PHOTO = '@ryr_user_profile_photo_uri';
-const STORAGE_ABOUT = '@ryr_user_profile_about';
-
 export function UserProfileProvider({ children }) {
+  const { isReady, isAuthenticated, user: authUser } = useAuth();
+  const hadSessionRef = useRef(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [joinedYear, setJoinedYear] = useState(null);
@@ -50,7 +56,78 @@ export function UserProfileProvider({ children }) {
     };
   }, []);
 
-  /** Call when the user completes the sign-up form (before terms / onboarding). */
+  useEffect(() => {
+    if (!isReady) return;
+    if (isAuthenticated) {
+      hadSessionRef.current = true;
+      if (!authUser) return;
+      const f = authUser.firstName || '';
+      const l = authUser.lastName || '';
+      if (f || l) {
+        setFirstName(f);
+        setLastName(l);
+        const y = new Date().getFullYear();
+        setJoinedYear((jy) => jy ?? y);
+        AsyncStorage.multiSet([
+          [STORAGE_FIRST, f],
+          [STORAGE_LAST, l],
+          [STORAGE_YEAR, String(y)],
+        ]).catch(() => {});
+      }
+      return;
+    }
+    if (hadSessionRef.current) {
+      hadSessionRef.current = false;
+      setFirstName('');
+      setLastName('');
+      setJoinedYear(null);
+      setPhotoUri(null);
+      setAboutBio('');
+    }
+  }, [isReady, isAuthenticated, authUser]);
+
+  const authUserId = authUser?.id;
+
+  const refreshProfileFromApi = useCallback(async () => {
+    if (!isReady || !isAuthenticated || !authUserId) return;
+    try {
+      const me = await usersApi.getMe();
+      const f = me.firstName || '';
+      const l = me.lastName || '';
+      setFirstName(f);
+      setLastName(l);
+      const avatar = me.avatarUrl?.trim?.() ? resolveMediaUrl(me.avatarUrl.trim()) : null;
+      setPhotoUri(avatar);
+      if (me.aboutBio != null) setAboutBio(String(me.aboutBio));
+      let year = new Date().getFullYear();
+      try {
+        const rawYear = await AsyncStorage.getItem(STORAGE_YEAR);
+        if (rawYear) {
+          const y = Number(rawYear);
+          if (Number.isFinite(y)) year = y;
+        }
+      } catch (_) {
+        /* ignore */
+      }
+      setJoinedYear(year);
+      await AsyncStorage.multiSet([
+        [STORAGE_FIRST, f],
+        [STORAGE_LAST, l],
+        [STORAGE_YEAR, String(year)],
+        [STORAGE_PHOTO, avatar ?? ''],
+        [STORAGE_ABOUT, me.aboutBio != null ? String(me.aboutBio) : ''],
+      ]);
+    } catch (_) {
+      /* offline */
+    }
+  }, [isReady, isAuthenticated, authUserId]);
+
+  useEffect(() => {
+    if (!isReady || !isAuthenticated || !authUserId) return;
+    refreshProfileFromApi();
+  }, [isReady, isAuthenticated, authUserId, refreshProfileFromApi]);
+
+  /** Call when the user completes the sign-up form (before terms / onboarding) — optional if API already ran. */
   const commitSignUpIdentity = useCallback(async (first, last) => {
     const f = (first ?? '').trim();
     const l = (last ?? '').trim();
@@ -71,7 +148,7 @@ export function UserProfileProvider({ children }) {
 
   /** Persist profile photo + about (Edit profile SAVE). */
   const saveProfileDetails = useCallback(async (uri, bioText) => {
-    const u = uri && String(uri).trim() ? uri.trim() : null;
+    const u = uri && String(uri).trim() ? resolveMediaUrl(uri.trim()) : null;
     const b = (bioText ?? '').trim();
     setPhotoUri(u);
     setAboutBio(b);
@@ -99,8 +176,18 @@ export function UserProfileProvider({ children }) {
       setAboutBio,
       commitSignUpIdentity,
       saveProfileDetails,
+      refreshProfileFromApi,
     }),
-    [firstName, lastName, joinedYear, photoUri, aboutBio, commitSignUpIdentity, saveProfileDetails]
+    [
+      firstName,
+      lastName,
+      joinedYear,
+      photoUri,
+      aboutBio,
+      commitSignUpIdentity,
+      saveProfileDetails,
+      refreshProfileFromApi,
+    ],
   );
 
   return <UserProfileContext.Provider value={value}>{children}</UserProfileContext.Provider>;

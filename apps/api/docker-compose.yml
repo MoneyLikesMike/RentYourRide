@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ryr
+      POSTGRES_PASSWORD: ryr
+      POSTGRES_DB: rentyourride
+    ports:
+      - "5433:5432"
+    volumes:
+      - ryr_pg_data:/var/lib/postgresql/data
+
+volumes:
+  ryr_pg_data:

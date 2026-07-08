@@ -1,9 +1,28 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, Dimensions, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  Dimensions,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
+import { resetToMainTabs } from '../navigation/navigationRef';
+import { ApiError } from '../services/authApi';
+import {
+  clearRememberMeCredentials,
+  loadRememberMeCredentials,
+  saveRememberMeCredentials,
+} from '../services/rememberMe';
+import SocialAuthButtons from '../components/SocialAuthButtons';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -20,6 +39,7 @@ function ErrorRow({ message }) {
 
 export default function LoginScreen({ isChildScreen, onSwitchToSignUp, onForgotPassword }) {
   const navigation = useNavigation();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,9 +47,28 @@ export default function LoginScreen({ isChildScreen, onSwitchToSignUp, onForgotP
   // Remove local toggle state; always use navigation for tab switching
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleLogin = () => {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const saved = await loadRememberMeCredentials();
+      if (cancelled) return;
+      setRememberMe(saved.enabled);
+      if (saved.enabled) {
+        setEmail(saved.email);
+        setPassword(saved.password);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleLogin = async () => {
     let valid = true;
+    setSubmitError('');
     if (!email) {
       setEmailError('Please enter email address');
       valid = false;
@@ -42,8 +81,26 @@ export default function LoginScreen({ isChildScreen, onSwitchToSignUp, onForgotP
     } else {
       setPasswordError('');
     }
-    if (valid) {
-      navigation.navigate('MainTabs', { screen: 'HomeScreen' });
+    if (!valid) return;
+    setSubmitting(true);
+    try {
+      await signIn(email, password);
+      if (rememberMe) {
+        await saveRememberMeCredentials(email, password);
+      } else {
+        await clearRememberMeCredentials();
+      }
+      resetToMainTabs();
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err && typeof err.message === 'string'
+            ? err.message
+            : 'Could not sign in. Check your connection and try again.';
+      setSubmitError(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -85,6 +142,11 @@ export default function LoginScreen({ isChildScreen, onSwitchToSignUp, onForgotP
         {passwordError ? (
           <ErrorRow message={passwordError} />
         ) : null}
+        {submitError ? (
+          <View style={styles.submitErrorWrap}>
+            <ErrorRow message={submitError} />
+          </View>
+        ) : null}
 
         {/* Remember Me and Forgot Password */}
         <View style={styles.rememberRow}>
@@ -110,22 +172,20 @@ export default function LoginScreen({ isChildScreen, onSwitchToSignUp, onForgotP
         </View>
 
         {/* Login Button */}
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>LOG IN</Text>
+        <TouchableOpacity
+          style={[styles.loginButton, submitting && styles.loginButtonDisabled]}
+          onPress={handleLogin}
+          disabled={submitting}
+        >
+          {submitting ? (
+            <ActivityIndicator color={COLORS.YELLOWISH_ORANGE} />
+          ) : (
+            <Text style={styles.loginButtonText}>LOG IN</Text>
+          )}
         </TouchableOpacity>
 
         {/* Social Login Icons */}
-        <View style={styles.socialRow}>
-          <TouchableOpacity style={styles.socialBtn}>
-            <Image source={require('../assets/icons/signInWithAppleLogoOnly2.png')} style={styles.socialIcon} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialBtn}>
-            <Image source={require('../assets/icons/signInWithFBLogoOnly.png')} style={styles.socialIcon} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialBtn}>
-            <Image source={require('../assets/icons/group2Copy.png')} style={styles.socialIcon} />
-          </TouchableOpacity>
-        </View>
+        <SocialAuthButtons style={{ marginBottom: 120 * scale }} />
 
         {/* Bottom Sign Up Prompt */}
         <View style={styles.signupRow}>
@@ -267,6 +327,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24 * scale,
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
+  },
+  submitErrorWrap: {
+    width: 273 * scale,
+    marginBottom: 8 * scale,
   },
   loginButtonText: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,

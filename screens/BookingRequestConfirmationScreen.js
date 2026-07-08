@@ -4,13 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { openBookingChat } from '../utils/openBookingChat';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375;
 
 export default function BookingRequestConfirmationScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { listing = {} } = route.params || {};
+  const { listing = {}, bookingId = null } = route.params || {};
 
   const hostName = listing.hostName || 'Host';
   const vehicleName = listing.title || 'vehicle';
@@ -52,9 +53,16 @@ export default function BookingRequestConfirmationScreen({ navigation, route }) 
         <TouchableOpacity
           style={styles.messageBtn}
           activeOpacity={0.85}
-          onPress={() => navigation.navigate('ChatScreen')}
+          onPress={() => openBookingChat(navigation, bookingId)}
         >
-          <Text style={styles.messageBtnText}>MESSAGE *{hostName.toUpperCase()}*</Text>
+          <Text
+            style={styles.messageBtnText}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.65}
+          >
+            {`MESSAGE ${hostName.toUpperCase()}`}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -139,11 +147,12 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   messageBtn: {
-    height: 50,
+    minHeight: 50,
     borderRadius: 25,
     backgroundColor: COLORS.GREENY_BLUE_TWO,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24 * scale,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.16,
@@ -156,8 +165,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     letterSpacing: 0.3,
-    width: 222,
-    height: 23,
-    lineHeight: 23,
+    width: '100%',
   },
 });

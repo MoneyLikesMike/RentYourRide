@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { useAuth } from '../context/AuthContext';
+import { getMe } from '../services/usersApi';
+import { formatPhoneForDisplay } from '../utils/phoneFormat';
 import ChangeEmailScreen from './ChangeEmailScreen';
 import Modal from 'react-native-modal';
 import ChangePasswordScreen from './ChangePasswordScreen';
@@ -14,25 +18,69 @@ const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = SCREEN_WIDTH / BASE_WIDTH;
 
-const initialUser = {
-  email: 'RentYourRide@gmail.com',
+const emptyUser = {
+  email: '',
   emailVerified: true,
-  password: 'password123', // Example, will be masked
-  address: '959 Alton St.Dominion, NS B1G…',
-  mobile: '+1-613-555-0102',
+  password: '••••••••',
+  address: '—',
+  mobile: '—',
   mobileVerified: false,
-  license: 'D1234-56789-00000',
+  license: '—',
   licenseVerified: false,
 };
 
 export default function ContactInformationScreen({ navigation }) {
-  const [user, setUser] = React.useState(initialUser);
+  const { isAuthenticated, isReady, user: authUser } = useAuth();
+  const [user, setUser] = React.useState(emptyUser);
   const [showChangeEmail, setShowChangeEmail] = React.useState(false);
   const [showChangePassword, setShowChangePassword] = React.useState(false);
   const [showPasswordChangeSuccess, setShowPasswordChangeSuccess] = React.useState(false);
   const [showChangePhoneNumber, setShowChangePhoneNumber] = React.useState(false);
   const [showPhoneVerification, setShowPhoneVerification] = React.useState(false);
   const [pendingPhone, setPendingPhone] = React.useState('');
+  const [pendingPhoneDisplay, setPendingPhoneDisplay] = React.useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isAuthenticated || !isReady) {
+        setUser((prev) => ({
+          ...emptyUser,
+          email: authUser?.email || prev.email,
+        }));
+        return undefined;
+      }
+      let cancelled = false;
+      (async () => {
+        try {
+          const me = await getMe();
+          if (cancelled) return;
+          const phone = (me.phone || '').trim();
+          const addressParts = [me.addressLine, me.addressCity, me.addressCountry].filter(
+            (p) => p && String(p).trim(),
+          );
+          const license = (me.licenseNumber || '').trim();
+          setUser({
+            email: me.email || authUser?.email || '',
+            emailVerified: true,
+            password: '••••••••',
+            address: addressParts.length ? addressParts.join(', ') : '—',
+            mobile: phone ? formatPhoneForDisplay(phone) : '—',
+            mobileVerified: !!me.phoneVerified,
+            license: license || '—',
+            licenseVerified: !!me.licenseVerified,
+          });
+        } catch (_) {
+          if (!cancelled && authUser?.email) {
+            setUser((prev) => ({ ...prev, email: authUser.email }));
+          }
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [isAuthenticated, isReady, authUser?.email]),
+  );
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -120,7 +168,7 @@ export default function ContactInformationScreen({ navigation }) {
             <Text style={user.licenseVerified ? styles.verifiedBadge : styles.notVerifiedBadge}>
               {user.licenseVerified ? '(Verified)' : '(Not verified)'}
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('ChangeLicenseScreen')}>
+            <TouchableOpacity onPress={() => navigation.navigate('LicenseVerificationScreen')}>
               <Text style={styles.changeButton}>{user.license ? 'Change' : 'Add'}</Text>
             </TouchableOpacity>
           </View>
@@ -187,12 +235,14 @@ export default function ContactInformationScreen({ navigation }) {
           animationIn="slideInUp"
           animationOut="slideOutDown"
           backdropOpacity={0.18}
+          avoidKeyboard
         >
           <ChangePhoneNumberScreen
             navigation={{ goBack: () => setShowChangePhoneNumber(false) }}
-            onSave={(phone) => {
+            onSave={(phone, displayPhone) => {
               setShowChangePhoneNumber(false);
               setPendingPhone(phone);
+              setPendingPhoneDisplay(displayPhone || phone);
               setTimeout(() => setShowPhoneVerification(true), 350);
             }}
           />
@@ -208,12 +258,21 @@ export default function ContactInformationScreen({ navigation }) {
           animationIn="slideInUp"
           animationOut="slideOutDown"
           backdropOpacity={0.18}
+          avoidKeyboard
         >
           <PhoneVerificationScreen
             navigation={{ goBack: () => setShowPhoneVerification(false) }}
-            phoneNumber={pendingPhone}
-            onPhoneVerified={() => {
-              setUser((prev) => ({ ...prev, mobile: pendingPhone, mobileVerified: true }));
+            phoneNumber={pendingPhoneDisplay || pendingPhone}
+            phoneE164={pendingPhone}
+            onPhoneVerified={(verified) => {
+              const user = verified?.phone ? verified : null;
+              setUser((prev) => ({
+                ...prev,
+                mobile: user?.phone
+                  ? formatPhoneForDisplay(user.phone)
+                  : pendingPhoneDisplay || formatPhoneForDisplay(pendingPhone),
+                mobileVerified: user?.phoneVerified ?? true,
+              }));
               setShowPhoneVerification(false);
             }}
           />

@@ -1,106 +1,125 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, Dimensions, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Modal, Dimensions, StyleSheet, ActivityIndicator } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import * as Location from 'expo-location';
+import { reverseGeocode } from '../services/geocodeApi';
+import { MAP_PROVIDER } from '../utils/mapProvider';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const scale = screenWidth / 375; // Base width is 375
+const scale = screenWidth / 375;
 
 const PinAccuracyModal = ({ visible, onClose, onNext, addressData, onAddressUpdate }) => {
-  // Default coordinates (you can replace with actual geocoded coordinates)
-  const [pinCoordinate, setPinCoordinate] = useState({
-    latitude: 43.6532,
-    longitude: -79.3832,
-  });
+  const mapRef = useRef(null);
+  const [pinCoordinate, setPinCoordinate] = useState(null);
+  const [mapReady, setMapReady] = useState(false);
 
-  const defaultRegion = {
-    latitude: pinCoordinate.latitude,
-    longitude: pinCoordinate.longitude,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  };
+  useEffect(() => {
+    if (!visible) {
+      setMapReady(false);
+      return;
+    }
+    const lat = addressData?.latitude;
+    const lng = addressData?.longitude;
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const next = { latitude: lat, longitude: lng };
+      setPinCoordinate(next);
+    }
+  }, [visible, addressData?.latitude, addressData?.longitude]);
+
+  useEffect(() => {
+    if (!visible || !mapReady || !pinCoordinate || !mapRef.current) return;
+    mapRef.current.animateToRegion(
+      {
+        latitude: pinCoordinate.latitude,
+        longitude: pinCoordinate.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      300,
+    );
+  }, [visible, mapReady, pinCoordinate?.latitude, pinCoordinate?.longitude]);
 
   const handlePinDragEnd = async (e) => {
     const newCoordinate = e.nativeEvent.coordinate;
     setPinCoordinate(newCoordinate);
-    
-    // Reverse geocode the new location
+
     try {
-      const reverseGeocode = await Location.reverseGeocodeAsync({
+      const geo = await reverseGeocode(newCoordinate.latitude, newCoordinate.longitude);
+      onAddressUpdate({
+        country: geo.country || addressData?.country || '',
+        city: geo.city || addressData?.city || '',
+        address: geo.street || geo.formatted || addressData?.address || '',
         latitude: newCoordinate.latitude,
         longitude: newCoordinate.longitude,
       });
-
-      if (reverseGeocode.length > 0) {
-        const addressInfo = reverseGeocode[0];
-        
-        const countryName = addressInfo.country || 'Unknown Country';
-        const cityName = addressInfo.city || addressInfo.region || 'Unknown City';
-        const streetAddress = addressInfo.street ? 
-          `${addressInfo.street}${addressInfo.streetNumber ? ` ${addressInfo.streetNumber}` : ''}` : 
-          'Unknown Address';
-
-        // Update the address fields
-        onAddressUpdate({
-          country: countryName,
-          city: cityName,
-          address: streetAddress,
-        });
-      }
     } catch (error) {
       console.error('Error reverse geocoding:', error);
+      onAddressUpdate({
+        latitude: newCoordinate.latitude,
+        longitude: newCoordinate.longitude,
+      });
     }
   };
 
-  const handlePinAccuracyNext = () => {
-    onNext(); // Pass the address data back to the parent screen
-  };
+  const mapRegion = pinCoordinate
+    ? {
+        latitude: pinCoordinate.latitude,
+        longitude: pinCoordinate.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }
+    : null;
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <TouchableOpacity 
-          style={styles.overlayTouchable} 
-          onPress={onClose}
-          activeOpacity={1}
-        />
-        
+        <TouchableOpacity style={styles.overlayTouchable} onPress={onClose} activeOpacity={1} />
+
         <View style={styles.modalContainer}>
-          {/* Slide indicator */}
           <View style={styles.slideIndicator}>
             <View style={styles.slideBar} />
           </View>
 
-          {/* Header */}
           <Text style={styles.header}>Is the pin in the right place?</Text>
 
-          {/* Map with draggable pin */}
           <View style={styles.mapContainer}>
-            <MapView
-              style={styles.map}
-              region={defaultRegion}
-              showsUserLocation={true}
-              showsMyLocationButton={false}
-            >
-              <Marker
-                coordinate={pinCoordinate}
-                title="Pickup Location"
-                description={`${addressData?.address}, ${addressData?.city}, ${addressData?.country}`}
-                draggable={true}
-                onDragEnd={handlePinDragEnd}
-              />
-            </MapView>
+            {mapRegion ? (
+              <MapView
+                ref={mapRef}
+                provider={MAP_PROVIDER}
+                style={styles.map}
+                initialRegion={mapRegion}
+                onMapReady={() => setMapReady(true)}
+                showsUserLocation
+                showsMyLocationButton={false}
+              >
+                <Marker
+                  coordinate={pinCoordinate}
+                  title="Pickup Location"
+                  description={`${addressData?.address || ''}, ${addressData?.city || ''}, ${addressData?.country || ''}`}
+                  draggable
+                  onDragEnd={handlePinDragEnd}
+                />
+              </MapView>
+            ) : (
+              <View style={styles.mapLoading}>
+                <ActivityIndicator size="large" color="#00B4AB" />
+              </View>
+            )}
           </View>
 
-          {/* Next button positioned on top of map */}
-          <TouchableOpacity 
-            style={styles.nextButton}
-            onPress={() => onNext()}
+          <TouchableOpacity
+            style={[styles.nextButton, !pinCoordinate && styles.nextButtonDisabled]}
+            disabled={!pinCoordinate}
+            onPress={() => {
+              if (!pinCoordinate) return;
+              onNext({
+                country: addressData?.country || '',
+                city: addressData?.city || '',
+                address: addressData?.address || '',
+                latitude: pinCoordinate.latitude,
+                longitude: pinCoordinate.longitude,
+              });
+            }}
           >
             <Text style={styles.nextButtonText}>Next</Text>
           </TouchableOpacity>
@@ -126,8 +145,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 14 * scale,
     borderTopRightRadius: 14 * scale,
     paddingTop: 20 * scale,
-    paddingHorizontal: 0,
-    paddingBottom: 0,
     position: 'relative',
   },
   slideIndicator: {
@@ -146,39 +163,24 @@ const styles = StyleSheet.create({
     fontSize: 22 * scale,
     color: 'rgba(14, 38, 43, 1)',
     textAlign: 'center',
-    width: '100%',
-    height: 40 * scale,
-    alignSelf: 'center',
     marginBottom: 20 * scale,
     paddingHorizontal: 20 * scale,
   },
   mapContainer: {
     flex: 1,
     width: 375 * scale,
-    backgroundColor: 'transparent',
     borderRadius: 14 * scale,
-    marginBottom: 0,
-    position: 'relative',
-    marginTop: 0,
+    overflow: 'hidden',
   },
   map: {
     width: '100%',
     height: '100%',
-    borderRadius: 14 * scale,
   },
-  mapPlaceholder: {
-    fontFamily: 'Nunito-SemiBold',
-    fontSize: 16 * scale,
-    color: '#8E8E8E',
-    textAlign: 'center',
-    marginBottom: 15 * scale,
-  },
-  addressText: {
-    fontFamily: 'Nunito-SemiBold',
-    fontSize: 14 * scale,
-    color: '#505050',
-    textAlign: 'center',
-    lineHeight: 20 * scale,
+  mapLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F5F5',
   },
   nextButton: {
     position: 'absolute',
@@ -192,15 +194,16 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     zIndex: 10,
   },
+  nextButtonDisabled: {
+    opacity: 0.5,
+  },
   nextButtonText: {
     fontFamily: 'Nunito-SemiBold',
     fontSize: 16 * scale,
     color: '#F7F7F7',
     letterSpacing: 0.2,
-    width: 36 * scale,
-    height: 22 * scale,
     textAlign: 'center',
   },
 });
 
-export default PinAccuracyModal; 
+export default PinAccuracyModal;

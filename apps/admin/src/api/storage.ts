@@ -1,0 +1,36 @@
+const ACCESS = 'ryr_admin_access_token';
+const REFRESH = 'ryr_admin_refresh_token';
+const USER = 'ryr_admin_user';
+
+export function getAccessToken(): string | null {
+  return localStorage.getItem(ACCESS);
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH);
+}
+
+export function setTokenPair(access: string, refresh: string): void {
+  localStorage.setItem(ACCESS, access);
+  localStorage.setItem(REFRESH, refresh);
+}
+
+export function setUserJson(user: unknown): void {
+  localStorage.setItem(USER, JSON.stringify(user));
+}
+
+export function getUserJson<T = Record<string, unknown>>(): T | null {
+  const raw = localStorage.getItem(USER);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+export function clearSession(): void {
+  localStorage.removeItem(ACCESS);
+  localStorage.removeItem(REFRESH);
+  localStorage.removeItem(USER);
+}

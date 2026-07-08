@@ -13,9 +13,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import { Svg, Path } from 'react-native-svg';
+import { MAP_PROVIDER } from '../utils/mapProvider';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
+import { useFavorites } from '../context/FavoritesContext';
+import { getListing } from '../services/listingsApi';
+import { isRemoteListingId } from '../utils/listingId';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375;
@@ -42,7 +46,8 @@ const CAR_FEATURES_DISPLAY = [
 
 export default function VehicleDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { listings } = useListings();
+  const { listings, mergeRemoteListings } = useListings();
+  const { isFavorited, toggleFavorite } = useFavorites();
   const routeListing = route.params?.listing || {};
   const listing = useMemo(() => {
     const id = routeListing?.id;
@@ -67,6 +72,23 @@ export default function VehicleDetailScreen({ navigation, route }) {
     setDescriptionExpanded(false);
     flatListRef.current?.scrollToOffset?.({ offset: 0, animated: false });
   }, [listingIdentityKey]);
+
+  useEffect(() => {
+    const id = routeListing?.id;
+    if (!isRemoteListingId(id)) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const row = await getListing(String(id));
+        if (!cancelled && row) mergeRemoteListings([row]);
+      } catch (_) {
+        /* keep route listing */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [routeListing?.id, mergeRemoteListings]);
 
   const title = listing.title || 'Vehicle';
   const photos = Array.isArray(listing.photos) && listing.photos.length > 0 ? listing.photos : [];
@@ -93,6 +115,24 @@ export default function VehicleDetailScreen({ navigation, route }) {
   };
 
   const bookingDates = route.params?.bookingDates;
+  const hasBookingDates = bookingDates?.start != null && bookingDates?.end != null;
+
+  const proceedToCheckout = () => {
+    if (!hasBookingDates) {
+      navigation.navigate('CalendarScreen', {
+        mode: 'booking',
+        returnTo: 'VehicleDetailScreen',
+        listing,
+        bookingSessionKey: Date.now(),
+        savedCalendarData: listing.calendarData,
+        minTripConstraint: listing.shortestTrip,
+        maxTripConstraint: listing.longestTrip,
+      });
+      return;
+    }
+    navigation.navigate('BookingCheckoutScreen', { listing, bookingDates });
+  };
+
   const startDate = bookingDates?.start
     ? `${new Date(bookingDates.start).toLocaleString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()} - ${bookingDates?.startTime || '12:00 AM'}`
     : 'JAN 20TH, 2019 - 12:00 AM';
@@ -122,7 +162,17 @@ export default function VehicleDetailScreen({ navigation, route }) {
           </Svg>
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>{title}</Text>
-        <View style={styles.headerSpacer} />
+        {listing?.id != null && listing.id !== '' ? (
+          <TouchableOpacity
+            style={styles.favBtn}
+            onPress={() => toggleFavorite(listing)}
+            hitSlop={12}
+          >
+            <Text style={styles.favIcon}>{isFavorited(listing.id) ? '♥' : '♡'}</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -347,6 +397,7 @@ export default function VehicleDetailScreen({ navigation, route }) {
         <View style={styles.sectionMidDivider} />
         <MapView
           key={listingIdentityKey}
+          provider={MAP_PROVIDER}
           style={styles.mapPlaceholder}
           initialRegion={initialMapRegion}
           showsUserLocation={false}
@@ -366,22 +417,22 @@ export default function VehicleDetailScreen({ navigation, route }) {
         </MapView>
 
         {/* Checkout CTA (scrolls with content) */}
-        <View style={styles.checkoutSection}>
+        <TouchableOpacity
+          style={styles.checkoutSection}
+          activeOpacity={0.85}
+          onPress={proceedToCheckout}
+        >
           <View style={styles.checkoutBtn}>
             <Text style={styles.checkoutBtnText}>PROCEED TO CHECKOUT</Text>
             <View style={styles.checkoutArrowTip} />
           </View>
-          <TouchableOpacity
-            style={styles.priceBadge}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('BookingCheckoutScreen', { listing, bookingDates })}
-          >
+          <View style={styles.priceBadge}>
             <Text style={styles.priceBadgeText}>
               <Text style={styles.priceBadgeMain}>CAD ${pricePerDay}/</Text>
               <Text style={styles.priceBadgeDay}>DAY</Text>
             </Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -417,6 +468,15 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  favBtn: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favIcon: {
+    fontSize: 22 * scale,
+    color: COLORS.MANGO_TWO,
   },
   scroll: {
     flex: 1,

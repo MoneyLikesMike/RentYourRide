@@ -1,11 +1,14 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
+import { navigationRef } from './navigationRef';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, TouchableOpacity, Image, StyleSheet, Platform, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Platform, Dimensions } from 'react-native';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import { COLORS } from '../constants/colors';
+import { FONTS } from '../constants/fonts';
 import AuthScreen from '../screens/AuthScreen';
 import TermsAndConditionsScreen from '../screens/TermsAndConditionsScreen';
 import NotificationOnboardingScreen from '../screens/NotificationOnboardingScreen';
@@ -16,12 +19,18 @@ import RentalManagerScreen from '../screens/RentalManagerScreen';
 import AccountManagementScreen from '../screens/AccountManagementScreen';
 import ContactInformationScreen from '../screens/ContactInformationScreen';
 import ChangeEmailScreen from '../screens/ChangeEmailScreen';
+import ChangeAddressScreen from '../screens/ChangeAddressScreen';
+import ChangeLicenseScreen from '../screens/ChangeLicenseScreen';
+import LicenseVerificationScreen from '../screens/LicenseVerificationScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import PaymentInformationScreen from '../screens/PaymentInformationScreen';
 import AddPaymentMethodScreen from '../screens/AddPaymentMethodScreen';
 import AddCardScreen from '../screens/AddCardScreen';
 import AddPayPalScreen from '../screens/AddPayPalScreen';
 import EmptyMessagesScreen from '../screens/EmptyMessagesScreen';
+import MessagesScreen from '../screens/MessagesScreen';
+import ChatThreadScreen from '../screens/ChatThreadScreen';
+import { useMessaging } from '../context/MessagingContext';
 import FavouritesScreen from '../screens/FavouritesScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
@@ -63,6 +72,7 @@ import BookingCheckoutScreen from '../screens/BookingCheckoutScreen';
 import BookingRequestConfirmationScreen from '../screens/BookingRequestConfirmationScreen';
 import ListRideStack from './ListRideStack';
 import ListingsScreen from '../screens/ListingsScreen';
+import VerificationStepsScreen from '../screens/VerificationStepsScreen';
 import ReferralsCreditsScreen from '../screens/ReferralsCreditsScreen';
 import InviteFriendScreen from '../screens/InviteFriendScreen';
 import ReferHostScreen from '../screens/ReferHostScreen';
@@ -95,10 +105,14 @@ function ProfileStack() {
   return (
     <ProfileStackNav.Navigator screenOptions={{ headerShown: false }}>
       <ProfileStackNav.Screen name="AccountManagementScreen" component={AccountManagementScreen} />
+      <ProfileStackNav.Screen name="VerificationStepsScreen" component={VerificationStepsScreen} />
       <ProfileStackNav.Screen name="UserProfileScreen" component={UserProfileScreen} />
       <ProfileStackNav.Screen name="EditProfileScreen" component={EditProfileScreen} />
       <ProfileStackNav.Screen name="ContactInformationScreen" component={ContactInformationScreen} />
       <ProfileStackNav.Screen name="ChangeEmailScreen" component={ChangeEmailScreen} options={{ presentation: 'modal' }} />
+      <ProfileStackNav.Screen name="ChangeAddressScreen" component={ChangeAddressScreen} />
+      <ProfileStackNav.Screen name="ChangeLicenseScreen" component={ChangeLicenseScreen} />
+      <ProfileStackNav.Screen name="LicenseVerificationScreen" component={LicenseVerificationScreen} />
       <ProfileStackNav.Screen name="NotificationsScreen" component={NotificationsScreen} />
       <ProfileStackNav.Screen name="PaymentInformationScreen" component={PaymentInformationScreen} />
       <ProfileStackNav.Screen name="AddPaymentMethodScreen" component={AddPaymentMethodScreen} />
@@ -153,16 +167,24 @@ function RentalManagerStack() {
   );
 }
 
-function ChatScreen(props) {
-  // For now, always show empty state. Replace with logic to check for messages.
-  return <EmptyMessagesScreen {...props} />;
+const MessagingStackNav = createNativeStackNavigator();
+
+function MessagingStack() {
+  return (
+    <MessagingStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <MessagingStackNav.Screen name="MessagesScreen" component={MessagesScreen} />
+      <MessagingStackNav.Screen name="ChatThreadScreen" component={ChatThreadScreen} />
+    </MessagingStackNav.Navigator>
+  );
 }
 
 function CustomTabBar({ state, descriptors, navigation }) {
+  const { unreadTotal } = useMessaging();
   // Hide bottom nav on specific nested screens (e.g. booking calendar).
   const focusedRoute = state.routes[state.index];
   const focusedNestedName = getFocusedRouteNameFromRoute(focusedRoute) ?? focusedRoute.name;
   if (
+    focusedNestedName === 'ChatThreadScreen' ||
     focusedNestedName === 'InviteFriendScreen' ||
     focusedNestedName === 'ReferHostScreen' ||
     focusedNestedName === 'TravelCreditScreen' ||
@@ -216,6 +238,8 @@ function CustomTabBar({ state, descriptors, navigation }) {
             navigation.navigate(route.name);
           }
         };
+        const showBadge = route.name === 'ChatScreen' && unreadTotal > 0;
+        const badgeLabel = unreadTotal > 99 ? '99+' : String(unreadTotal);
         return (
           <TouchableOpacity
             key={route.key}
@@ -230,6 +254,11 @@ function CustomTabBar({ state, descriptors, navigation }) {
               style={[tabBarStyles.menuIcon, isFocused && tabBarStyles.menuIconSelected]}
               resizeMode="contain"
             />
+            {showBadge && (
+              <View style={tabBarStyles.unreadBadge}>
+                <Text style={tabBarStyles.unreadBadgeText}>{badgeLabel}</Text>
+              </View>
+            )}
             {isFocused && <View style={tabBarStyles.menuDot} />}
           </TouchableOpacity>
         );
@@ -246,17 +275,20 @@ function MainTabs() {
     >
       <Tab.Screen name="HomeTab" component={HomeStack} />
       <Tab.Screen name="RentalManagerScreen" component={RentalManagerStack} />
-      <Tab.Screen name="ChatScreen" component={ChatScreen} />
+      <Tab.Screen name="ChatScreen" component={MessagingStack} />
       <Tab.Screen name="ProfileScreen" component={ProfileStack} />
     </Tab.Navigator>
   );
 }
 
 export default function AppNavigator() {
-  console.log('AppNavigator loaded');
+  const { isAuthenticated } = useAuth();
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Welcome">
+    <NavigationContainer ref={navigationRef}>
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+        initialRouteName={isAuthenticated ? 'MainTabs' : 'Welcome'}
+      >
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="AuthScreen" component={AuthScreen} />
         <Stack.Screen name="TermsAndConditionsScreen" component={TermsAndConditionsScreen} />
@@ -308,4 +340,24 @@ const tabBarStyles = StyleSheet.create({
     borderRadius: 2 * scale,
     marginTop: 7 * scale,
   },
-}); 
+  unreadBadge: {
+    position: 'absolute',
+    top: -6 * scale,
+    right: -8 * scale,
+    minWidth: 16 * scale,
+    height: 16 * scale,
+    borderRadius: 8 * scale,
+    backgroundColor: COLORS.MANGO_TWO,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4 * scale,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  unreadBadgeText: {
+    color: '#fff',
+    fontSize: 10 * scale,
+    fontFamily: FONTS.NUNITO_BOLD,
+    lineHeight: 12 * scale,
+  },
+});

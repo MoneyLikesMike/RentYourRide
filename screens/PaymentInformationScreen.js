@@ -187,7 +187,7 @@ export default function PaymentInformationScreen({ navigation }) {
               style={styles.listScroll}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="never"
             >
               {sortedMethods.map((m) => (
                 <View key={m.id}>

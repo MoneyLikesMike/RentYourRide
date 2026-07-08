@@ -1,9 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, Dimensions, Switch, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  Dimensions,
+  Switch,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
-import { useUserProfile } from '../context/UserProfileContext';
+import { useAuth } from '../context/AuthContext';
+import { ApiError } from '../services/authApi';
+import SocialAuthButtons from '../components/SocialAuthButtons';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -19,7 +32,7 @@ function ErrorRow({ message }) {
 
 export default function SignUpScreen(props) {
   const navigation = useNavigation();
-  const { commitSignUpIdentity } = useUserProfile();
+  const { signUp } = useAuth();
   // Remove local toggle state; always use navigation for tab switching
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -31,9 +44,12 @@ export default function SignUpScreen(props) {
   const [firstNameError, setFirstNameError] = useState('');
   const [lastNameError, setLastNameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSignUp = async () => {
     let valid = true;
+    setSubmitError('');
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) {
@@ -67,9 +83,21 @@ export default function SignUpScreen(props) {
     } else {
       setPasswordError('');
     }
-    if (valid) {
-      await commitSignUpIdentity(firstName, lastName);
+    if (!valid) return;
+    setSubmitting(true);
+    try {
+      await signUp({ email, password, firstName, lastName });
       navigation.navigate('TermsAndConditionsScreen');
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err && typeof err.message === 'string'
+            ? err.message
+            : 'Could not create account. Try again.';
+      setSubmitError(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -77,17 +105,7 @@ export default function SignUpScreen(props) {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Social Sign Up Icons */}
-        <View style={styles.socialRow}>
-          <TouchableOpacity style={styles.socialBtn}>
-            <Image source={require('../assets/icons/signInWithAppleLogoOnly2.png')} style={styles.socialIcon} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialBtn}>
-            <Image source={require('../assets/icons/signInWithFBLogoOnly.png')} style={styles.socialIcon} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialBtn}>
-            <Image source={require('../assets/icons/group2Copy.png')} style={styles.socialIcon} />
-          </TouchableOpacity>
-        </View>
+        <SocialAuthButtons isSignUp style={{ marginBottom: 120 * scale }} />
 
         {/* Or sign up using email */}
         <Text style={styles.orEmailText}>Or sign up using email</Text>
@@ -147,6 +165,7 @@ export default function SignUpScreen(props) {
           )}
         </View>
         {passwordError ? <ErrorRow message={passwordError} /> : null}
+        {submitError ? <ErrorRow message={submitError} /> : null}
 
         {/* Age Notice */}
         <Text style={styles.ageNotice}>You need to be at least 18 years old.</Text>
@@ -167,8 +186,16 @@ export default function SignUpScreen(props) {
         </View>
 
         {/* Sign Up Button */}
-        <TouchableOpacity style={styles.signupButton} onPress={handleSignUp}>
-          <Text style={styles.signupButtonText}>Sign up</Text>
+        <TouchableOpacity
+          style={[styles.signupButton, submitting && styles.signupButtonDisabled]}
+          onPress={handleSignUp}
+          disabled={submitting}
+        >
+          {submitting ? (
+            <ActivityIndicator color={COLORS.YELLOWISH_ORANGE} />
+          ) : (
+            <Text style={styles.signupButtonText}>Sign up</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -344,6 +371,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 42 * scale,
+  },
+  signupButtonDisabled: {
+    opacity: 0.7,
   },
   signupButtonText: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,

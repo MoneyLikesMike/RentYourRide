@@ -1,4 +1,5 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
+import { useRoute } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -19,9 +20,8 @@ const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = SCREEN_WIDTH / BASE_WIDTH;
 
-const REFERRAL_LINK = 'https://rentyourride.com/invite';
+const REFERRAL_BASE = 'https://rentyourride.com/invite';
 const CREDIT_DISPLAY = '$25';
-const HOST_SHARE_MESSAGE = `List your vehicle on Rent Your Ride and earn. ${REFERRAL_LINK}`;
 
 const HEADLINE_COLOR = 'rgb(14, 38, 43)';
 
@@ -41,16 +41,26 @@ function ChevronRight() {
 
 export default function ReferHostScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const route = useRoute();
+  const referralCode = route.params?.referralCode?.trim?.() || '';
+  const referralLink = useMemo(() => {
+    if (!referralCode) return REFERRAL_BASE;
+    return `${REFERRAL_BASE}?code=${encodeURIComponent(referralCode)}`;
+  }, [referralCode]);
+  const hostShareMessage = useMemo(
+    () => `List your vehicle on Rent Your Ride and earn. ${referralLink}`,
+    [referralLink],
+  );
   const [shareModalVisible, setShareModalVisible] = useState(false);
 
   const onCopyLink = useCallback(async () => {
     try {
-      await Clipboard.setStringAsync(REFERRAL_LINK);
+      await Clipboard.setStringAsync(referralLink);
       Alert.alert('Link copied', 'Your referral link was copied to the clipboard.');
     } catch (_) {
       Alert.alert('Could not copy', 'Please try again.');
     }
-  }, []);
+  }, [referralLink]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -138,8 +148,8 @@ export default function ReferHostScreen({ navigation }) {
       <ShareLinkModal
         visible={shareModalVisible}
         onClose={() => setShareModalVisible(false)}
-        referralLink={REFERRAL_LINK}
-        shareMessage={HOST_SHARE_MESSAGE}
+        referralLink={referralLink}
+        shareMessage={hostShareMessage}
       />
     </View>
   );

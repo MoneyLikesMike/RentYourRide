@@ -8,35 +8,104 @@ import {
   Dimensions,
   Image,
   Linking,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
+import { useAuth } from '../context/AuthContext';
+import * as listingsApi from '../services/listingsApi';
+import {
+  buildListingAvailabilityPatch,
+  calendarDataToApiRanges,
+} from '../utils/listingAvailability';
+import { draftToListingBody } from '../utils/listingDraftPayload';
+import { syncListingPhotos } from '../utils/listingPhotos';
+import { isRemoteListingId } from '../utils/listingId';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375;
 
 const ReadyToStartEarningScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { draft, addListing, clearDraft } = useListings();
+  const { draft, addListing, clearDraft, mergeRemoteListings } = useListings();
+  const { isAuthenticated, isReady } = useAuth();
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleBack = () => {
     navigation.goBack();
   };
 
-  const handleListMyRide = () => {
+  const handleListMyRide = async () => {
     if (!termsAccepted) return;
     const city = draft?.city ?? 'Winnipeg';
+    const pricePerDay =
+      typeof draft?.pricePerDay === 'number' ? draft.pricePerDay : Number(draft?.pricePerDay) || 0;
+
+    if (isAuthenticated && isReady) {
+      try {
+        const availFields = buildListingAvailabilityPatch({
+          advanceNotice: draft?.advanceNotice,
+          shortestTrip: draft?.shortestTrip,
+          longestTrip: draft?.longestTrip,
+          dailyKm: draft?.dailyKm,
+          existingExtras: draft?.extras,
+        });
+        const blockedRanges =
+          draft?.availability?.length > 0
+            ? draft.availability
+            : calendarDataToApiRanges(draft?.calendarData);
+        const publishDraft = {
+          ...draft,
+          city,
+          pricePerDay: pricePerDay || 40,
+          dailyKm: availFields.dailyKm,
+          instantBooking: availFields.instantBooking,
+          extras: availFields.extras,
+          availability: blockedRanges,
+        };
+        const existingId =
+          draft?.serverListingId && isRemoteListingId(draft.serverListingId)
+            ? draft.serverListingId
+            : null;
+        let listingId = existingId;
+        let row = null;
+        if (listingId) {
+          await syncListingPhotos(listingId, publishDraft.photos ?? []);
+          row = await listingsApi.hostPatchListing(listingId, draftToListingBody(publishDraft));
+          if (blockedRanges?.length) {
+            await listingsApi.hostListingAvailability(listingId, blockedRanges);
+          }
+        } else {
+          row = await listingsApi.hostCreateListing(draftToListingBody(publishDraft));
+          listingId = row?.id;
+          if (listingId && publishDraft.photos?.length) {
+            await syncListingPhotos(listingId, publishDraft.photos);
+          }
+        }
+        if (listingId) {
+          const published = await listingsApi.hostPublishListing(listingId);
+          if (published) row = published;
+        }
+        if (row) mergeRemoteListings([{ ...row, owned: true, active: true, published: true }]);
+        clearDraft();
+        const root = navigation.getParent();
+        if (root) root.navigate('MainTabs');
+        return;
+      } catch (e) {
+        Alert.alert('Could not list ride', e?.message || 'Try again later.');
+      }
+    }
+
     addListing({
       ...draft,
       city,
       title: draft?.title || 'My vehicle',
       vehicleType: draft?.vehicleType || 'SEDAN',
       photos: draft?.photos ?? [],
-      pricePerDay: typeof draft?.pricePerDay === 'number' ? draft.pricePerDay : Number(draft?.pricePerDay) || 0,
+      pricePerDay,
       instantBooking: Boolean(draft?.instantBooking),
       hostName: draft?.hostName || 'Moe Jackson',
       hostTrips: draft?.hostTrips ?? 52,

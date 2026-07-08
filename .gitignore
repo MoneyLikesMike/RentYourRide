@@ -25,6 +25,7 @@ ios/build/
 
 # Metro
 .metro-health-check*
+ios/RentYourRide/MetroHost.config.json
 
 # debug
 npm-debug.*
@@ -40,7 +41,13 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.save
 .env*.local
+stripe.secret.local
+phone-sms.secret.local
+apps/api/.env
+apps/api/.ssm-*.json
 
 # typescript
 *.tsbuildinfo

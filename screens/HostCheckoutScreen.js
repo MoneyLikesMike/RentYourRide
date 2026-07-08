@@ -5,6 +5,7 @@ import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { useUserProfile } from '../context/UserProfileContext';
 import { formatCheckInTripEnd } from '../utils/guestBookingFormat';
 
@@ -17,6 +18,7 @@ export default function HostCheckoutScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId } = route.params || {};
   const { getBookingById } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
   const { firstName } = useUserProfile();
 
   const booking = useMemo(() => (bookingId ? getBookingById(bookingId) : null), [bookingId, getBookingById]);
@@ -34,7 +36,13 @@ export default function HostCheckoutScreen({ navigation, route }) {
   const pickupAddress = booking?.pickupAddress || ls.pickupAddress || '—';
   const dropoffAddress = booking?.dropoffAddress || pickupAddress;
 
-  const onLetsGo = () => {
+  const onLetsGo = async () => {
+    const ok = await applyBookingUpdate(
+      booking.id,
+      { hostCheckoutStartedAt: Date.now() },
+      { errorTitle: 'Could not start checkout' },
+    );
+    if (!ok) return;
     navigation.push('CheckInGuidelinesScreen', {
       bookingId: booking.id,
       role: 'host',
@@ -74,7 +82,7 @@ export default function HostCheckoutScreen({ navigation, route }) {
           { paddingBottom: insets.bottom + 24 * scale },
         ]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="never"
       >
         <View style={styles.heroWrap}>
           <Image

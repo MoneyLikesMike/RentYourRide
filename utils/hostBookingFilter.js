@@ -1,14 +1,17 @@
-/** Host sees bookings where the listing is owned (id) or hostName matches profile. */
+/** Host sees bookings where the listing is owned (id), API hostUserId matches, or hostName matches profile. */
 
 export function normalizeHostKey(name) {
   return (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-export function filterBookingsForHost(bookings, listings, firstName, lastName) {
+export function filterBookingsForHost(bookings, listings, firstName, lastName, authUserId) {
   const profileName = normalizeHostKey([firstName, lastName].filter(Boolean).join(' '));
   const ownedListingIds = new Set((listings || []).map((l) => String(l.id)));
 
   return (bookings || []).filter((b) => {
+    if (authUserId && b.hostUserId && String(b.hostUserId) === String(authUserId)) {
+      return true;
+    }
     const snapId = b.listingSnapshot?.id;
     if (snapId != null && snapId !== '' && ownedListingIds.has(String(snapId))) {
       return true;

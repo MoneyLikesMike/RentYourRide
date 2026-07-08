@@ -11,6 +11,7 @@ import {
   Alert,
   ActionSheetIOS,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
@@ -18,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
+import { useSaveListingStep } from '../hooks/useSaveListingStep';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375;
@@ -27,7 +29,8 @@ const COVER_BADGE_COLOR = '#3AAFA9';
 const ORANGE = '#FFB131';
 
 const PhotoManagementScreen = ({ navigation, route }) => {
-  const { setDraftListing, editingListingId, draft } = useListings();
+  const { editingListingId, draft } = useListings();
+  const { saveStep, saving } = useSaveListingStep();
   const insets = useSafeAreaInsets();
   const mapPhoto = (p) =>
     typeof p === 'string' ? { uri: p } : { uri: p.uri, step: p.step, label: p.label };
@@ -125,8 +128,9 @@ const PhotoManagementScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleContinue = () => {
-    setDraftListing({ photos });
+  const handleContinue = async () => {
+    const ok = await saveStep({ photos }, { uploadPhotos: true });
+    if (!ok) return;
     if (editingListingId) {
       navigation.navigate('EditYourRideScreen');
     } else {
@@ -243,8 +247,17 @@ const PhotoManagementScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.continueButton} onPress={handleContinue} activeOpacity={0.8}>
-          <Text style={styles.continueButtonText}>{editingListingId ? 'SAVE' : 'CONTINUE'}</Text>
+        <TouchableOpacity
+          style={[styles.continueButton, saving && { opacity: 0.7 }]}
+          onPress={handleContinue}
+          activeOpacity={0.8}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.continueButtonText}>{editingListingId ? 'SAVE' : 'CONTINUE'}</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>

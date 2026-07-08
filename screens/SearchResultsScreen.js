@@ -21,6 +21,8 @@ import { FONTS } from '../constants/fonts';
 import { useFavorites } from '../context/FavoritesContext';
 import { useListings } from '../context/ListingsContext';
 import ListingCard from '../components/ListingCard';
+import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocompleteField';
+import { resolveCurrentLocationQueryWithAlert } from '../utils/currentLocation';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const scale = screenWidth / 375;
@@ -98,7 +100,6 @@ export default function SearchResultsScreen({ navigation, route }) {
   const panelSlide = useRef(new Animated.Value(-SEARCH_PANEL_HEIGHT)).current;
   const [editingCity, setEditingCity] = useState(false);
   const [whereInput, setWhereInput] = useState(selectedCity ?? '');
-  const [citySuggestions, setCitySuggestions] = useState([]);
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const [instantEnabled, setInstantEnabled] = useState(false);
   const [priceMin, setPriceMin] = useState(0);
@@ -132,8 +133,6 @@ export default function SearchResultsScreen({ navigation, route }) {
       return next;
     });
   };
-
-  const CITY_SUGGESTIONS_MOCK = ['Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Edmonton', 'Winnipeg'];
 
   const currentMinPrice = Math.round(priceMin * PRICE_MAX_VALUE);
   const currentMaxPrice = Math.round(priceMax * PRICE_MAX_VALUE);
@@ -233,17 +232,24 @@ export default function SearchResultsScreen({ navigation, route }) {
 
   const openWhereEdit = () => {
     setWhereInput(selectedCity ?? '');
-    setCitySuggestions([]);
     setEditingCity(true);
   };
 
   const handleCityNext = () => {
     const raw = (whereInput ?? '').trim();
-    // Basic parsing: take the part before the first comma as city input.
-    const nextCity = raw.includes(',') ? raw.split(',')[0].trim() : (raw || selectedCity);
+    const nextCity = raw.includes(',') ? raw.split(',')[0].trim() : raw || selectedCity;
     setSelectedCity(nextCity);
     closeSearchPanel();
     setEditingCity(false);
+  };
+
+  const handleUseCurrentLocation = async () => {
+    const loc = await resolveCurrentLocationQueryWithAlert();
+    if (!loc) return;
+    setWhereInput(loc.query);
+    setSelectedCity(loc.city || loc.query.split(',')[0].trim());
+    setEditingCity(false);
+    closeSearchPanel();
   };
 
   // When returning from booking calendar
@@ -302,47 +308,28 @@ export default function SearchResultsScreen({ navigation, route }) {
               </Svg>
             </TouchableOpacity>
 
-            <ScrollView style={styles.searchPanelScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.searchPanelScroll}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="always"
+              keyboardDismissMode="on-drag"
+              nestedScrollEnabled
+            >
               <View style={styles.searchPanelSection}>
                 <Text style={styles.searchPanelLabel}>WHERE</Text>
                 {editingCity ? (
-                  <View>
-                    <View style={styles.searchPanelRow}>
-                      <TextInput
-                        style={[styles.inlineCityInput, { flex: 1, marginTop: 8, marginRight: 12 }]}
-                        value={whereInput}
-                        onChangeText={(t) => {
-                          setWhereInput(t);
-                          if (t.trim().length > 0) {
-                            const filtered = CITY_SUGGESTIONS_MOCK.filter((c) =>
-                              c.toLowerCase().includes(t.toLowerCase())
-                            );
-                            setCitySuggestions(filtered);
-                          } else {
-                            setCitySuggestions([]);
-                          }
-                        }}
-                        placeholder="City, airport, address, or hotel"
-                        placeholderTextColor="#8E8E8E"
-                        autoFocus
-                      />
-                    </View>
-                    {citySuggestions.length > 0 ? (
-                      <View style={styles.inlineSuggestionsWrap}>
-                        {citySuggestions.map((s) => (
-                          <TouchableOpacity
-                            key={s}
-                            style={styles.inlineSuggestionItem}
-                            onPress={() => {
-                              setWhereInput(s);
-                              setCitySuggestions([]);
-                            }}
-                          >
-                            <Text style={styles.inlineSuggestionText}>{s}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    ) : null}
+                  <View style={styles.whereEditBlock}>
+                    <GooglePlacesAutocompleteField
+                      placeholder="City, airport, address, or hotel"
+                      onPlaceSelected={({ selection }) => {
+                        setWhereInput(selection.query);
+                        setSelectedCity(selection.city || selection.query.split(',')[0].trim());
+                        setEditingCity(false);
+                        closeSearchPanel();
+                      }}
+                      containerStyle={{ marginTop: 8 }}
+                      inputStyle={styles.inlineCityInput}
+                    />
                     <TouchableOpacity onPress={handleCityNext} activeOpacity={0.85} style={styles.inlineCityNextBtn}>
                       <Text style={styles.inlineCityNextBtnText}>Save</Text>
                     </TouchableOpacity>
@@ -359,10 +346,14 @@ export default function SearchResultsScreen({ navigation, route }) {
               <View style={styles.searchPanelDivider} />
               <View style={styles.searchPanelSection}>
                 <Text style={styles.searchPanelLabel}>LOCATION</Text>
-                <View style={styles.searchPanelRowRight}>
+                <TouchableOpacity
+                  style={styles.searchPanelRowRight}
+                  onPress={handleUseCurrentLocation}
+                  activeOpacity={0.85}
+                >
                   <Image source={require('../assets/icons/currentLocationPin.png')} style={styles.searchPanelPin} resizeMode="contain" />
                   <Text style={styles.searchPanelCurrentLocation}>Current Location</Text>
-                </View>
+                </TouchableOpacity>
               </View>
               <View style={styles.searchPanelDivider} />
               <View style={styles.searchPanelSection}>
@@ -431,7 +422,7 @@ export default function SearchResultsScreen({ navigation, route }) {
               style={styles.refineBody}
               contentContainerStyle={[styles.refineBodyContent, { minHeight: REFINE_SCROLL_CONTENT_MIN_HEIGHT }]}
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="never"
               bounces={true}
               nestedScrollEnabled={true}
               directionalLockEnabled={true}
@@ -893,7 +884,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   searchPanelBackBtn: {
     position: 'absolute',
@@ -909,6 +900,11 @@ const styles = StyleSheet.create({
   },
   searchPanelSection: {
     paddingVertical: 14,
+  },
+  whereEditBlock: {
+    zIndex: 2000,
+    elevation: 2000,
+    overflow: 'visible',
   },
   searchPanelLabel: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,

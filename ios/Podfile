@@ -16,6 +16,22 @@ prepare_react_native_project!
 target 'RentYourRide' do
   use_expo_modules!
 
+  # @generated begin didit-sdk-react-native-pod - expo prebuild (DO NOT MODIFY) sync-3.3.2
+  $DiditSdkIosVariant = 'core'
+  didit_sdk_subspec = case $DiditSdkIosVariant
+                      when 'all'           then 'DiditSDK/All'
+                      when 'core'          then 'DiditSDK/Core'
+                      when 'autodetection' then 'DiditSDK/AutoDetection'
+                      when 'nfc'           then 'DiditSDK/NFC'
+                      else
+                        raise "Invalid $DiditSdkIosVariant '#{$DiditSdkIosVariant}'. Supported values: all, core, autodetection, nfc."
+                      end
+  pod didit_sdk_subspec, :podspec => 'https://raw.githubusercontent.com/didit-protocol/sdk-ios/4.0.8/DiditSDK.podspec'
+  # @generated end didit-sdk-react-native-pod
+
+  pod 'GoogleUtilities', :modular_headers => true
+  pod 'RecaptchaInterop', :modular_headers => true
+
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
   else

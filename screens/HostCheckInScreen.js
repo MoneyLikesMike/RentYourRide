@@ -65,7 +65,7 @@ export default function HostCheckInScreen({ navigation, route }) {
           { paddingBottom: insets.bottom + 24 * scale },
         ]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="never"
       >
         <View style={styles.heroWrap}>
           <Image

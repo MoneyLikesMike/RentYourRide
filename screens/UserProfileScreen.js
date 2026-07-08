@@ -17,6 +17,7 @@ import { useUserProfile } from '../context/UserProfileContext';
 import { useListings } from '../context/ListingsContext';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 import { averageRatingFromReviews } from '../utils/guestListingReview';
+import { useAuth } from '../context/AuthContext';
 import { navigateRootStack, navigateToVehicleDetail } from '../utils/navigateRootStack';
 import ListingCard, { ListingStarRating } from '../components/ListingCard';
 
@@ -49,17 +50,34 @@ function PencilIcon({ color, size = 22 }) {
   );
 }
 
-export default function UserProfileScreen({ navigation }) {
+export default function UserProfileScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const profileUser = route.params?.profileUser;
+  const highlightListings = Array.isArray(route.params?.highlightListings)
+    ? route.params.highlightListings
+    : null;
+  const isOwnProfile =
+    !profileUser ||
+    (!!user?.id &&
+      !!profileUser.userId &&
+      String(profileUser.userId) === String(user.id));
+
   const { firstName, lastName, joinedYear, photoUri, aboutBio } = useUserProfile();
   const { canUseListingsHub, listings } = useListings();
   const { pendingRequests, activeRentals } = useGuestBookings();
 
   const [reviewsVisible, setReviewsVisible] = useState(REVIEWS_PAGE_SIZE);
 
-  const ownedListings = useMemo(() => listings.filter((l) => l.owned !== false), [listings]);
+  const ownedListings = useMemo(() => {
+    if (!isOwnProfile) {
+      return highlightListings || [];
+    }
+    return listings.filter((l) => l.owned !== false);
+  }, [isOwnProfile, highlightListings, listings]);
 
   const mergedProfileReviews = useMemo(() => {
+    if (!isOwnProfile) return [];
     const fromListings = ownedListings.flatMap((l) =>
       (Array.isArray(l.guestReviews) ? l.guestReviews : []).map((r) => ({
         id: `l-${r.bookingId}-${r.submittedAt}`,
@@ -106,13 +124,20 @@ export default function UserProfileScreen({ navigation }) {
   );
   const hasMoreReviews = mergedProfileReviews.length > reviewsVisible;
 
-  const displayName =
-    [firstName, lastName]
-      .map((s) => (s ?? '').trim())
-      .filter(Boolean)
-      .join(' ') || 'Guest';
-  const aboutDisplay = aboutBio?.trim() ? aboutBio.trim() : ABOUT_PLACEHOLDER;
-  const aboutIsPlaceholder = !aboutBio?.trim();
+  const displayName = isOwnProfile
+    ? [firstName, lastName]
+        .map((s) => (s ?? '').trim())
+        .filter(Boolean)
+        .join(' ') || 'Guest'
+    : (profileUser?.displayName || 'Guest').trim() || 'Guest';
+  const profilePhotoUri = isOwnProfile ? photoUri : profileUser?.photoUri || null;
+  const profileJoinedYear = isOwnProfile ? joinedYear : profileUser?.joinedYear ?? null;
+  const aboutDisplay = isOwnProfile
+    ? aboutBio?.trim()
+      ? aboutBio.trim()
+      : ABOUT_PLACEHOLDER
+    : profileUser?.aboutBio?.trim() || ABOUT_PLACEHOLDER;
+  const aboutIsPlaceholder = isOwnProfile ? !aboutBio?.trim() : !profileUser?.aboutBio?.trim();
 
   const openListing = useCallback(
     (listing) => {
@@ -146,25 +171,27 @@ export default function UserProfileScreen({ navigation }) {
 
         <View style={styles.profileSummaryRow}>
           <View style={styles.profileMain}>
-            {photoUri ? (
-              <Image source={{ uri: photoUri }} style={styles.avatar} />
+            {profilePhotoUri ? (
+              <Image source={{ uri: profilePhotoUri }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder} />
             )}
             <View style={styles.profileTextCol}>
               <Text style={styles.displayName}>{displayName}</Text>
-              {joinedYear != null ? (
-                <Text style={styles.joinedText}>Joined in {joinedYear}</Text>
+              {profileJoinedYear != null ? (
+                <Text style={styles.joinedText}>Joined in {profileJoinedYear}</Text>
               ) : null}
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={() => navigation.navigate('EditProfileScreen')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <PencilIcon color={COLORS.GREENY_BLUE_TWO} size={22 * scale} />
-          </TouchableOpacity>
+          {isOwnProfile ? (
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => navigation.navigate('EditProfileScreen')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <PencilIcon color={COLORS.GREENY_BLUE_TWO} size={22 * scale} />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View style={styles.statsRow}>
@@ -224,19 +251,23 @@ export default function UserProfileScreen({ navigation }) {
             </View>
           ) : (
             <View style={styles.ridesEmptyBox}>
-              <Text style={styles.ridesEmptyText}>{"You don't have any rides"}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  if (canUseListingsHub) {
-                    navigateRootStack(navigation, 'ListRideStack');
-                  } else {
-                    navigateRootStack(navigation, 'GetPaidStack');
-                  }
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.listRideLink}>List new ride →</Text>
-              </TouchableOpacity>
+              <Text style={styles.ridesEmptyText}>
+                {isOwnProfile ? "You don't have any rides" : 'No rides to show'}
+              </Text>
+              {isOwnProfile ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    if (canUseListingsHub) {
+                      navigateRootStack(navigation, 'ListRideStack');
+                    } else {
+                      navigateRootStack(navigation, 'GetPaidStack');
+                    }
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.listRideLink}>List new ride →</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           )}
         </View>

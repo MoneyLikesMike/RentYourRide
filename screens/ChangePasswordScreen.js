@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { useAuth } from '../context/AuthContext';
+import { patchPassword } from '../services/usersApi';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const scale = SCREEN_WIDTH / BASE_WIDTH;
 
 export default function ChangePasswordScreen({ navigation, onSave }) {
-  // For demo, hardcode the current password
-  const CURRENT_PASSWORD = 'password123';
+  const { isAuthenticated, isReady } = useAuth();
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [reenterPassword, setReenterPassword] = useState('');
@@ -20,14 +21,8 @@ export default function ChangePasswordScreen({ navigation, onSave }) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showReenterPassword, setShowReenterPassword] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     let valid = true;
-    if (oldPassword !== CURRENT_PASSWORD) {
-      setOldPasswordError('Old password is incorrect');
-      valid = false;
-    } else {
-      setOldPasswordError('');
-    }
     if (newPassword.length < 8) {
       setNewPasswordError('New password must be at least 8 characters');
       valid = false;
@@ -40,9 +35,24 @@ export default function ChangePasswordScreen({ navigation, onSave }) {
     } else {
       setReenterPasswordError('');
     }
-    if (valid) {
+    if (!valid) return;
+
+    if (!isAuthenticated || !isReady) {
+      setOldPasswordError('Sign in to change your password.');
+      return;
+    }
+
+    try {
+      await patchPassword({
+        currentPassword: oldPassword,
+        newPassword,
+      });
+      setOldPasswordError('');
       if (onSave) onSave();
       else navigation.goBack();
+      return;
+    } catch (e) {
+      setOldPasswordError(e?.message || 'Could not update password');
     }
   };
 

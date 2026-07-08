@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Rect, Polyline, Line, Path } from 'react-native-svg';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { useAuth } from '../context/AuthContext';
+import { payoutsSummary } from '../services/payoutsApi';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -114,10 +117,38 @@ function LineChart({ values, color, chartWidth }) {
 
 export default function PayoutsDashboardScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { isAuthenticated, isReady } = useAuth();
   const [period, setPeriod] = useState('monthly');
+  const [stripeBalance, setStripeBalance] = useState(null);
   const chartWidth = SCREEN_WIDTH - 40 * scale;
 
   const dataset = DATA[period === 'monthly' ? 'monthly' : 'yearly'];
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      if (!isAuthenticated || !isReady) {
+        setStripeBalance(null);
+        return undefined;
+      }
+      (async () => {
+        try {
+          const data = await payoutsSummary();
+          if (!cancelled && data && typeof data.pendingAmount === 'number') {
+            setStripeBalance({
+              pendingAmount: data.pendingAmount,
+              currency: typeof data.currency === 'string' ? data.currency : 'cad',
+            });
+          }
+        } catch {
+          if (!cancelled) setStripeBalance(null);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [isAuthenticated, isReady]),
+  );
 
   const summary = useMemo(() => {
     const p = dataset.potential.reduce((a, b) => a + b, 0);
@@ -152,6 +183,15 @@ export default function PayoutsDashboardScreen({ navigation }) {
         <Text style={styles.lead}>
           Track potential and completed earnings. Switch between monthly and yearly views.
         </Text>
+
+        {stripeBalance && isAuthenticated ? (
+          <View style={styles.apiBanner}>
+            <Text style={styles.apiBannerLabel}>Stripe Connect · pending balance</Text>
+            <Text style={styles.apiBannerValue}>
+              ${stripeBalance.pendingAmount.toFixed(2)} {stripeBalance.currency.toUpperCase()}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.toggleRow}>
           <TouchableOpacity
@@ -254,6 +294,26 @@ const styles = StyleSheet.create({
     lineHeight: 19 * scale,
     color: 'rgb(140, 140, 140)',
     marginBottom: 18 * scale,
+  },
+  apiBanner: {
+    backgroundColor: 'rgb(250, 250, 250)',
+    borderRadius: 12 * scale,
+    padding: 14 * scale,
+    marginBottom: 16 * scale,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgb(235, 235, 235)',
+  },
+  apiBannerLabel: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 11 * scale,
+    color: 'rgb(140, 140, 140)',
+    marginBottom: 6 * scale,
+    letterSpacing: 0.2,
+  },
+  apiBannerValue: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 18 * scale,
+    color: COLORS.GREENY_BLUE_TWO,
   },
   toggleRow: {
     flexDirection: 'row',

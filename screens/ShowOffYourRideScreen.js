@@ -7,13 +7,16 @@ import {
   ScrollView,
   Dimensions,
   Image,
+  Alert,
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = screenWidth / 375;
+const MAX_PHOTOS = 10;
 
 const TIP_CARDS = [
   {
@@ -49,8 +52,27 @@ const ShowOffYourRideScreen = ({ navigation }) => {
     navigation.navigate('PhotoShootScreen');
   };
 
-  const handleAddFromCameraRoll = () => {
-    navigation.navigate('PhotoShootScreen');
+  const handleAddFromCameraRoll = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission needed',
+        'Photo library access is required to choose photos from your camera roll.',
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      allowsMultipleSelection: true,
+      selectionLimit: MAX_PHOTOS,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const photos = result.assets.slice(0, MAX_PHOTOS).map((asset) => ({ uri: asset.uri }));
+    navigation.navigate('PhotoManagementScreen', { photos });
   };
 
   return (
