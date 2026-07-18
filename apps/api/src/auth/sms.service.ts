@@ -15,7 +15,7 @@ export class SmsService {
   constructor(private readonly config: ConfigService) {}
 
   buildVerificationMessage(code: string): string {
-    return `Rent Your Ride phone verification code: ${code}`;
+    return `Rent Your Ride verification code: ${code}`;
   }
 
   async sendVerificationSms(phoneNumber: string, code: string): Promise<SmsSendResult> {

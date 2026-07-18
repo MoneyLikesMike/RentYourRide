@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
@@ -8,7 +9,7 @@ import ListingCard from '../components/ListingCard';
 import { navigateToVehicleDetail } from '../utils/navigateRootStack';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 export default function FavouritesScreen({ navigation }) {
   const insets = useSafeAreaInsets();

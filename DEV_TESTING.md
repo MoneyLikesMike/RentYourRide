@@ -33,7 +33,7 @@
 | 8 | Rental Manager | Pending / active lists from API |
 | 9 | Contact info | Email/phone/address/license from `GET /v1/users/me` |
 | 9b | Phone verification | Change phone → SMS via AWS SNS; enter 6-digit code (`POST /v1/auth/start-phone-verification`, `finish-phone-verification`) |
-| 9c | License verification (Didit) | Account → Verification steps → License → consent → native Didit flow; webhook updates `licenseVerified` on bedev |
+| 9c | License verification (Didit) | Account → Verification steps → License → **Verify my license** → Didit SDK; webhook updates `licenseVerified` on bedev |
 | 10 | Notifications toggles | Sync to `PATCH /v1/users/me/notification-settings` |
 | 11 | Referrals | Code + balance from `GET /v1/referrals` |
 | 12 | Get Paid | Connect onboarding link (mock URL if no Stripe on API) |
@@ -108,7 +108,7 @@ End-to-end flow uses **Didit** for driver license verification (workflow: Licens
 **Mobile:**
 
 - `@didit-protocol/sdk-react-native` (native module — **not Expo Go**; requires TestFlight/dev build after `pod install`)
-- Screen: Account → Verification steps → **License verification** → `LicenseVerificationScreen`
+- Screen: Account → Verification steps → **License verification** → `LicenseVerificationScreen` → Didit native SDK → `LicenseVerificationPendingScreen` when in review
 - SDK `onComplete` is UI-only; **`licenseVerified` updates via webhook**
 
 **iOS rebuild:** After pulling Didit changes, run `npx pod-install` in `ios/` (or `npx expo prebuild`) and archive a new TestFlight build.

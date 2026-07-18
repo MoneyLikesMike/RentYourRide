@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -20,7 +21,7 @@ import { HOST_RENTAL_ACKNOWLEDGMENT_TERMS } from '../constants/hostRentalAcknowl
 import PictureDocumentationPlaceholderGrid from '../components/PictureDocumentationPlaceholderGrid';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const EXTRA_DISPLAY_ORDER = ['clean', 'kms', 'fuel', 'delivery'];
 

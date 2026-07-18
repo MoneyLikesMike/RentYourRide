@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { compareBcryptPassword } from '../common/crypto.util';
 import { UserEntity } from '../entities/user.entity';
 
 @Injectable()
@@ -68,9 +69,14 @@ export class UsersService {
     settings: { textNotif?: boolean; emailNotif?: boolean; pushNotif?: boolean },
   ) {
     const user = await this.requireById(userId);
-    user.notificationSettings = {
+    const merged = {
       ...user.notificationSettings,
       ...settings,
+    };
+    user.notificationSettings = {
+      textNotif: merged.textNotif !== false,
+      emailNotif: merged.emailNotif !== false,
+      pushNotif: merged.pushNotif !== false,
     };
     await this.repo.save(user);
     return user.notificationSettings;
@@ -81,7 +87,7 @@ export class UsersService {
     if (!user.passwordHash) {
       throw new BadRequestException('Set a password via Forgot Password before changing it');
     }
-    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    const ok = await compareBcryptPassword(currentPassword, user.passwordHash);
     if (!ok) {
       throw new BadRequestException('Current password incorrect');
     }

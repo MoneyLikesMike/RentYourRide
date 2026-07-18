@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -20,7 +21,7 @@ import { useGuestBookings } from '../context/GuestBookingsContext';
 import { useBookingUpdate } from '../hooks/useBookingUpdate';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const MAX_PHOTOS = 25;
 const ADDITIONAL_LABEL = 'Additional';

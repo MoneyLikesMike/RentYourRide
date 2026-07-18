@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, PanResponder, Animated } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, ScrollView, Animated } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { useHorizontalSwipeNavigation } from '../hooks/useHorizontalSwipeNavigation';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const paragraphs = [
   'We run multiple background checks on travellers to keep our community safe.',
@@ -18,30 +19,17 @@ const paragraphs = [
 export default function ListRideLanding2Screen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [isCheckboxChecked, setIsCheckboxChecked] = useState(false);
-  const translateX = React.useRef(new Animated.Value(0)).current;
   const activeDotScale = React.useRef(new Animated.Value(1)).current;
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        const { dx, dy } = gestureState;
-        return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 2;
-      },
-      onPanResponderMove: (_evt, gestureState) => {
-        const { dx } = gestureState;
-        translateX.setValue(dx * 0.2);
-      },
-      onPanResponderRelease: (_evt, gestureState) => {
-        const { dx, vx } = gestureState;
-        if ((dx < -50 || vx < -0.5) && isCheckboxChecked) {
-          navigation.navigate('ListRideLanding3Screen');
-        } else if (dx > 50 || vx > 0.5) {
-          navigation.navigate('ListRideLanding1Screen');
-        } else {
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
-        }
-      },
-    })
-  ).current;
+  const { translateX, panHandlers } = useHorizontalSwipeNavigation({
+    onSwipeLeft: useCallback(() => {
+      if (isCheckboxChecked) {
+        navigation.navigate('ListRideLanding3Screen');
+      } else {
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+      }
+    }, [isCheckboxChecked, navigation, translateX]),
+    onSwipeRight: useCallback(() => navigation.navigate('ListRideLanding1Screen'), [navigation]),
+  });
 
   useFocusEffect(
     React.useCallback(() => {
@@ -58,8 +46,12 @@ export default function ListRideLanding2Screen({ navigation }) {
   };
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
-      <Animated.View style={{ flex: 1, alignItems: 'center', transform: [{ translateX }] }}>
+    <View style={styles.container} {...panHandlers}>
+      <Animated.View style={{ flex: 1, transform: [{ translateX }] }}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
       {/* Icon */}
       <Image source={require('../assets/icons/CarProtectionIcon.png')} style={styles.icon} />
       {/* Header with highlight */}
@@ -101,6 +93,7 @@ export default function ListRideLanding2Screen({ navigation }) {
           </View>
         ))}
       </View>
+      </ScrollView>
       {/* Bottom controls */}
       <View style={[styles.bottomRow, { bottom: Math.max(24 * scale, insets.bottom + 16) }]}>
         {/* Skip Button */}
@@ -131,9 +124,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     paddingTop: 108 * scale,
-    paddingHorizontal: 0,
+    paddingBottom: 120 * scale,
   },
   icon: {
     width: 375 * scale,

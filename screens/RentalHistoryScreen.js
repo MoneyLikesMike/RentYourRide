@@ -14,15 +14,44 @@ import { FONTS } from '../constants/fonts';
 import Svg, { Path } from 'react-native-svg';
 import GuestBookingCard from '../components/GuestBookingCard';
 import { useAuth } from '../context/AuthContext';
+import { useUserProfile } from '../context/UserProfileContext';
+import { useListings } from '../context/ListingsContext';
+import { useGuestBookings } from '../context/GuestBookingsContext';
 import * as bookingsApi from '../services/bookingsApi';
+import { filterBookingsForGuest, filterBookingsForHost } from '../utils/hostBookingFilter';
+import { isHistoryForPerspective } from '../utils/bookingCompletion';
 
 const BASE_WIDTH = 375;
 const scale = 1;
+
+function mapBookingRow(b) {
+  const life = b.lifecycle && typeof b.lifecycle === 'object' ? b.lifecycle : {};
+  return {
+    ...b,
+    ...life,
+    createdAt:
+      typeof b.createdAt === 'number'
+        ? b.createdAt
+        : new Date(b.createdAt || Date.now()).getTime(),
+  };
+}
+
+function mergeHistory(rows) {
+  const map = new Map();
+  for (const b of rows) {
+    if (!b?.id) continue;
+    map.set(String(b.id), b);
+  }
+  return [...map.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
 
 export default function RentalHistoryScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { isAuthenticated, isReady, user } = useAuth();
+  const { firstName, lastName } = useUserProfile();
+  const { listings } = useListings();
+  const { activeRentals } = useGuestBookings();
   const [activeTab, setActiveTab] = useState(() =>
     route.params?.initialTab === 'host' ? 'host' : 'guest',
   );
@@ -43,30 +72,42 @@ export default function RentalHistoryScreen() {
     }
     setLoading(true);
     try {
-      const [guestRows, hostRows] = await Promise.all([
+      // Fully completed + any open bookings (so one-sided checkout can appear in history).
+      const [guestCompleted, hostCompleted, guestOpen, hostOpen] = await Promise.all([
         bookingsApi.listBookings('guest', 'completed'),
         bookingsApi.listBookings('host', 'completed'),
+        bookingsApi.listBookings('guest'),
+        bookingsApi.listBookings('host'),
       ]);
-      const mapRow = (b) => ({
-        ...b,
-        createdAt:
-          typeof b.createdAt === 'number'
-            ? b.createdAt
-            : new Date(b.createdAt || Date.now()).getTime(),
-      });
-      setGuestHistory(
-        (guestRows || [])
-          .filter((b) => !user?.id || !b.guestUserId || String(b.guestUserId) === String(user.id))
-          .map(mapRow),
+
+      const guestMapped = mergeHistory(
+        [...(guestCompleted || []), ...(guestOpen || []), ...(activeRentals || [])].map(
+          mapBookingRow,
+        ),
       );
-      setHostHistory((hostRows || []).map(mapRow));
+      const hostMapped = mergeHistory(
+        [...(hostCompleted || []), ...(hostOpen || []), ...(activeRentals || [])].map(
+          mapBookingRow,
+        ),
+      );
+
+      setGuestHistory(
+        filterBookingsForGuest(guestMapped, user?.id).filter((b) =>
+          isHistoryForPerspective(b, false),
+        ),
+      );
+      setHostHistory(
+        filterBookingsForHost(hostMapped, listings, firstName, lastName, user?.id).filter(
+          (b) => isHistoryForPerspective(b, true),
+        ),
+      );
     } catch (_) {
       setGuestHistory([]);
       setHostHistory([]);
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, isReady, user?.id]);
+  }, [isAuthenticated, isReady, user?.id, listings, firstName, lastName, activeRentals]);
 
   useFocusEffect(
     useCallback(() => {

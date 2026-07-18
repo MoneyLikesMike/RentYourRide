@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, TouchableOpacity, Image, Dimensions, StyleSheet, Switch, ScrollView, TextInput } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
@@ -21,7 +22,7 @@ import {
 } from '../utils/vinVehicleFields';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375; // Base width is 375;
+const scale = uiScale;
 const EDIT_DESCRIBE_CARD_SIZE = (332 * scale - 2 * 12 * scale) / 3;
 
 function parseTitleToVehicleData(title) {
@@ -357,7 +358,7 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
       <ScrollView 
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.scrollContentContainer,
           editingListingId && styles.scrollContentContainerEditing,

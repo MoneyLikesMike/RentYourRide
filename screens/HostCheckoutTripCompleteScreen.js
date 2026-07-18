@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback, useRef, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -18,7 +19,7 @@ import { useGuestBookings } from '../context/GuestBookingsContext';
 import { useBookingUpdate } from '../hooks/useBookingUpdate';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 /** HostCheckout → Guidelines → Agreement → Sign — pop back to Active rentals (host tab). */
 const CHECKOUT_COMPLETION_FLOW_DEPTH = 5;

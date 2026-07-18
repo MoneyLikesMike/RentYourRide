@@ -11,6 +11,7 @@ export type VerifiedAppleProfile = {
 export class AppleAuthService {
   constructor(private readonly config: ConfigService) {}
 
+  /** iOS bundle / primary client id (mobile tokens). */
   private clientId(): string {
     return (
       this.config.get<string>('APPLE_CLIENT_ID')?.trim() ||
@@ -19,10 +20,26 @@ export class AppleAuthService {
     );
   }
 
+  /**
+   * Accept mobile + web Services ID audiences.
+   * Web Sign in with Apple tokens use APPLE_WEB_CLIENT_ID (Services ID).
+   */
+  private audiences(): string | string[] {
+    const ids = [
+      this.clientId(),
+      this.config.get<string>('APPLE_WEB_CLIENT_ID')?.trim(),
+      ...(
+        this.config.get<string>('APPLE_CLIENT_IDS')?.split(',') ?? []
+      ).map((s) => s.trim()),
+    ].filter((s): s is string => !!s);
+    const unique = [...new Set(ids)];
+    return unique.length === 1 ? unique[0]! : unique;
+  }
+
   async verifyIdentityToken(identityToken: string): Promise<VerifiedAppleProfile> {
     try {
       const payload = await appleSignin.verifyIdToken(identityToken.trim(), {
-        audience: this.clientId(),
+        audience: this.audiences(),
         ignoreExpiration: false,
       });
       if (!payload?.sub) {

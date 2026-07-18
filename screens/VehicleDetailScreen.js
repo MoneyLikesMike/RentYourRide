@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -20,9 +21,11 @@ import { useListings } from '../context/ListingsContext';
 import { useFavorites } from '../context/FavoritesContext';
 import { getListing } from '../services/listingsApi';
 import { isRemoteListingId } from '../utils/listingId';
+import { ensureIdentityVerified } from '../utils/verificationGates';
+import { apiRangesToCalendarData } from '../utils/listingAvailability';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 const TAB_BAR_HEIGHT = 78 * scale;
 const CARD_SIZE = (screenWidth - 40 * scale - 2 * 12 * scale) / 3;
 const CAROUSEL_CARD_WIDTH = screenWidth * 0.84;
@@ -49,12 +52,14 @@ export default function VehicleDetailScreen({ navigation, route }) {
   const { listings, mergeRemoteListings } = useListings();
   const { isFavorited, toggleFavorite } = useFavorites();
   const routeListing = route.params?.listing || {};
+  const [fetchedListing, setFetchedListing] = useState(null);
   const listing = useMemo(() => {
     const id = routeListing?.id;
-    if (id == null || id === '') return routeListing;
+    if (id == null || id === '') return fetchedListing || routeListing;
     const live = listings.find((l) => String(l.id) === String(id));
-    return live ? { ...routeListing, ...live } : routeListing;
-  }, [routeListing, listings]);
+    // Prefer freshly fetched public listing, then catalog, then route snapshot.
+    return { ...routeListing, ...(live || {}), ...(fetchedListing || {}) };
+  }, [routeListing, listings, fetchedListing]);
   /** Stable key so we reset carousel/map when opening a different vehicle on the same screen instance */
   const listingIdentityKey = useMemo(
     () =>
@@ -75,12 +80,16 @@ export default function VehicleDetailScreen({ navigation, route }) {
 
   useEffect(() => {
     const id = routeListing?.id;
+    setFetchedListing(null);
     if (!isRemoteListingId(id)) return undefined;
     let cancelled = false;
     (async () => {
       try {
         const row = await getListing(String(id));
-        if (!cancelled && row) mergeRemoteListings([row]);
+        if (!cancelled && row) {
+          setFetchedListing(row);
+          mergeRemoteListings([row]);
+        }
       } catch (_) {
         /* keep route listing */
       }
@@ -117,16 +126,53 @@ export default function VehicleDetailScreen({ navigation, route }) {
   const bookingDates = route.params?.bookingDates;
   const hasBookingDates = bookingDates?.start != null && bookingDates?.end != null;
 
-  const proceedToCheckout = () => {
+  const bookingCalendarData = useMemo(() => {
+    if (listing?.calendarData?.blockedRanges?.length) return listing.calendarData;
+    const fromBlocked = apiRangesToCalendarData(listing?.blockedRanges);
+    if (fromBlocked) return fromBlocked;
+    return apiRangesToCalendarData(listing?.availability);
+  }, [listing?.calendarData, listing?.blockedRanges, listing?.availability]);
+
+  const tripConstraints = useMemo(() => {
+    const extras = listing?.extras && typeof listing.extras === 'object' ? listing.extras : {};
+    return {
+      min: listing?.shortestTrip || extras.shortestTrip || '',
+      max: listing?.longestTrip || extras.longestTrip || '',
+    };
+  }, [listing?.shortestTrip, listing?.longestTrip, listing?.extras]);
+
+  const proceedToCheckout = async () => {
+    if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to book' }))) {
+      return;
+    }
     if (!hasBookingDates) {
+      let calendarData = bookingCalendarData;
+      // Refresh blocked ranges right before opening the calendar.
+      if (isRemoteListingId(listing?.id)) {
+        try {
+          const fresh = await getListing(String(listing.id));
+          if (fresh) {
+            setFetchedListing(fresh);
+            mergeRemoteListings([fresh]);
+            calendarData =
+              fresh.calendarData?.blockedRanges?.length
+                ? fresh.calendarData
+                : apiRangesToCalendarData(fresh.blockedRanges) ||
+                  apiRangesToCalendarData(fresh.availability) ||
+                  calendarData;
+          }
+        } catch (_) {
+          /* use cached listing data */
+        }
+      }
       navigation.navigate('CalendarScreen', {
         mode: 'booking',
         returnTo: 'VehicleDetailScreen',
         listing,
         bookingSessionKey: Date.now(),
-        savedCalendarData: listing.calendarData,
-        minTripConstraint: listing.shortestTrip,
-        maxTripConstraint: listing.longestTrip,
+        savedCalendarData: calendarData,
+        minTripConstraint: tripConstraints.min,
+        maxTripConstraint: tripConstraints.max,
       });
       return;
     }
@@ -288,7 +334,10 @@ export default function VehicleDetailScreen({ navigation, route }) {
         <TouchableOpacity
           style={styles.chooseDateBtn}
           activeOpacity={0.85}
-          onPress={() =>
+          onPress={async () => {
+            if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to book' }))) {
+              return;
+            }
             navigation.navigate('CalendarScreen', {
               mode: 'booking',
               returnTo: 'VehicleDetailScreen',
@@ -297,8 +346,8 @@ export default function VehicleDetailScreen({ navigation, route }) {
               savedCalendarData: listing.calendarData,
               minTripConstraint: listing.shortestTrip,
               maxTripConstraint: listing.longestTrip,
-            })
-          }
+            });
+          }}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
             <Path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z" fill={COLORS.GREENY_BLUE_TWO} />

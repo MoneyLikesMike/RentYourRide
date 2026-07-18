@@ -1,0 +1,116 @@
+/* Payment information — legacy PaymentInformation tokens */
+
+.pay-info-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.4rem, 1.6vw, 1.7rem);
+  font-weight: 700;
+  color: #17252a;
+  margin: 0;
+}
+
+.pay-info-border {
+  height: 1px;
+  background: #def2f1;
+  width: 100%;
+  margin: 1rem 0 1.5rem;
+}
+
+.pay-info-subtitle {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #17252a;
+  margin: 0 0 1rem;
+}
+
+.pay-info-empty {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  color: #4cb6b1;
+  font-size: clamp(1rem, 1.2vw, 1.2rem);
+  margin: 0 0 1.5rem;
+  max-width: 28rem;
+  line-height: 1.4;
+}
+
+.pay-info-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 4%;
+  margin-bottom: 1.5rem;
+}
+
+.pay-info-method {
+  width: calc(48% - 0.5rem);
+  min-width: 14rem;
+}
+
+.pay-info-method-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pay-info-brand {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #17252a;
+  text-transform: uppercase;
+}
+
+.pay-info-action {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
+.pay-info-action:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.pay-info-details {
+  margin-top: 0.4rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.pay-info-add-btn {
+  border: none;
+  border-radius: 0.35rem;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.7rem 1.5rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.pay-info-add-panel {
+  margin-top: 1rem;
+  max-width: 28rem;
+  padding: 1.25rem;
+  border: 1px solid #ebebeb;
+  border-radius: 0.5rem;
+}
+
+@media (max-width: 720px) {
+  .pay-info-method {
+    width: 100%;
+  }
+}

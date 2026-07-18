@@ -14,10 +14,13 @@ import { HealthModule } from './health/health.module';
 import { GeocodeModule } from './geocode/geocode.module';
 import { DiditModule } from './didit/didit.module';
 import { MessagingModule } from './messaging/messaging.module';
+import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    NotificationsModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -53,6 +56,7 @@ import { MessagingModule } from './messaging/messaging.module';
     GeocodeModule,
     DiditModule,
     MessagingModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

@@ -1,3 +1,5 @@
+import { hasPartyCheckedOut } from './bookingCompletion';
+
 const H24_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -24,24 +26,28 @@ export function getTripCardStatus(booking, nowMs = Date.now()) {
 
   const { startMs, endMs } = bounds;
   const ext = booking?.tripExtended === true && booking?.extensionApprovedByHost === true;
-  if (ext) {
+  const apiExtended = booking?.status === 'extended';
+  if (ext || apiExtended) {
     return { key: 'extended', label: 'Extended' };
   }
+  if (booking?.status === 'extension_pending') {
+    return { key: 'extension_pending', label: 'Extension pending' };
+  }
 
-  if (nowMs >= endMs) {
+  // Trip fully done on the server, or past the post-trip checkout grace window.
+  // Per-party checkout (guest done / host not) does NOT mark the whole trip completed.
+  if (booking?.status === 'completed' || nowMs >= endMs + H24_MS) {
     return { key: 'completed', label: '' };
+  }
+
+  // Checkout window: 24h before end through 24h after end (unless completed above).
+  if (nowMs >= endMs - H24_MS) {
+    return { key: 'ending_soon', label: 'Ending soon' };
   }
 
   /** Guest or host long-pressed “start trip” on check-in reminder — show active trip until it ends */
   if (booking?.guestTripStartedAt != null || booking?.hostTripStartedAt != null) {
-    if (nowMs >= endMs - H24_MS) {
-      return { key: 'ending_soon', label: 'Ending soon' };
-    }
     return { key: 'in_progress', label: 'In progress' };
-  }
-
-  if (nowMs >= endMs - H24_MS && nowMs < endMs) {
-    return { key: 'ending_soon', label: 'Ending soon' };
   }
 
   if (nowMs >= startMs - H24_MS && nowMs < startMs) {
@@ -60,35 +66,43 @@ export function getTripCardStatus(booking, nowMs = Date.now()) {
   return { key: 'unknown', label: '' };
 }
 
+/** Has this party finished their check-in flow? */
+function hasCheckedIn(booking, isHost) {
+  if (isHost) {
+    return booking?.hostCheckedInAt != null || booking?.hostTripStartedAt != null;
+  }
+  return (
+    booking?.guestCheckedInAt != null ||
+    booking?.rentalAgreementSignedAt != null ||
+    booking?.guestTripStartedAt != null
+  );
+}
+
 /**
  * Which primary action to show on the card (guest vs host).
  * @param {string} statusKey
  * @param {{ isHost: boolean }} opts
  */
 export function getTripCardPrimaryAction(statusKey, { isHost, booking }) {
-  if (statusKey === 'extended') {
+  if (statusKey === 'extended' || statusKey === 'extension_pending') {
     return { type: null };
   }
-  if (statusKey === 'beginning_soon') {
-    if (isHost && booking?.hostCheckedInAt != null) {
-      return { type: null };
-    }
-    if (!isHost && (booking?.guestCheckedInAt != null || booking?.rentalAgreementSignedAt != null)) {
-      return { type: null };
-    }
-    return { type: 'check_in' };
+  if (statusKey === 'completed' || hasPartyCheckedOut(booking, isHost)) {
+    return { type: null };
   }
   if (statusKey === 'ending_soon') {
-    if (isHost && booking?.hostCheckoutTripEndedAt != null) {
-      return { type: null };
-    }
-    if (!isHost && booking?.guestCheckedOutAt != null) {
-      return { type: null };
-    }
     return { type: 'checkout' };
   }
-  if (statusKey === 'in_progress' && !isHost) {
-    return { type: 'extend' };
+  // Check-in stays available from the pre-trip window through the active trip
+  // until this party completes it.
+  if (statusKey === 'beginning_soon' || statusKey === 'in_progress') {
+    if (!hasCheckedIn(booking, isHost)) {
+      return { type: 'check_in' };
+    }
+    if (statusKey === 'in_progress' && !isHost) {
+      return { type: 'extend' };
+    }
+    return { type: null };
   }
   return { type: null };
 }

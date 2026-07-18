@@ -1,4 +1,5 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -15,7 +16,7 @@ import { useAccountSetupSteps } from '../hooks/useAccountSetupSteps';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 function CheckIcon() {
   return (

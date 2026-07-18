@@ -1,0 +1,446 @@
+/* Find Your Car — legacy list + map layout */
+
+.fyc-page {
+  min-height: 100vh;
+  background: #fff;
+}
+
+.find-your-car-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.fyc-sort-bar {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1rem 1.5rem;
+  margin: 1rem 0 1.5rem;
+  box-sizing: border-box;
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.05);
+  padding: 1rem clamp(1rem, 4vw, 3rem) 1.5rem;
+  width: 100%;
+  background: #fff;
+  z-index: 5;
+}
+
+.fyc-sort-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border-bottom: 2px solid #def2f1;
+  min-width: 9rem;
+  padding-bottom: 0.25rem;
+}
+
+.fyc-sort-field.location {
+  min-width: min(18rem, 100%);
+  flex: 1 1 14rem;
+}
+
+.fyc-sort-field .option-caption {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.fyc-sort-field .places-input {
+  margin: 0.35rem 0 0;
+  font-size: 1rem;
+  color: #ababab;
+}
+
+.fyc-dt-row {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.fyc-dt-row input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #17252a;
+  padding: 0.35rem 0;
+  min-width: 0;
+  width: 50%;
+}
+
+.fyc-filter-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.fyc-chip {
+  border: 1px solid #a3a3a370;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.25rem;
+  background: #fff;
+  color: #17252a;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.fyc-chip.more {
+  border-color: #4cb6b1;
+  color: #4cb6b1;
+}
+
+.fyc-chip.active {
+  background: #4cb6b1;
+  border-color: #4cb6b1;
+  color: #fff;
+}
+
+.fyc-search-btn {
+  border: solid 3px #ffb131;
+  background-color: #fffbf4;
+  color: #17252a;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 2rem;
+  padding: 0.55rem 1.25rem;
+  cursor: pointer;
+}
+
+.fyc-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% - 0.5rem);
+  right: clamp(1rem, 8vw, 6rem);
+  box-sizing: border-box;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  box-shadow: 0 5px 36px 0 rgba(8, 12, 12, 0.17);
+  border: solid 2px #4cb6b1;
+  background-color: #fff;
+  width: min(28rem, calc(100% - 2rem));
+}
+
+.fyc-popover.filters {
+  width: min(36rem, calc(100% - 2rem));
+}
+
+.fyc-popover-row {
+  display: grid;
+  gap: 1rem;
+}
+
+.fyc-popover label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.fyc-popover label strong {
+  color: #388d89;
+}
+
+.fyc-popover input[type='range'] {
+  width: 100%;
+  accent-color: #4cb6b1;
+}
+
+.fyc-apply {
+  margin-top: 1rem;
+  border: none;
+  border-radius: 0.35rem;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.65rem 1.25rem;
+  cursor: pointer;
+  float: right;
+}
+
+.fyc-filter-caption {
+  margin: 0 0 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #17252a;
+  text-transform: uppercase;
+}
+
+.fyc-type-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.fyc-type-tile {
+  border: solid 1px #61beba;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 0.75rem 0.85rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #8d8d8d;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.fyc-type-tile.selected {
+  background: #def2f1;
+  color: #17252a;
+  box-shadow: inset 0 0 0 2px #4cb6b1;
+}
+
+.fyc-toggle-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  margin-top: 1rem;
+  font-size: 0.8rem !important;
+}
+
+.fyc-banner-error {
+  color: #f9493a;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+
+.fyc-content-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  height: min(80vh, 52rem);
+  margin-bottom: 2rem;
+  padding-left: clamp(1rem, 8vw, 10rem);
+  box-sizing: border-box;
+  gap: 1rem;
+}
+
+.fyc-scroll-wrapper {
+  width: 48%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.fyc-loading-message {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: #4cb6b1;
+  margin: 2rem 0;
+}
+
+.fyc-car-grid {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0;
+}
+
+.fyc-car-wrapper {
+  width: 48%;
+  box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.08);
+  border-radius: 0.75rem;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fyc-car-wrapper:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.1);
+}
+
+.fyc-car-img {
+  width: 100%;
+  height: clamp(7rem, 10vw, 10rem);
+  object-fit: cover;
+  display: block;
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: #def2f1;
+}
+
+.fyc-car-img--empty {
+  min-height: 7rem;
+}
+
+.fyc-car-description {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  box-sizing: border-box;
+  padding: 0.85rem 1rem 1rem;
+}
+
+.fyc-title-type-price {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.fyc-title-type {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.fyc-card-title-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #17252a;
+  line-height: 1.25;
+}
+
+.fyc-card-type {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #d1d3d4;
+}
+
+.fyc-price-cad {
+  align-items: baseline;
+  display: flex;
+  gap: 0.25rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.fyc-price {
+  color: #388d89;
+}
+
+.fyc-cad {
+  color: #ffbb2e;
+}
+
+.fyc-stars-trips {
+  display: flex;
+  align-items: center;
+  margin-top: 0.45rem;
+}
+
+.fyc-stars {
+  color: #ffb214;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+}
+
+.fyc-stars-empty {
+  color: #e0e0e0;
+}
+
+.fyc-trips {
+  margin-left: 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #17252a;
+}
+
+.fyc-map-wrapper {
+  width: 50%;
+  height: 100%;
+  min-height: 20rem;
+  border-radius: 0.5rem 0 0 0.5rem;
+  overflow: hidden;
+  background: #def2f1;
+}
+
+.fyc-map-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.fyc-map-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-family: 'Nunito', sans-serif;
+  color: #4cb6b1;
+  font-weight: 700;
+  padding: 1rem;
+  text-align: center;
+}
+
+.fyc-map-placeholder span {
+  font-weight: 600;
+  color: #ababab;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 960px) {
+  .fyc-content-wrapper {
+    flex-direction: column;
+    height: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .fyc-scroll-wrapper,
+  .fyc-map-wrapper {
+    width: 100%;
+  }
+
+  .fyc-map-wrapper {
+    height: 18rem;
+    border-radius: 0.75rem;
+    order: -1;
+  }
+
+  .fyc-car-wrapper {
+    width: 100%;
+  }
+
+  .fyc-popover {
+    right: 1rem;
+    left: 1rem;
+    width: auto;
+  }
+}

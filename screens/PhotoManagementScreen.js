@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -22,7 +23,7 @@ import { useListings } from '../context/ListingsContext';
 import { useSaveListingStep } from '../hooks/useSaveListingStep';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 const MAX_PHOTOS = 10;
 
 const COVER_BADGE_COLOR = '#3AAFA9';

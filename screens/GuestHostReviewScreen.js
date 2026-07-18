@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -22,7 +23,7 @@ import { formatTripDateTime } from '../utils/guestBookingFormat';
 import { averageRatingFromReviews } from '../utils/guestListingReview';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const BADGES = [
   { key: 'service', icon: require('../assets/icons/excellence.png'), label: 'Excellent\nService' },
@@ -203,7 +204,7 @@ export default function GuestHostReviewScreen({ navigation, route }) {
         style={styles.scroll}
         contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 28 * scale }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.pageTitle}>REVIEW</Text>
 

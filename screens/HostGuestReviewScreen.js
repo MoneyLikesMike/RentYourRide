@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -19,7 +20,7 @@ import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const BADGES = [
   { key: 'respectful', icon: require('../assets/icons/like1.png'), label: 'Respectful' },
@@ -148,7 +149,7 @@ export default function HostGuestReviewScreen({ navigation, route }) {
         style={styles.scroll}
         contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 28 * scale }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.pageTitle}>REVIEW</Text>
 

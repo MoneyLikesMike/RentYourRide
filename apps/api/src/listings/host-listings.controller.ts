@@ -14,8 +14,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { join } from 'path';
 import { mkdirSync } from 'fs';
+import { uploadsSubdir } from '../common/uploads-path';
 import { ReqUser } from '../common/req-user.decorator';
 import { ListingsService } from './listings.service';
 import { ConfigService } from '@nestjs/config';
@@ -100,7 +100,7 @@ export class HostListingsController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
-          const dir = join(process.cwd(), 'uploads', 'listings');
+          const dir = uploadsSubdir('listings');
           mkdirSync(dir, { recursive: true });
           cb(null, dir);
         },

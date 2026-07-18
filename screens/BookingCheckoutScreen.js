@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -36,9 +37,10 @@ import { reverseGeocode } from '../services/geocodeApi';
 import { MAP_PROVIDER } from '../utils/mapProvider';
 import { isApplePayConfigured } from '../constants/stripe';
 import { useApplePayCheckout } from '../hooks/useApplePayCheckout';
+import { ensureIdentityVerified } from '../utils/verificationGates';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 const TAB_BAR_HEIGHT = 78 * scale;
 
 const formatDateTime = (timestamp, fallbackText) => {
@@ -140,8 +142,11 @@ export default function BookingCheckoutScreen({ navigation, route }) {
   const [selectedMethodId, setSelectedMethodId] = useState(null);
   const [paymentPickerVisible, setPaymentPickerVisible] = useState(false);
   const [applePayLoading, setApplePayLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [confirmedPaymentIntentId, setConfirmedPaymentIntentId] = useState(null);
   const [applePayMethod, setApplePayMethod] = useState(null);
+  const submittingRef = useRef(false);
+  const idempotencyKeyRef = useRef(null);
 
   const checkoutSessionKey = useMemo(() => {
     const lid =
@@ -183,6 +188,12 @@ export default function BookingCheckoutScreen({ navigation, route }) {
     setSelectedMethodId(null);
     setConfirmedPaymentIntentId(null);
     setApplePayMethod(null);
+    setSubmitting(false);
+    submittingRef.current = false;
+    // One key per checkout session so double-taps reuse the same server booking.
+    idempotencyKeyRef.current = `book_${checkoutSessionKey}_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
   }, [checkoutSessionKey]);
 
   useFocusEffect(
@@ -334,70 +345,111 @@ export default function BookingCheckoutScreen({ navigation, route }) {
 
   const submitBooking = useCallback(
     async ({ paymentIntentId = confirmedPaymentIntentId, paymentMethod = selectedPaymentMethod } = {}) => {
-      const guestName = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Guest';
-      const dropAddr =
-        deliveryEnabled && canDeliver && deliveryLocation?.trim()
-          ? deliveryLocation.trim()
-          : pickupAddress;
-      const bookingId = await addGuestBooking({
-        instantBooking: listing.instantBooking === true,
-        guestName,
-        guestPhotoUri: profilePhotoUri || null,
-        listingSnapshot: {
-          id: listing.id,
-          title: listing.title,
-          photos: listing.photos,
-          pickupAddress: listing.pickupAddress,
-          hostName: listing.hostName,
-          hostPhotoUri: listing.hostPhotoUri,
-          hostEmail: listing.hostEmail,
-          hostPhone: listing.hostPhone,
-          year: listing.year ?? listing.vehicleData?.year,
-          make: listing.make ?? listing.vehicleData?.make,
-          model: listing.model ?? listing.vehicleData?.model,
-          vin: listing.vin ?? listing.vehicleData?.vin,
-          licensePlate: listing.licensePlate,
-          licenseProvince: listing.licenseProvince,
-          vehicleData: listing.vehicleData ? { ...listing.vehicleData } : undefined,
-        },
-        bookingDates: { ...(bookingDates || {}) },
-        pickupAddress,
-        dropoffAddress: dropAddr,
-        deliveryEnabled: !!(deliveryEnabled && canDeliver),
-        extras: selectedExtras.map((e) => ({ key: e.key, label: e.label, amount: e.amount })),
-        introMessage: introMessage.trim(),
-        pricing: {
-          tripDays: effectiveTripDays,
-          pricePerDay,
-          baseTripSubtotal: effectiveBaseTripSubtotal,
-          discountedTripSubtotal: effectiveDiscountedTripSubtotal,
-          tripDiscountSavings: effectiveTripDiscountSavings,
-          appliesWeeklyDiscount,
-          appliesMonthlyDiscount,
-          weeklyDiscountPct,
-          monthlyDiscountPct,
-          unlimitedKmFee,
-          prepaidFuelFee,
-          prepaidCleanFee,
-          selectedDeliveryFee,
-          subtotal: effectiveSubtotal,
-          tripFee: effectiveTripFee,
-          grandTotal: effectiveGrandTotal,
-          kmIncludedLabel: effectiveKmLabel,
-        },
-        selectedPaymentMethod: paymentMethod,
-        stripePaymentIntentId: paymentIntentId || null,
-      });
-      navigation.navigate('BookingRequestConfirmationScreen', {
-        listing,
-        bookingDates,
-        selectedPaymentMethod: paymentMethod,
-        bookingId,
-      });
-      return bookingId;
+      // Hard lock: ignore double-taps while the first request is in flight.
+      if (submittingRef.current) return null;
+      submittingRef.current = true;
+      setSubmitting(true);
+      let succeeded = false;
+      try {
+        if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to book' }))) {
+          return null;
+        }
+        if (!paymentMethod?.id) {
+          Alert.alert('Payment required', 'Add or select a payment method before booking.');
+          return null;
+        }
+        if (!idempotencyKeyRef.current) {
+          idempotencyKeyRef.current = `book_${checkoutSessionKey}_${Date.now()}_${Math.random()
+            .toString(36)
+            .slice(2, 10)}`;
+        }
+        const guestName = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Guest';
+        const dropAddr =
+          deliveryEnabled && canDeliver && deliveryLocation?.trim()
+            ? deliveryLocation.trim()
+            : pickupAddress;
+        let bookingId;
+        try {
+          bookingId = await addGuestBooking({
+            idempotencyKey: idempotencyKeyRef.current,
+            instantBooking: listing.instantBooking === true,
+            guestName,
+            guestPhotoUri: profilePhotoUri || null,
+            listingSnapshot: {
+              id: listing.id,
+              title: listing.title,
+              photos: listing.photos,
+              pickupAddress: listing.pickupAddress,
+              hostName: listing.hostName,
+              hostPhotoUri: listing.hostPhotoUri,
+              hostEmail: listing.hostEmail,
+              hostPhone: listing.hostPhone,
+              year: listing.year ?? listing.vehicleData?.year,
+              make: listing.make ?? listing.vehicleData?.make,
+              model: listing.model ?? listing.vehicleData?.model,
+              vin: listing.vin ?? listing.vehicleData?.vin,
+              licensePlate: listing.licensePlate,
+              licenseProvince: listing.licenseProvince,
+              vehicleData: listing.vehicleData ? { ...listing.vehicleData } : undefined,
+            },
+            bookingDates: { ...(bookingDates || {}) },
+            pickupAddress,
+            dropoffAddress: dropAddr,
+            deliveryEnabled: !!(deliveryEnabled && canDeliver),
+            extras: selectedExtras.map((e) => ({ key: e.key, label: e.label, amount: e.amount })),
+            introMessage: introMessage.trim(),
+            pricing: {
+              tripDays: effectiveTripDays,
+              pricePerDay,
+              baseTripSubtotal: effectiveBaseTripSubtotal,
+              discountedTripSubtotal: effectiveDiscountedTripSubtotal,
+              tripDiscountSavings: effectiveTripDiscountSavings,
+              appliesWeeklyDiscount,
+              appliesMonthlyDiscount,
+              weeklyDiscountPct,
+              monthlyDiscountPct,
+              unlimitedKmFee,
+              prepaidFuelFee,
+              prepaidCleanFee,
+              selectedDeliveryFee,
+              subtotal: effectiveSubtotal,
+              tripFee: effectiveTripFee,
+              grandTotal: effectiveGrandTotal,
+              hostReceiveTotal: Math.max(0, Number(effectiveSubtotal) || 0),
+              kmIncludedLabel: effectiveKmLabel,
+            },
+            selectedPaymentMethod: paymentMethod,
+            stripePaymentIntentId: paymentIntentId || null,
+          });
+        } catch (e) {
+          Alert.alert(
+            'Booking not saved',
+            e?.message ||
+              'This trip could not be saved to the server. Messaging and trip updates require a synced booking.',
+          );
+          return null;
+        }
+        succeeded = true;
+        navigation.navigate('BookingRequestConfirmationScreen', {
+          listing,
+          bookingDates,
+          selectedPaymentMethod: paymentMethod,
+          bookingId,
+        });
+        return bookingId;
+      } finally {
+        if (succeeded) {
+          // Stay locked so back-navigation cannot re-submit this checkout session.
+          setSubmitting(true);
+        } else {
+          submittingRef.current = false;
+          setSubmitting(false);
+        }
+      }
     },
     [
       addGuestBooking,
+      checkoutSessionKey,
       appliesMonthlyDiscount,
       appliesWeeklyDiscount,
       bookingDates,
@@ -433,6 +485,7 @@ export default function BookingCheckoutScreen({ navigation, route }) {
   );
 
   const handleApplePay = useCallback(async () => {
+    if (submittingRef.current || applePayLoading) return;
     if (!isAuthenticated || !isReady) {
       Alert.alert('Sign in required', 'Please sign in to pay with Apple Pay.');
       return;
@@ -476,6 +529,7 @@ export default function BookingCheckoutScreen({ navigation, route }) {
       setApplePayLoading(false);
     }
   }, [
+    applePayLoading,
     effectiveGrandTotal,
     isAuthenticated,
     isReady,
@@ -736,7 +790,7 @@ export default function BookingCheckoutScreen({ navigation, route }) {
                   type={PlatformPay.ButtonType.Book}
                   appearance={PlatformPay.ButtonStyle.Black}
                   borderRadius={4 * scale}
-                  disabled={applePayLoading}
+                  disabled={applePayLoading || submitting}
                   style={styles.applePayNativeBtn}
                 />
               )}
@@ -759,7 +813,8 @@ export default function BookingCheckoutScreen({ navigation, route }) {
         <View style={styles.sendRequestWrap}>
           <TouchableOpacity
             activeOpacity={0.85}
-            style={styles.sendRequestBtn}
+            style={[styles.sendRequestBtn, submitting && styles.sendRequestBtnDisabled]}
+            disabled={submitting}
             onPress={async () => {
               try {
                 await submitBooking();
@@ -768,7 +823,11 @@ export default function BookingCheckoutScreen({ navigation, route }) {
               }
             }}
           >
-            <Text style={styles.sendRequestText}>SEND BOOKING REQUEST</Text>
+            {submitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.sendRequestText}>SEND BOOKING REQUEST</Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -1346,6 +1405,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.GREENY_BLUE_TWO,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sendRequestBtnDisabled: {
+    opacity: 0.7,
   },
   sendRequestText: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,

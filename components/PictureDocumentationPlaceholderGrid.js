@@ -1,8 +1,9 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Image, StyleSheet, Dimensions } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 /** Same 2×4 empty-state tiles as rental agreement (exterior, interior, fuel, gauges, license). */
 export const PICTURE_DOCUMENTATION_PLACEHOLDERS = [

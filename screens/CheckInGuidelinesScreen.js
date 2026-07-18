@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
@@ -7,7 +8,7 @@ import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const SHARED_INTRO =
   'Rent Your Ride wants to create the best rental experience for both hosts and guests. Here are some tips we have created to help improve your satisfaction on our platform.';

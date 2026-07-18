@@ -1,0 +1,709 @@
+/* Profile shell + Edit / Overview / Account settings (legacy Profile + Sidebar) */
+
+.profile-page {
+  min-height: 100vh;
+  background: #fff;
+}
+
+.profile-shell {
+  display: flex;
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  box-sizing: border-box;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 8vw, 12rem) 4rem;
+  align-items: flex-start;
+}
+
+.profile-sidebar {
+  width: min(20%, 16rem);
+  flex-shrink: 0;
+}
+
+.profile-main {
+  flex: 1;
+  min-width: 0;
+  width: min(70%, 48rem);
+}
+
+.profile-sidebar-user {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 1px solid #ebebeb;
+  padding: 0 0 1.5rem;
+}
+
+.profile-sidebar-avatar {
+  width: clamp(3.5rem, 6vw, 5rem);
+  height: clamp(3.5rem, 6vw, 5rem);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-sidebar-user-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.profile-sidebar-name {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.1rem, 1.5vw, 1.4rem);
+  font-weight: 600;
+  color: #17252a;
+}
+
+.profile-sidebar-from {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #17252a;
+}
+
+.profile-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding-top: 1rem;
+}
+
+.profile-sidebar-section {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #17252a;
+  margin: 1.1rem 0 0.5rem;
+}
+
+.profile-sidebar-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.profile-sidebar-nav li {
+  margin: 0.35rem 0;
+}
+
+.profile-sidebar-nav a {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ababab;
+  text-decoration: none;
+}
+
+.profile-sidebar-nav a:hover,
+.profile-sidebar-nav a.active {
+  color: #4cb6b1;
+}
+
+.profile-sidebar-muted {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #d1d3d4;
+}
+
+.profile-sidebar-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #ebebeb;
+  margin-bottom: 0.5rem;
+}
+
+.profile-sidebar-steps {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #17252a;
+}
+
+.profile-sidebar-bar {
+  display: block;
+  width: 100%;
+  height: 0.4rem;
+  border-radius: 1rem;
+  background: #ebebeb;
+  overflow: hidden;
+}
+
+.profile-sidebar-bar-fill {
+  display: block;
+  height: 100%;
+  background: #4cb6b1;
+}
+
+.profile-sidebar-progress-copy {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ababab;
+  line-height: 1.4;
+}
+
+.profile-sidebar-verify {
+  margin-top: 1rem;
+  border-bottom: 1px solid #ebebeb;
+  padding-bottom: 1rem;
+}
+
+.profile-sidebar-verify-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #17252a;
+  margin: 0.55rem 0;
+}
+
+.profile-sidebar-action {
+  color: #4cb6b1;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.profile-sidebar-ok {
+  color: #4cb6b1;
+}
+
+.profile-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: solid 2px #def2f1;
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.profile-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.35rem, 1.6vw, 1.6rem);
+  font-weight: 400;
+  color: #17252a;
+  margin: 0;
+}
+
+.profile-title--bold {
+  font-weight: 700;
+}
+
+.profile-top-link {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #4cb6b1;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.profile-back-arrow {
+  width: 0.85rem;
+  height: auto;
+}
+
+.profile-section-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 400;
+  color: #17252a;
+  margin: 0 0 0.75rem;
+}
+
+.profile-rule {
+  height: 1px;
+  background: #def2f1;
+  width: 100%;
+  margin: 0.75rem 0 1.25rem;
+}
+
+.profile-rule--grey {
+  background: #ebebeb;
+}
+
+.profile-status {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.profile-error {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: #f9493a;
+  margin: 0.75rem 0;
+}
+
+.profile-success {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: #4cb6b1;
+  margin: 0.75rem 0;
+}
+
+/* Edit profile */
+.edit-photo-section {
+  border-bottom: solid 2px #ebebeb;
+  padding: 1.25rem 0 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.edit-photo-row {
+  display: flex;
+  gap: clamp(1.5rem, 6vw, 5rem);
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.edit-avatar-wrap {
+  position: relative;
+  width: clamp(8rem, 15vw, 12rem);
+  height: clamp(8rem, 15vw, 12rem);
+}
+
+.edit-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.edit-avatar-trash {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: #4cb6b1;
+  border: none;
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.edit-avatar-trash img {
+  width: 0.9rem;
+  height: auto;
+}
+
+.edit-photo-meta {
+  flex: 1;
+  min-width: 14rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.edit-photo-help {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.43;
+  color: #ababab;
+  margin: 0;
+  max-width: 24rem;
+}
+
+.edit-upload-btn {
+  width: fit-content;
+  padding: 0.55rem 1.25rem;
+  border-radius: 2rem;
+  border: solid 2px #ffb214;
+  background: rgba(255, 178, 20, 0.1);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.19px;
+  text-transform: uppercase;
+  color: #ffb214;
+  cursor: pointer;
+}
+
+.edit-about {
+  width: 100%;
+  min-height: 8rem;
+  box-sizing: border-box;
+  border: 1px solid #d0d0d0;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  color: #17252a;
+  resize: vertical;
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.edit-cancel {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4cb6b1;
+  text-decoration: none;
+}
+
+.edit-save {
+  min-width: 9rem;
+  height: 2.4rem;
+  border-radius: 2rem;
+  border: none;
+  background: #4cb6b1;
+  box-shadow: 0 0.2rem 0.8rem rgba(76, 182, 177, 0.45);
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.edit-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Overview */
+.overview-about {
+  margin-bottom: 1.75rem;
+}
+
+.overview-about-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #ababab;
+  margin: 0;
+  text-align: justify;
+}
+
+.overview-rides {
+  margin-bottom: 1.75rem;
+}
+
+.overview-cars {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1.25rem;
+  margin-top: 0.75rem;
+}
+
+.overview-car {
+  border-radius: 1rem;
+  box-shadow: 0 5px 11px rgba(0, 0, 0, 0.08);
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+  display: block;
+}
+
+.overview-car-image {
+  width: 100%;
+  height: 9rem;
+  object-fit: cover;
+  display: block;
+}
+
+.overview-car-image--empty {
+  background: #f2f2f2;
+}
+
+.overview-car-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem 0.25rem;
+}
+
+.overview-car-name {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.overview-car-type {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #d1d3d4;
+  text-transform: uppercase;
+  margin-left: 0.5rem;
+}
+
+.overview-car-price {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #388d89;
+}
+
+.overview-car-cad {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffbb2e;
+  margin-left: 0.35rem;
+}
+
+.overview-car-meta {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.35rem 0.85rem 0.85rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #545454;
+}
+
+.overview-stars {
+  color: #ffbb2e;
+  letter-spacing: 0.05em;
+}
+
+.overview-review-count {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #17252a;
+  margin: 0 0 0.75rem;
+}
+
+.overview-review-tabs {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.overview-review-tabs button {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #17252a;
+}
+
+.overview-review-tabs button.is-active {
+  color: #4cb6b1;
+}
+
+.overview-reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.overview-review {
+  border-bottom: 1px solid #ebebeb;
+  padding-bottom: 1rem;
+}
+
+.overview-review-date {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.overview-review-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #545454;
+  line-height: 1.45;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.overview-review-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.overview-review-user img {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.overview-review-name {
+  display: block;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #17252a;
+}
+
+.overview-review-joined {
+  display: block;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+/* Account settings */
+.account-block {
+  margin-bottom: 0.5rem;
+}
+
+.account-block-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #17252a;
+  margin: 1rem 0 1.25rem;
+}
+
+.account-row {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.account-field {
+  flex: 1;
+  min-width: 14rem;
+}
+
+.account-field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.account-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #17252a;
+}
+
+.account-action {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
+.account-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.account-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.account-verified img {
+  width: 0.9rem;
+  height: auto;
+}
+
+.account-hint {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ababab;
+  text-align: right;
+  max-width: 12rem;
+}
+
+.account-input {
+  border-radius: 5px;
+  border: solid 1px #a3a3a3;
+  background: #f9f9f9;
+  padding: 0.65rem 0.75rem;
+  box-sizing: border-box;
+  width: 100%;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #17252a;
+}
+
+.account-input:disabled {
+  color: #ababab;
+}
+
+.account-password-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.account-save,
+.account-save-sm {
+  border: none;
+  border-radius: 0.35rem;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.65rem 1.75rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.account-save-sm {
+  align-self: flex-start;
+  text-transform: none;
+  padding: 0.5rem 1rem;
+}
+
+.account-save:disabled,
+.account-save-sm:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 860px) {
+  .profile-shell {
+    flex-direction: column;
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .profile-sidebar,
+  .profile-main {
+    width: 100%;
+  }
+}

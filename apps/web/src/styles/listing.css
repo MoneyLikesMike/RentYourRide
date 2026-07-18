@@ -1,0 +1,408 @@
+/* Listing detail — legacy Car screen tokens */
+
+.car-page {
+  min-height: 100vh;
+  background: #fff;
+}
+
+.car-screen-wrapper {
+  box-sizing: border-box;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 8vw, 12rem);
+}
+
+.caption-button-row {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.car-page-caption {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.5rem, 2vw, 2rem);
+  font-weight: 700;
+  color: #17252a;
+  margin: 0;
+}
+
+.go-back {
+  border: none;
+  background: none;
+  outline: none;
+  cursor: pointer;
+  text-decoration: none;
+  color: #4cb6b1;
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(0.95rem, 1.2vw, 1.15rem);
+  font-weight: 700;
+  padding: 0;
+}
+
+.car-border {
+  width: 100%;
+  height: 1px;
+  background: #def2f1;
+  margin: 1rem 0 1.5rem;
+}
+
+.car-status {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.car-status--error {
+  color: #f9493a;
+}
+
+.car-details-wrapper {
+  display: flex;
+  width: 100%;
+  margin-top: 0.5rem;
+  justify-content: space-between;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.left-details-column {
+  width: min(60%, 40rem);
+  flex: 1.4;
+  min-width: 0;
+}
+
+.right-details-column {
+  width: min(38%, 22rem);
+  flex: 0.9;
+  min-width: 16rem;
+}
+
+.photo-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 1.75rem;
+}
+
+.main-photo {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 1rem;
+  display: block;
+  background: #def2f1;
+}
+
+.main-photo--empty {
+  min-height: 14rem;
+}
+
+.other-photos {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.car-photo {
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  width: clamp(4.5rem, 6vw, 6rem);
+  height: clamp(2.75rem, 3.5vw, 3.5rem);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  opacity: 0.35;
+}
+
+.car-photo.active,
+.car-photo:hover {
+  opacity: 1;
+}
+
+.car-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.title-stars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0.35rem 0;
+}
+
+.car-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.25rem, 1.5vw, 1.6rem);
+  font-weight: 700;
+  color: #17252a;
+  margin: 0;
+}
+
+.car-trips {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #4cb6b1;
+}
+
+.car-meta-chips {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #545454;
+  margin: 0 0 1rem;
+}
+
+.car-description {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #545454;
+  line-height: 1.5;
+  margin: 0 0 1.5rem;
+}
+
+.car-features-header {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #17252a;
+  margin: 0 0 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.car-features-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.65rem;
+}
+
+.car-feature-tile {
+  border: 1px solid #61beba;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #17252a;
+  letter-spacing: 0.03em;
+}
+
+.host-block {
+  margin-bottom: 1.25rem;
+}
+
+.host-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ababab;
+  margin: 0 0 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.host-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.host-avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #def2f1;
+}
+
+.host-avatar--empty {
+  flex-shrink: 0;
+}
+
+.host-name {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #17252a;
+}
+
+.host-city {
+  margin: 0.15rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.price-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #def2f1;
+}
+
+.price-amount {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
+.price-per {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.instant-badge,
+.request-badge {
+  margin-left: auto;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #4cb6b1;
+}
+
+.request-badge {
+  color: #ffb214;
+}
+
+.trip-field {
+  margin-bottom: 1rem;
+}
+
+.trip-label {
+  display: block;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #17252a;
+  margin-bottom: 0.35rem;
+}
+
+.trip-inputs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.trip-inputs input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #def2f1;
+  border-radius: 0.4rem;
+  padding: 0.55rem 0.6rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #17252a;
+  background: #f9f9f9;
+}
+
+.pickup-text {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #545454;
+  line-height: 1.4;
+}
+
+.stats-list {
+  margin: 1.25rem 0;
+  padding: 0;
+  border-top: 1px solid #97979733;
+}
+
+.stats-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid #97979733;
+}
+
+.stats-list dt {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #8d8d8d;
+}
+
+.stats-list dd {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #17252a;
+  text-align: right;
+}
+
+.checkout-cta {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.9rem 1rem;
+  border-radius: 2rem;
+  border: 2px solid #4cb6b1;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.checkout-cta:hover {
+  filter: brightness(0.96);
+}
+
+/* Clickable FYC cards */
+.fyc-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  height: 100%;
+}
+
+.fyc-card {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.fyc-card:hover {
+  box-shadow: 0 10px 28px rgba(23, 37, 42, 0.1);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 900px) {
+  .car-details-wrapper {
+    flex-direction: column;
+  }
+
+  .left-details-column,
+  .right-details-column {
+    width: 100%;
+    min-width: 0;
+  }
+}

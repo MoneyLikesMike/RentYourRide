@@ -1,0 +1,16 @@
+---
+description: RentYourRide customer website rebuild — Nest API, bedev vs prod, legacy Web-old UI first
+globs: apps/web/**/*
+alwaysApply: false
+---
+
+# Website rebuild rules
+
+When working under `apps/web` (or creating it):
+
+- Follow the **ryr-website** skill (same process as the mobile Nest rebuild).
+- **Legacy UI first (mandatory):** Before building or restyling any screen, check `RentYourRideLegacy/Web-old` (`src/screens`, related SCSS/components). If that screen already exists, **match its layout, copy, colors, fonts, and assets** — do not invent a new design. Wire data to Nest `/v1` APIs (not the legacy backend).
+- Dev/default API: `https://bedev.rentyourride.ca`. Production builds must use `https://backend.rentyourride.ca`.
+- Production Stripe must be `pk_live_…`; never ship bedev + live Stripe (or prod API + `pk_test_…`) by accident.
+- Do not fold admin dashboard work into the customer site (`apps/admin` is separate).
+- Prefer TypeScript + a modern React toolchain (Vite or Next). Do not continue the legacy CRA app as the long-term codebase.

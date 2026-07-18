@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -18,7 +19,7 @@ import { navigateToVehicleDetailFromRoot, navigateToListingsFromRoot } from '../
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 /** 54×54 pt @ 375-wide artboard — all five edit-hub card icons. */
 const EDIT_CARD_ICON_54 = 54 * scale;
 

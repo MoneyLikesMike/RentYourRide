@@ -1,4 +1,5 @@
 import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -24,10 +25,11 @@ import { useListings } from '../context/ListingsContext';
 import { useAuth } from '../context/AuthContext';
 import ListingCard from '../components/ListingCard';
 import { navigateRootStack, navigateToVehicleDetail } from '../utils/navigateRootStack';
+import { startListRideFlow } from '../utils/verificationGates';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 const TAB_BAR_HEIGHT = 78 * scale;
 /** Width revealed when a row is fully swiped open (matches legacy ~25vw). */
 const OPEN_WIDTH = 118 * scale;
@@ -320,12 +322,9 @@ export default function ListingsScreen({ navigation }) {
   );
 
   const goListNew = useCallback(() => {
-    if (!canUseListingsHub) {
-      navigateRootStack(navigation, 'GetPaidStack');
-      return;
-    }
-    clearEditListingSession();
-    navigateRootStack(navigation, 'ListRideStack');
+    startListRideFlow(navigation, { canUseListingsHub }).then((ok) => {
+      if (ok && canUseListingsHub) clearEditListingSession();
+    });
   }, [navigation, canUseListingsHub, clearEditListingSession]);
 
   const openDeleteModal = useCallback((listing, closeSwipe) => {

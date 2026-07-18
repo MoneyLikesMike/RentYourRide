@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -31,10 +32,11 @@ import { alertDevVerificationCode } from '../utils/phoneVerificationDev';
 const CELL_COUNT = 6;
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function PhoneVerificationScreen({
   navigation,
+  route,
   phoneNumber = '',
   phoneE164 = '',
   onPhoneVerified,
@@ -49,7 +51,8 @@ export default function PhoneVerificationScreen({
     setValue,
   });
 
-  const verifyTarget = phoneE164 || phoneNumber;
+  const displayPhone = phoneNumber || route?.params?.phoneNumber || '';
+  const verifyTarget = phoneE164 || route?.params?.phoneE164 || displayPhone;
 
   useEffect(() => {
     const timer = setTimeout(() => ref.current?.focus?.(), 250);
@@ -87,9 +90,12 @@ export default function PhoneVerificationScreen({
     try {
       const result = await startPhoneVerification(verifyTarget);
       if (result?.devCode) {
-        alertDevVerificationCode(result, phoneNumber || verifyTarget);
+        alertDevVerificationCode(result, displayPhone || verifyTarget);
       } else {
-        Alert.alert('Code sent', `A new verification code was sent to ${phoneNumber || verifyTarget}.`);
+        Alert.alert(
+          'Code sent',
+          `A new verification code was sent to ${displayPhone || verifyTarget}.`,
+        );
       }
       setValue('');
       ref.current?.focus?.();
@@ -133,7 +139,7 @@ export default function PhoneVerificationScreen({
 
         <Text style={styles.codePrompt}>Enter 6-digit code</Text>
         <Text style={styles.subtext}>
-          We sent a code to {phoneNumber}. Enter the code in that message
+          We sent a code to {displayPhone || verifyTarget}. Enter the code in that message
         </Text>
 
         <CodeField

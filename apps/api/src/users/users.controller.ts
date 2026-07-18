@@ -14,11 +14,12 @@ import { diskStorage } from 'multer';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { join } from 'path';
 import { mkdirSync } from 'fs';
+import { uploadsSubdir } from '../common/uploads-path';
 import { ReqUser } from '../common/req-user.decorator';
 import { UsersService } from './users.service';
 import { ConfigService } from '@nestjs/config';
+import { PushTokenService } from '../notifications/push-token.service';
 
 export class PatchMeDto {
   @IsOptional()
@@ -88,6 +89,7 @@ export class UsersController {
   constructor(
     private readonly users: UsersService,
     private readonly config: ConfigService,
+    private readonly pushTokens: PushTokenService,
   ) {}
 
   @Get('me')
@@ -109,13 +111,13 @@ export class UsersController {
   @Get('me/notification-settings')
   async getNotif(@ReqUser() user) {
     const fresh = await this.users.requireById(user.id);
-    return (
-      fresh.notificationSettings ?? {
-        textNotif: false,
-        emailNotif: false,
-        pushNotif: false,
-      }
-    );
+    const s = fresh.notificationSettings ?? {};
+    // Unset defaults ON (legacy + onboarding). Explicit false opts out.
+    return {
+      textNotif: s.textNotif !== false,
+      emailNotif: s.emailNotif !== false,
+      pushNotif: s.pushNotif !== false,
+    };
   }
 
   @Patch('me/notification-settings')
@@ -123,12 +125,35 @@ export class UsersController {
     return this.users.updateNotificationSettings(user.id, body.settings ?? {});
   }
 
+  @Post('me/push-token')
+  async registerPushToken(
+    @ReqUser() user,
+    @Body() body: { token: string; platform?: string; deviceId?: string },
+  ) {
+    await this.pushTokens.register(
+      user.id,
+      body.token,
+      body.platform ?? 'ios',
+      body.deviceId,
+    );
+    if (body.token) {
+      await this.users.updateNotificationSettings(user.id, { pushNotif: true });
+    }
+    return { ok: true };
+  }
+
+  @Post('me/push-token/remove')
+  async removePushToken(@ReqUser() user, @Body() body: { token: string }) {
+    await this.pushTokens.unregister(user.id, body.token);
+    return { ok: true };
+  }
+
   @Post('me/avatar')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
-          const dir = join(process.cwd(), 'uploads', 'avatars');
+          const dir = uploadsSubdir('avatars');
           mkdirSync(dir, { recursive: true });
           cb(null, dir);
         },

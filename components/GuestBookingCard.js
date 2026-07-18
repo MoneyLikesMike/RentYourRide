@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
@@ -8,7 +9,7 @@ import { getTripCardStatus, getTripCardPrimaryAction } from '../utils/tripCardSt
 import { useGuestBookings } from '../context/GuestBookingsContext';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 export default function GuestBookingCard({ booking, onPress }) {
   const navigation = useNavigation();
@@ -45,22 +46,7 @@ export default function GuestBookingCard({ booking, onPress }) {
   };
 
   const onExtend = () => {
-    Alert.alert(
-      'Extend trip',
-      'Request an extension from your host. (Demo: extension is recorded on this booking.)',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue',
-          onPress: () =>
-            updateGuestBooking(booking.id, {
-              tripExtended: true,
-              extensionApprovedByHost: true,
-              extensionRequestedAt: Date.now(),
-            }),
-        },
-      ]
-    );
+    navigation.navigate('ExtendTripScreen', { bookingId: booking.id });
   };
 
   const runPrimaryAction = () => {

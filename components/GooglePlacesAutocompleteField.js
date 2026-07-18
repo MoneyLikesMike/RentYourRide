@@ -27,6 +27,7 @@ export default function GooglePlacesAutocompleteField({
   types,
   fetchDetails = true,
   onPlaceSelected,
+  onManualSubmit,
   onFocus,
   containerStyle,
   inputStyle,
@@ -104,6 +105,11 @@ export default function GooglePlacesAutocompleteField({
             setApiError('');
             onFocus?.();
           },
+          onSubmitEditing: (e) => {
+            const text = e?.nativeEvent?.text ?? '';
+            if (text.trim()) onManualSubmit?.(text.trim());
+          },
+          returnKeyType: 'search',
         }}
         styles={{
           container: styles.container,

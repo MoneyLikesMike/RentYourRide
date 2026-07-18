@@ -1,4 +1,5 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
@@ -6,7 +7,7 @@ import { FONTS } from '../constants/fonts';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function AddPaymentMethodScreen({ navigation, route }) {
   const returnAfterPayment = route.params?.returnAfterPayment === true;

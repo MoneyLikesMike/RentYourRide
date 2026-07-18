@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Injectable,
   UnauthorizedException,
+  ForbiddenException,
   ServiceUnavailableException,
   Logger,
 } from '@nestjs/common';
@@ -14,7 +15,9 @@ import { ConfigService } from '@nestjs/config';
 import { UserEntity } from '../entities/user.entity';
 import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 import { PasswordResetTokenEntity } from '../entities/password-reset-token.entity';
+import { EmailVerificationTokenEntity } from '../entities/email-verification-token.entity';
 import {
+  compareBcryptPassword,
   hashOpaque,
   randomRefreshToken,
   randomReferralCode,
@@ -25,11 +28,13 @@ import { JwtPayload } from './strategies/jwt.strategy';
 import { SmsService } from './sms.service';
 import { GoogleAuthService } from './google-auth.service';
 import { AppleAuthService } from './apple-auth.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const ACCESS_TTL = '15m';
 const RESET_TTL_MS = 60 * 60 * 1000;
 const PHONE_OTP_TTL_MS = 10 * 60 * 1000;
+const EMAIL_VERIFY_TTL_MS = 72 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -42,11 +47,14 @@ export class AuthService {
     private readonly refreshRepo: Repository<RefreshTokenEntity>,
     @InjectRepository(PasswordResetTokenEntity)
     private readonly resetRepo: Repository<PasswordResetTokenEntity>,
+    @InjectRepository(EmailVerificationTokenEntity)
+    private readonly emailVerifyRepo: Repository<EmailVerificationTokenEntity>,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly sms: SmsService,
     private readonly googleAuth: GoogleAuthService,
     private readonly appleAuth: AppleAuthService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private jwtSecret(): string {
@@ -82,6 +90,7 @@ export class AuthService {
       creditsBalance: '0',
     });
     await this.usersRepo.save(user);
+    await this.issueEmailVerification(user);
     return this.issueLoginPayload(user, true);
   }
 
@@ -192,8 +201,11 @@ export class AuthService {
       googleSub: opts.googleSub ?? null,
       appleSub: opts.appleSub ?? null,
       avatarUrl: opts.avatarUrl?.trim() || null,
+      emailVerified: false,
     });
     await this.usersRepo.save(created);
+    // Match password signup + legacy: new social accounts must verify email too.
+    await this.issueEmailVerification(created);
     return { user: created, isNewUser: true };
   }
 
@@ -204,11 +216,22 @@ export class AuthService {
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const matches = await bcrypt.compare(password, user.passwordHash);
+    if (user.isActive === false) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+    const matches = await compareBcryptPassword(password, user.passwordHash);
     if (!matches) {
       throw new UnauthorizedException('Invalid credentials');
     }
     return this.issueLoginPayload(user);
+  }
+
+  async adminLogin(email: string, password: string) {
+    const payload = await this.login(email, password);
+    if (payload.user.role !== 'admin') {
+      throw new ForbiddenException('Admin access required');
+    }
+    return payload;
   }
 
   private async issueLoginPayload(user: UserEntity, isNewUser = false) {
@@ -229,6 +252,7 @@ export class AuthService {
         lastName: user.lastName,
         fullName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim(),
         role: user.role,
+        emailVerified: !!user.emailVerified,
       },
       token: {
         accessToken,
@@ -293,6 +317,7 @@ export class AuthService {
       expiresAt: new Date(Date.now() + RESET_TTL_MS),
     });
     await this.resetRepo.save(row);
+    this.notifications.passwordRecovery(user, plain);
     if (this.config.get<string>('NODE_ENV') !== 'production') {
       console.warn(`[auth] password reset token for ${user.email}: ${plain}`);
     }
@@ -403,5 +428,57 @@ export class AuthService {
       phone: user.phone,
       user: user.toPublicDto(),
     };
+  }
+
+  private async issueEmailVerification(user: UserEntity): Promise<void> {
+    if (user.emailVerified) return;
+    await this.emailVerifyRepo.delete({ userId: user.id, purpose: 'signup' });
+    const plain = randomResetToken();
+    await this.emailVerifyRepo.save(
+      this.emailVerifyRepo.create({
+        userId: user.id,
+        tokenHash: hashOpaque(plain),
+        expiresAt: new Date(Date.now() + EMAIL_VERIFY_TTL_MS),
+        purpose: 'signup',
+      }),
+    );
+    this.notifications.verifyEmail(user, plain);
+    if (this.config.get<string>('NODE_ENV') !== 'production') {
+      this.log.warn(`[auth] email verification token for ${user.email}: ${plain}`);
+    }
+  }
+
+  async startEmailVerification(userId: string) {
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+    if (user.emailVerified) {
+      return { ok: true, alreadyVerified: true };
+    }
+    await this.issueEmailVerification(user);
+    return { ok: true, alreadyVerified: false };
+  }
+
+  async verifyEmail(token: string) {
+    const hash = hashOpaque(token.trim());
+    const row = await this.emailVerifyRepo.findOne({
+      where: { tokenHash: hash },
+      relations: ['user'],
+    });
+    if (!row || row.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired verification link');
+    }
+    row.user.emailVerified = true;
+    await this.usersRepo.save(row.user);
+    await this.emailVerifyRepo.delete({ userId: row.user.id, purpose: row.purpose });
+    this.notifications.emailVerifiedWelcome(row.user);
+    return { ok: true, user: row.user.toPublicDto() };
+  }
+
+  async setEmailVerifiedAdmin(userId: string) {
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+    user.emailVerified = true;
+    await this.usersRepo.save(user);
+    return user.toPublicDto();
   }
 }

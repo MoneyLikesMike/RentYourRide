@@ -1,37 +1,22 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Dimensions, ScrollView, StyleSheet, PanResponder, Animated } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
+import { View, Text, TouchableOpacity, Image, Dimensions, ScrollView, StyleSheet, Animated } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import VehicleTypesModal from './VehicleTypesModal';
+import { useHorizontalSwipeNavigation } from '../hooks/useHorizontalSwipeNavigation';
+import { ensureIdentityVerified } from '../utils/verificationGates';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375; // Base width is 375
+const scale = uiScale;
 
 const ListRideLanding3Screen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(false);
-  const translateX = React.useRef(new Animated.Value(0)).current;
   const activeDotScale = React.useRef(new Animated.Value(1)).current;
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        const { dx, dy } = gestureState;
-        return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 2;
-      },
-      onPanResponderMove: (_evt, gestureState) => {
-        const { dx } = gestureState;
-        translateX.setValue(dx * 0.2);
-      },
-      onPanResponderRelease: (_evt, gestureState) => {
-        const { dx, vx } = gestureState;
-        if (dx > 50 || vx > 0.5) {
-          navigation.navigate('ListRideLanding2Screen');
-        } else {
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
-        }
-      },
-    })
-  ).current;
+  const { translateX, panHandlers } = useHorizontalSwipeNavigation({
+    onSwipeRight: useCallback(() => navigation.navigate('ListRideLanding2Screen'), [navigation]),
+  });
 
   useFocusEffect(
     React.useCallback(() => {
@@ -47,7 +32,7 @@ const ListRideLanding3Screen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
+    <View style={styles.container} {...panHandlers}>
       <Animated.View style={{ flex: 1, transform: [{ translateX }] }}>
       <ScrollView 
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 160 * scale }]} // Add extra bottom padding for progress bar
@@ -120,7 +105,15 @@ const ListRideLanding3Screen = ({ navigation }) => {
         </TouchableOpacity>
 
         {/* Begin listing button */}
-        <TouchableOpacity style={styles.beginListingButton} onPress={() => navigation.navigate('TellUsAboutYourRideScreen1')}>
+        <TouchableOpacity
+          style={styles.beginListingButton}
+          onPress={async () => {
+            if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to list' }))) {
+              return;
+            }
+            navigation.navigate('TellUsAboutYourRideScreen1');
+          }}
+        >
           <Text style={styles.beginListingButtonText}>Begin listing</Text>
         </TouchableOpacity>
       </ScrollView>

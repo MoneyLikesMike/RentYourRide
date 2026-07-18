@@ -14,6 +14,7 @@ export class ListingsPublicController {
   @Get('search')
   async search(@Query('q') q?: string, @Query('city') city?: string) {
     const rows = await this.listings.search(q, city);
+    // Search cards don't need blocked ranges; keep payload light.
     return rows.map((l) => l.toDetailDto());
   }
 
@@ -47,9 +48,15 @@ export class ListingsPublicController {
     }
   }
 
+  @Get(':id/blocked-ranges')
+  async blockedRanges(@Param('id') id: string) {
+    const blockedRanges = await this.listings.getBlockedRanges(id);
+    return { blockedRanges };
+  }
+
   @Get(':id')
   async detail(@Param('id') id: string) {
     const l = await this.listings.findPublic(id);
-    return l.toDetailDto();
+    return this.listings.toPublicDetailDto(l);
   }
 }

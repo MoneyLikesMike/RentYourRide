@@ -2,7 +2,7 @@
   "expo": {
     "name": "RentYourRide",
     "slug": "rentyourride",
-    "version": "3.0.3",
+    "version": "3.0.4",
     "orientation": "portrait",
     "icon": "./assets/icons/RYRAppStoreIcon-1024.png",
     "splash": {
@@ -11,9 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rentyourride.ios",
-      "buildNumber": "13",
+      "buildNumber": "32",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "RentYourRide uses your location to search nearby vehicles and set pickup addresses."
+        "NSLocationWhenInUseUsageDescription": "RentYourRide uses your location to search nearby vehicles and set pickup addresses.",
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -26,8 +27,8 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiUrl": "http://127.0.0.1:8080",
-      "useDevApi": true,
+      "apiUrl": "https://backend.rentyourride.ca",
+      "useDevApi": false,
       "devApiUrl": "https://bedev.rentyourride.ca",
       "stripePublishableKey": "",
       "stripeMerchantIdentifier": "merchant.com.rentyourride.ios"
@@ -61,8 +62,14 @@
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.com.rentyourride.ios",
           "enableGooglePay": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icons/RYRAppStoreIcon-1024.png",
+          "color": "#4CB6B1"
         }
       ],
       [

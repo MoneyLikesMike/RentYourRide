@@ -12,6 +12,13 @@ export async function getListing(id) {
   return apiFetch(`/v1/listings/${encodeURIComponent(id)}`, { method: 'GET', auth: false });
 }
 
+export async function getListingBlockedRanges(id) {
+  return apiFetch(`/v1/listings/${encodeURIComponent(id)}/blocked-ranges`, {
+    method: 'GET',
+    auth: false,
+  });
+}
+
 export async function vinStatus(vin) {
   return apiFetch(`/v1/listings/vin/${encodeURIComponent(vin)}/status`, {
     method: 'GET',
@@ -44,6 +51,13 @@ export async function hostPatchListing(id, body) {
 
 export async function hostPublishListing(id) {
   return apiFetch(`/v1/host/listings/${encodeURIComponent(id)}/publish`, {
+    method: 'POST',
+    json: {},
+  });
+}
+
+export async function hostUnpublishListing(id) {
+  return apiFetch(`/v1/host/listings/${encodeURIComponent(id)}/unpublish`, {
     method: 'POST',
     json: {},
   });

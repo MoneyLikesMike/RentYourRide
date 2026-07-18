@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -18,7 +19,7 @@ import { brandLabel } from '../utils/paymentMethodUtils';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 function BrandBadge({ method }) {
   if (method.type === 'paypal') {
@@ -187,7 +188,7 @@ export default function PaymentInformationScreen({ navigation }) {
               style={styles.listScroll}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="never"
+              keyboardShouldPersistTaps="handled"
             >
               {sortedMethods.map((m) => (
                 <View key={m.id}>

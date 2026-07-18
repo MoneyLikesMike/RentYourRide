@@ -40,11 +40,17 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 24, default: 'guest' })
   role: string;
 
+  @Column({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean;
+
   @Column({ type: 'varchar', length: 40, nullable: true })
   phone: string | null;
 
   @Column({ name: 'phone_verified', type: 'boolean', default: false })
   phoneVerified: boolean;
+
+  @Column({ name: 'email_verified', type: 'boolean', default: false })
+  emailVerified: boolean;
 
   @Exclude()
   @Column({ name: 'phone_otp_hash', type: 'varchar', length: 128, nullable: true })
@@ -120,6 +126,7 @@ export class UserEntity {
       role: this.role,
       phone: this.phone ?? '',
       phoneVerified: !!this.phoneVerified,
+      emailVerified: !!this.emailVerified,
       addressLine: this.addressLine ?? '',
       addressCity: this.addressCity ?? '',
       addressCountry: this.addressCountry ?? '',
@@ -130,10 +137,10 @@ export class UserEntity {
       avatarUrl: this.avatarUrl ?? '',
       referralCode: this.referralCode,
       creditsBalance: this.creditsBalance,
-      notificationSettings: this.notificationSettings ?? {
-        textNotif: false,
-        emailNotif: false,
-        pushNotif: false,
+      notificationSettings: {
+        textNotif: this.notificationSettings?.textNotif !== false,
+        emailNotif: this.notificationSettings?.emailNotif !== false,
+        pushNotif: this.notificationSettings?.pushNotif !== false,
       },
     };
   }

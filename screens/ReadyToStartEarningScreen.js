@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -24,9 +25,10 @@ import {
 import { draftToListingBody } from '../utils/listingDraftPayload';
 import { syncListingPhotos } from '../utils/listingPhotos';
 import { isRemoteListingId } from '../utils/listingId';
+import { ensureIdentityVerified } from '../utils/verificationGates';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const ReadyToStartEarningScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -40,6 +42,9 @@ const ReadyToStartEarningScreen = ({ navigation }) => {
 
   const handleListMyRide = async () => {
     if (!termsAccepted) return;
+    if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to list' }))) {
+      return;
+    }
     const city = draft?.city ?? 'Winnipeg';
     const pricePerDay =
       typeof draft?.pricePerDay === 'number' ? draft.pricePerDay : Number(draft?.pricePerDay) || 0;

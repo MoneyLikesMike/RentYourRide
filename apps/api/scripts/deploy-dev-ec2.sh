@@ -29,6 +29,9 @@ GOOGLE_OAUTH_IOS=$(echo "$SECRET" | jq -r '.GOOGLE_OAUTH_IOS_CLIENT_ID // empty'
 APPLE_CLIENT=$(echo "$SECRET" | jq -r '.APPLE_CLIENT_ID // empty')
 DIDIT_API_KEY=$(echo "$SECRET" | jq -r '.DIDIT_API_KEY // empty')
 DIDIT_WEBHOOK_SECRET=$(echo "$SECRET" | jq -r '.DIDIT_WEBHOOK_SECRET // empty')
+PINPOINT_APP=$(echo "$SECRET" | jq -r '.AWS_PINPOINT_APP_ID // empty')
+PINPOINT_SENDER=$(echo "$SECRET" | jq -r '.AWS_PINPOINT_SENDER_ADDRESS // empty')
+ADMIN_EMAIL=$(echo "$SECRET" | jq -r '.ADMIN_EMAIL // empty')
 cat > /tmp/nest-api.env <<ENV
 DATABASE_URL=${DB_URL}
 DATABASE_SSL=1
@@ -39,6 +42,7 @@ PORT=8081
 NODE_ENV=production
 AWS_REGION=${AWS_REGION}
 SMS_EXPOSE_CODE=1
+UPLOADS_DIR=/home/ec2-user/rentyourride-uploads
 ENV
 if [ -n "$STRIPE" ] && [ "$STRIPE" != "null" ]; then
   echo "STRIPE_SECRET_KEY=${STRIPE}" >> /tmp/nest-api.env
@@ -73,6 +77,22 @@ fi
 if [ -n "$DIDIT_WEBHOOK_SECRET" ] && [ "$DIDIT_WEBHOOK_SECRET" != "null" ]; then
   echo "DIDIT_WEBHOOK_SECRET=${DIDIT_WEBHOOK_SECRET}" >> /tmp/nest-api.env
 fi
+if [ -n "$PINPOINT_APP" ] && [ "$PINPOINT_APP" != "null" ]; then
+  echo "AWS_PINPOINT_APP_ID=${PINPOINT_APP}" >> /tmp/nest-api.env
+else
+  echo "AWS_PINPOINT_APP_ID=1732d745d1004e60832c2e63211566ea" >> /tmp/nest-api.env
+fi
+if [ -n "$PINPOINT_SENDER" ] && [ "$PINPOINT_SENDER" != "null" ]; then
+  echo "AWS_PINPOINT_SENDER_ADDRESS=${PINPOINT_SENDER}" >> /tmp/nest-api.env
+else
+  echo "AWS_PINPOINT_SENDER_ADDRESS=donotreply+dev@rentyourride.ca" >> /tmp/nest-api.env
+fi
+if [ -n "$ADMIN_EMAIL" ] && [ "$ADMIN_EMAIL" != "null" ] && [ "$ADMIN_EMAIL" != "none" ]; then
+  echo "ADMIN_EMAIL=${ADMIN_EMAIL}" >> /tmp/nest-api.env
+else
+  echo "ADMIN_EMAIL=okoyem@rentyourride.ca" >> /tmp/nest-api.env
+fi
+echo "ADMIN_BASE_URL=https://admindev.rentyourride.ca" >> /tmp/nest-api.env
 chmod 600 /tmp/nest-api.env
 
 aws s3 cp /tmp/nest-api-deploy.tgz "s3://${BUCKET}/${KEY}"
@@ -86,6 +106,9 @@ cat > "$PARAMS" <<'REMOTE'
     "export HOME=/home/ec2-user",
     "source /home/ec2-user/.nvm/nvm.sh",
     "APP_DIR=/home/ec2-user/rentyourride-nest-api",
+    "UPLOADS_DIR=/home/ec2-user/rentyourride-uploads",
+    "mkdir -p $UPLOADS_DIR/listings $UPLOADS_DIR/avatars",
+    "chown -R ec2-user:ec2-user $UPLOADS_DIR",
     "rm -rf $APP_DIR && mkdir -p $APP_DIR /tmp/nest-extract",
     "aws s3 cp s3://dev-ryrbs/deploy/nest-api-deploy.tgz /tmp/nest-api-deploy.tgz --region us-east-2",
     "aws s3 cp s3://dev-ryrbs/deploy/nest-api.env $APP_DIR/.env --region us-east-2",

@@ -1,0 +1,27 @@
+:root {
+  --ink: #17252a;
+  --font-sans: 'Nunito', system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background: #fff;
+}
+
+a {
+  color: inherit;
+}

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
@@ -9,7 +10,7 @@ import { getHostNetEarnings } from '../utils/hostBookingEarnings';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 export default function HostRentalRequestCard({ booking, onPress }) {
   const navigation = useNavigation();

@@ -1,15 +1,12 @@
 import React from 'react';
-import { Keyboard, TouchableWithoutFeedback, View, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 
 /**
- * Tap anywhere outside a focused input to dismiss the keyboard.
+ * Layout wrapper. Keyboard dismiss is handled per ScrollView via keyboardDismissMode.
+ * Avoid TouchableWithoutFeedback here — it steals pan gestures from ScrollViews.
  */
 export default function DismissKeyboard({ children, style }) {
-  return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={style || styles.container}>{children}</View>
-    </TouchableWithoutFeedback>
-  );
+  return <View style={style || styles.container}>{children}</View>;
 }
 
 const styles = StyleSheet.create({

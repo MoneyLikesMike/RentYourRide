@@ -23,6 +23,13 @@ export async function patchNotificationSettings(settings) {
   });
 }
 
+export async function registerPushToken(token, platform) {
+  return apiFetch(`/v1/users/me/push-token`, {
+    method: 'POST',
+    json: { token, platform },
+  });
+}
+
 /** @param {{ uri: string, name?: string, type?: string }} file RN image picker shape */
 export async function uploadAvatar(file) {
   const form = new FormData();

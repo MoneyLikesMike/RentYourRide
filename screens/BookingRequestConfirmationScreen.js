@@ -1,17 +1,21 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { openBookingChat } from '../utils/openBookingChat';
+import { useGuestBookings } from '../context/GuestBookingsContext';
+import { isRemoteBookingId } from '../utils/bookingId';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 export default function BookingRequestConfirmationScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { listing = {}, bookingId = null } = route.params || {};
+  const { refreshBookingsFromApi, pendingRequests, activeRentals } = useGuestBookings();
 
   const hostName = listing.hostName || 'Host';
   const vehicleName = listing.title || 'vehicle';
@@ -22,6 +26,20 @@ export default function BookingRequestConfirmationScreen({ navigation, route }) 
   const subtitleInstant = `Wohoo! You've instantly booked *${hostName}* *${vehicleName}*`;
   const subtitleNonInstant =
     'You\u2019re almost there! The host has 8 hours to respond to your request. If they don\u2019t respond within 8 hours your request will be canceled. Rent Your Ride processes refunds immediately. It may take the bank up to 10 days to update your account.';
+
+  const handleMessageHost = async () => {
+    let id = bookingId;
+    if (!isRemoteBookingId(id)) {
+      await refreshBookingsFromApi();
+      const listingId = listing?.id != null ? String(listing.id) : '';
+      const match = [...pendingRequests, ...activeRentals].find((b) => {
+        const snapId = b.listingSnapshot?.id != null ? String(b.listingSnapshot.id) : '';
+        return listingId && snapId === listingId && isRemoteBookingId(b.id);
+      });
+      if (match?.id) id = match.id;
+    }
+    openBookingChat(navigation, id);
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 6 }]}>
@@ -53,7 +71,7 @@ export default function BookingRequestConfirmationScreen({ navigation, route }) 
         <TouchableOpacity
           style={styles.messageBtn}
           activeOpacity={0.85}
-          onPress={() => openBookingChat(navigation, bookingId)}
+          onPress={handleMessageHost}
         >
           <Text
             style={styles.messageBtnText}

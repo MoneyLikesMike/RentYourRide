@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -15,6 +16,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
@@ -23,9 +25,11 @@ import { useListings } from '../context/ListingsContext';
 import ListingCard from '../components/ListingCard';
 import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocompleteField';
 import { resolveCurrentLocationQueryWithAlert } from '../utils/currentLocation';
+import { formatLocationLabel, resolveSearchCity, isMarketplaceListing } from '../utils/searchLocation';
+import { searchListings } from '../services/listingsApi';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 // Min height for Filters scroll content so the whole sheet area is scrollable
 const REFINE_SCROLL_CONTENT_MIN_HEIGHT = screenHeight * 0.55;
 // Car feature card size (same formula as DescribeYourRideScreen: 3 cols, padding 20*scale each side, 2 gaps 12*scale)
@@ -84,12 +88,14 @@ const COLOR_OPTIONS = [
 export default function SearchResultsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { city = '', listings: initialRouteListings = [], country } = route.params || {};
-  const { getListingsByCity, listings: catalogListings } = useListings();
+  const { getListingsByCity, mergeRemoteListings } = useListings();
   const [selectedCity, setSelectedCity] = useState(city);
   const [currentListings, setCurrentListings] = useState(() => {
+    if (Array.isArray(initialRouteListings) && initialRouteListings.length > 0) {
+      return initialRouteListings.filter(isMarketplaceListing);
+    }
     const key = (city || '').trim();
-    if (key) return getListingsByCity(key);
-    return initialRouteListings.filter((l) => l.active !== false);
+    return key ? getListingsByCity(key).filter(isMarketplaceListing) : [];
   });
   const useMiles = country === 'US' || country === 'USA' || country === 'United States';
   const [dateRange, setDateRange] = useState(DEFAULT_DATE_RANGE);
@@ -223,12 +229,40 @@ export default function SearchResultsScreen({ navigation, route }) {
     setSelectedCity(city);
   }, [city]);
 
-  // Always derive from catalog so deactivations (and other updates) drop out of search immediately.
+  // Prefer fresh route/search API results — never replace with stale AsyncStorage catalog alone.
+  const refreshSearch = useCallback(
+    async (cityKey, routeListings) => {
+      const key = (cityKey || '').trim();
+      if (!key) return;
+      if (Array.isArray(routeListings) && routeListings.length > 0) {
+        setCurrentListings(routeListings.filter(isMarketplaceListing));
+      }
+      try {
+        const remote = await searchListings({ city: key });
+        if (Array.isArray(remote)) {
+          mergeRemoteListings(remote);
+          setCurrentListings(remote.filter(isMarketplaceListing));
+          return;
+        }
+      } catch (_) {
+        /* offline */
+      }
+      if (!Array.isArray(routeListings) || routeListings.length === 0) {
+        setCurrentListings(getListingsByCity(key).filter(isMarketplaceListing));
+      }
+    },
+    [getListingsByCity, mergeRemoteListings],
+  );
+
   useEffect(() => {
-    const key = (selectedCity || '').trim();
-    if (!key) return;
-    setCurrentListings(getListingsByCity(key));
-  }, [selectedCity, catalogListings, getListingsByCity]);
+    refreshSearch(selectedCity, initialRouteListings);
+  }, [selectedCity, initialRouteListings, refreshSearch]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshSearch(selectedCity, route.params?.listings);
+    }, [selectedCity, route.params?.listings, refreshSearch]),
+  );
 
   const openWhereEdit = () => {
     setWhereInput(selectedCity ?? '');
@@ -246,8 +280,9 @@ export default function SearchResultsScreen({ navigation, route }) {
   const handleUseCurrentLocation = async () => {
     const loc = await resolveCurrentLocationQueryWithAlert();
     if (!loc) return;
-    setWhereInput(loc.query);
-    setSelectedCity(loc.city || loc.query.split(',')[0].trim());
+    const { city, query } = resolveSearchCity({ city: loc.city, query: loc.query });
+    setWhereInput(query || loc.query);
+    setSelectedCity(city || formatLocationLabel(loc.query));
     setEditingCity(false);
     closeSearchPanel();
   };
@@ -422,7 +457,7 @@ export default function SearchResultsScreen({ navigation, route }) {
               style={styles.refineBody}
               contentContainerStyle={[styles.refineBodyContent, { minHeight: REFINE_SCROLL_CONTENT_MIN_HEIGHT }]}
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="never"
+              keyboardShouldPersistTaps="handled"
               bounces={true}
               nestedScrollEnabled={true}
               directionalLockEnabled={true}

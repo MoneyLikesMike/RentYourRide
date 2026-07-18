@@ -15,29 +15,49 @@ const MessagingContext = createContext(null);
 
 const REFRESH_INTERVAL_MS = 20000;
 
+function conversationsEqual(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    const left = a[i];
+    const right = b[i];
+    if (left.id !== right.id) return false;
+    if ((left.unreadCount || 0) !== (right.unreadCount || 0)) return false;
+    if (left.updatedAt !== right.updatedAt) return false;
+    const leftLast = left.lastMessage;
+    const rightLast = right.lastMessage;
+    if (leftLast?.text !== rightLast?.text) return false;
+    if (leftLast?.createdAt !== rightLast?.createdAt) return false;
+    if (leftLast?.senderUserId !== rightLast?.senderUserId) return false;
+  }
+  return true;
+}
+
 export function MessagingProvider({ children }) {
   const { isAuthenticated, isReady } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [unreadTotal, setUnreadTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(false);
   const inFlightRef = useRef(false);
+  const hasLoadedRef = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!isAuthenticated || !isReady) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
-    setLoading(true);
+    const isInitialLoad = !hasLoadedRef.current;
+    if (isInitialLoad) setInitialLoading(true);
     try {
       const rows = await messagingApi.listConversations();
       if (!Array.isArray(rows)) return;
-      setConversations(rows);
+      hasLoadedRef.current = true;
+      setConversations((prev) => (conversationsEqual(prev, rows) ? prev : rows));
       const total = rows.reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0);
-      setUnreadTotal(total);
+      setUnreadTotal((prev) => (prev === total ? prev : total));
     } catch (e) {
       // Non-fatal — leave last known state visible
       console.warn('[Messaging] refresh failed', e?.message || e);
     } finally {
-      setLoading(false);
+      if (isInitialLoad) setInitialLoading(false);
       inFlightRef.current = false;
     }
   }, [isAuthenticated, isReady]);
@@ -47,6 +67,7 @@ export function MessagingProvider({ children }) {
     if (!isAuthenticated || !isReady) {
       setConversations([]);
       setUnreadTotal(0);
+      hasLoadedRef.current = false;
       return undefined;
     }
     refresh();
@@ -82,12 +103,15 @@ export function MessagingProvider({ children }) {
     async (conversationId) => {
       try {
         await messagingApi.markConversationRead(conversationId);
-        setConversations((prev) =>
-          prev.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c)),
-        );
+        setConversations((prev) => {
+          const target = prev.find((c) => c.id === conversationId);
+          if (!target || !target.unreadCount) return prev;
+          return prev.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c));
+        });
         setUnreadTotal((prev) => {
           const conv = conversations.find((c) => c.id === conversationId);
           const wasUnread = conv ? conv.unreadCount || 0 : 0;
+          if (!wasUnread) return prev;
           return Math.max(0, prev - wasUnread);
         });
       } catch (e) {
@@ -120,7 +144,7 @@ export function MessagingProvider({ children }) {
     () => ({
       conversations,
       unreadTotal,
-      loading,
+      initialLoading,
       refresh,
       openConversationForBooking,
       markRead,
@@ -129,7 +153,7 @@ export function MessagingProvider({ children }) {
     [
       conversations,
       unreadTotal,
-      loading,
+      initialLoading,
       refresh,
       openConversationForBooking,
       markRead,

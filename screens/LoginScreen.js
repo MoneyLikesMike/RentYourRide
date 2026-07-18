@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -26,7 +27,7 @@ import SocialAuthButtons from '../components/SocialAuthButtons';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 // ErrorRow component for error message only
 function ErrorRow({ message }) {

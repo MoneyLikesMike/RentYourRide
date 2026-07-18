@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -19,11 +20,12 @@ import { useGuestBookings } from '../context/GuestBookingsContext';
 import { averageRatingFromReviews } from '../utils/guestListingReview';
 import { useAuth } from '../context/AuthContext';
 import { navigateRootStack, navigateToVehicleDetail } from '../utils/navigateRootStack';
+import { startListRideFlow } from '../utils/verificationGates';
 import ListingCard, { ListingStarRating } from '../components/ListingCard';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 const TAB_BAR_HEIGHT = 78 * scale;
 const REVIEWS_PAGE_SIZE = 5;
 
@@ -257,11 +259,7 @@ export default function UserProfileScreen({ navigation, route }) {
               {isOwnProfile ? (
                 <TouchableOpacity
                   onPress={() => {
-                    if (canUseListingsHub) {
-                      navigateRootStack(navigation, 'ListRideStack');
-                    } else {
-                      navigateRootStack(navigation, 'GetPaidStack');
-                    }
+                    startListRideFlow(navigation, { canUseListingsHub });
                   }}
                   activeOpacity={0.85}
                 >

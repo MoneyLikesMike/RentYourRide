@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
@@ -10,11 +11,12 @@ import { useGuestBookings } from '../context/GuestBookingsContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useListings } from '../context/ListingsContext';
 import { useAuth } from '../context/AuthContext';
-import { filterBookingsForHost } from '../utils/hostBookingFilter';
+import { filterBookingsForGuest, filterBookingsForHost } from '../utils/hostBookingFilter';
+import { filterActiveForPerspective } from '../utils/bookingCompletion';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function ActiveRentalsScreen() {
   const navigation = useNavigation();
@@ -33,8 +35,21 @@ export default function ActiveRentalsScreen() {
     if (t === 'host' || t === 'guest') setActiveTab(t);
   }, [route.params?.initialTab]);
 
+  const guestActiveRentals = useMemo(
+    () =>
+      filterActiveForPerspective(
+        filterBookingsForGuest(activeRentals, user?.id),
+        false,
+      ),
+    [activeRentals, user?.id],
+  );
+
   const hostActiveRentals = useMemo(
-    () => filterBookingsForHost(activeRentals, listings, firstName, lastName, user?.id),
+    () =>
+      filterActiveForPerspective(
+        filterBookingsForHost(activeRentals, listings, firstName, lastName, user?.id),
+        true,
+      ),
     [activeRentals, listings, firstName, lastName, user?.id]
   );
 
@@ -72,7 +87,7 @@ export default function ActiveRentalsScreen() {
       {/* Content Area */}
       <View style={styles.contentArea}>
         {activeTab === 'guest' ? (
-          activeRentals.length === 0 ? (
+          guestActiveRentals.length === 0 ? (
             <View style={styles.emptyStateContainer}>
               <Image source={require('../assets/icons/EmptyRoad.png')} style={styles.emptyIcon} />
               <Text style={styles.emptyHeader}>You have no active rentals</Text>
@@ -88,7 +103,7 @@ export default function ActiveRentalsScreen() {
               contentContainerStyle={styles.guestListContent}
               showsVerticalScrollIndicator={false}
             >
-              {activeRentals.map((b) => (
+              {guestActiveRentals.map((b) => (
                 <GuestBookingCard
                   key={b.id}
                   booking={b}

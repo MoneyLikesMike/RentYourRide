@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -20,7 +21,7 @@ import { formatTripDateTime } from '../utils/guestBookingFormat';
 import PictureDocumentationPlaceholderGrid from '../components/PictureDocumentationPlaceholderGrid';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const PLACEHOLDER = require('../assets/icons/shape.png');
 
@@ -182,7 +183,7 @@ export default function HostRentalAgreementScreen({ navigation, route }) {
         style={styles.scroll}
         contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 24 * scale }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.participantsRow}>
           <View style={styles.participant}>

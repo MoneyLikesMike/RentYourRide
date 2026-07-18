@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback, useRef, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -20,7 +21,7 @@ import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 /** Pops host check-in flow and returns to booking details (Sign → Agreement → Guidelines → Check-in → Details). */
 const CHECK_IN_FLOW_DEPTH = 5;

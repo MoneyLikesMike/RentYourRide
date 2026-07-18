@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -12,17 +13,16 @@ import {
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
-import { useAuth } from '../context/AuthContext';
 import { searchListings } from '../services/listingsApi';
 import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocompleteField';
 import { resolveCurrentLocationQueryWithAlert } from '../utils/currentLocation';
+import { isMarketplaceListing, resolveSearchCity, formatLocationLabel } from '../utils/searchLocation';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function HomeScreen({ navigation }) {
-  const { isAuthenticated, isReady } = useAuth();
   const { getListingsByCity, mergeRemoteListings } = useListings();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [selectedTab, setSelectedTab] = useState('home');
@@ -34,36 +34,48 @@ export default function HomeScreen({ navigation }) {
   });
 
   const runSearch = useCallback(
-    async (rawLocation) => {
-      const location = (rawLocation || '').trim();
-      if (!location) return;
-
-      const city = location.includes(',') ? location.split(',')[0].trim() : location;
-
-      if (isAuthenticated && isReady) {
-        try {
-          const remote = await searchListings({ city });
-          if (Array.isArray(remote) && remote.length > 0) {
-            mergeRemoteListings(remote);
-          }
-        } catch (_) {
-          /* fall through */
-        }
+    async (searchInput, explicitCity) => {
+      const { city, query } = resolveSearchCity({
+        city: explicitCity,
+        query: typeof searchInput === 'string' ? searchInput : '',
+      });
+      const displayLocation = formatLocationLabel(city || query);
+      if (!city) {
+        navigation.navigate('EmptyVehicleSearchScreen', { location: displayLocation });
+        return;
       }
 
-      const listings = getListingsByCity(city);
-      if (listings.length > 0) {
-        navigation.navigate('SearchResultsScreen', { city, listings });
+      let remoteResults = null;
+      try {
+        remoteResults = await searchListings({ city });
+        if (Array.isArray(remoteResults)) {
+          mergeRemoteListings(remoteResults);
+        }
+      } catch (_) {
+        /* fall through to local cache */
+      }
+
+      // When search succeeds, remote is source of truth (avoids stale AsyncStorage
+      // overwriting fresher guest results). Offline: use local marketplace cache.
+      let merged;
+      if (Array.isArray(remoteResults)) {
+        merged = remoteResults.filter(isMarketplaceListing);
       } else {
-        navigation.navigate('EmptyVehicleSearchScreen', { location: city });
+        merged = getListingsByCity(city).filter(isMarketplaceListing);
+      }
+
+      if (merged.length > 0) {
+        navigation.navigate('SearchResultsScreen', { city, listings: merged });
+      } else {
+        navigation.navigate('EmptyVehicleSearchScreen', { location: formatLocationLabel(query || city) });
       }
     },
-    [getListingsByCity, isAuthenticated, isReady, mergeRemoteListings, navigation],
+    [getListingsByCity, mergeRemoteListings, navigation],
   );
 
   const handlePlaceSelected = useCallback(
     ({ selection }) => {
-      runSearch(selection.query || selection.city);
+      runSearch(selection.query, selection.city);
     },
     [runSearch],
   );
@@ -71,8 +83,17 @@ export default function HomeScreen({ navigation }) {
   const handleCurrentLocation = async () => {
     const loc = await resolveCurrentLocationQueryWithAlert();
     if (!loc) return;
-    runSearch(loc.query);
+    runSearch(loc.query, loc.city);
   };
+
+  const handleManualSearch = useCallback(
+    (text) => {
+      const trimmed = (text || '').trim();
+      if (!trimmed) return;
+      runSearch(trimmed, trimmed.includes(',') ? undefined : trimmed);
+    },
+    [runSearch],
+  );
 
   return (
     <View style={styles.container}>
@@ -83,6 +104,7 @@ export default function HomeScreen({ navigation }) {
           <GooglePlacesAutocompleteField
             placeholder="City, airport, address, or hotel"
             onPlaceSelected={handlePlaceSelected}
+            onManualSubmit={handleManualSearch}
             containerStyle={styles.placesContainer}
             inputStyle={styles.searchBar}
           />
@@ -108,7 +130,10 @@ export default function HomeScreen({ navigation }) {
       >
         <View style={styles.scrollSpacer} />
       </Animated.ScrollView>
-      <Animated.View style={[styles.carImageContainer, { transform: [{ translateX: carTranslateX }] }]}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.carImageContainer, { transform: [{ translateX: carTranslateX }] }]}
+      >
         <Image source={require('../assets/icons/home-screen-car.png')} style={styles.carImage} resizeMode="contain" />
       </Animated.View>
       <View style={styles.menuBar}>

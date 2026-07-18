@@ -1,4 +1,20 @@
 import { createHash, randomBytes, randomInt } from 'crypto';
+import * as bcrypt from 'bcrypt';
+
+/** PHP / legacy @node-rs bcrypt uses `$2y$`; node-bcrypt expects `$2a$` or `$2b$`. */
+export function normalizeBcryptHash(hash: string): string {
+  if (hash.startsWith('$2y$')) {
+    return `$2a$${hash.slice(4)}`;
+  }
+  return hash;
+}
+
+export async function compareBcryptPassword(
+  plain: string,
+  hash: string,
+): Promise<boolean> {
+  return bcrypt.compare(plain, normalizeBcryptHash(hash));
+}
 
 export function hashOpaque(value: string): string {
   return createHash('sha256').update(value).digest('hex');

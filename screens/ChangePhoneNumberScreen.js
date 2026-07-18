@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -31,7 +32,7 @@ import { alertDevVerificationCode } from '../utils/phoneVerificationDev';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const DROPDOWN_ICON =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAi0lEQVRYR+3WuQ6AIBRE0eHL1T83FBqU5S1szdiY2NyTKcCAzU/Y3AcBXIALcIF0gRPAsehgugDEXnYQrUC88RIgfpuJ+MRrgFmILN4CjEYU4xJgFKIa1wB6Ec24FuBFiHELwIpQxa0ALUId9wAkhCnuBdQQ5ngP4I9wxXsBDyJ9m+8y/g9wAS7ABW4giBshQZji3AAAAABJRU5ErkJggg==';
@@ -83,8 +84,15 @@ export default function ChangePhoneNumberScreen({ navigation, onSave }) {
       const result = await startPhoneVerification(e164);
       const display = formatPhoneForDisplay(e164, countryCode);
       alertDevVerificationCode(result, display);
-      if (onSave) onSave(e164, display);
-      else navigation.goBack();
+      if (onSave) {
+        onSave(e164, display);
+      } else {
+        // Stack flow from Verification Steps: replace so back/success returns to steps list.
+        navigation.replace('PhoneVerificationScreen', {
+          phoneE164: e164,
+          phoneNumber: display,
+        });
+      }
     } catch (err) {
       Alert.alert('Could not send code', err?.message || 'Please try again.');
     } finally {
@@ -107,7 +115,7 @@ export default function ChangePhoneNumberScreen({ navigation, onSave }) {
           styles.scrollContent,
           { paddingBottom: Math.max(insets.bottom, 16) + 24 },
         ]}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         showsVerticalScrollIndicator={false}
         bounces={false}

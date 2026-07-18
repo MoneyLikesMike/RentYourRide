@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useMemo } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { useRoute } from '@react-navigation/native';
 import {
   View,
@@ -18,7 +19,7 @@ import ShareLinkModal from './ShareLinkModal';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const REFERRAL_BASE = 'https://rentyourride.com/invite';
 const CREDIT_DISPLAY = '$25';

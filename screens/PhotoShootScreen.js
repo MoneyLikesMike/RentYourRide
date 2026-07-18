@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -17,7 +18,7 @@ import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 export const FLOW_GUEST_CHECK_IN = 'guestCheckIn';
 /** Same steps and UI as guest check-in photo flow; saves to host check-in photos. */

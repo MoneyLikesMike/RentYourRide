@@ -105,6 +105,12 @@ export class AuthController {
     return this.auth.login(body.email, body.password);
   }
 
+  @Post('admin/login')
+  @HttpCode(200)
+  async adminLogin(@Body() body: LoginDto) {
+    return this.auth.adminLogin(body.email, body.password);
+  }
+
   @Post('google')
   @HttpCode(200)
   async googleLogin(@Body() body: GoogleLoginDto) {
@@ -148,5 +154,19 @@ export class AuthController {
   @HttpCode(200)
   async finishPhoneVerification(@Req() req, @Body() body: FinishPhoneVerificationDto) {
     return this.auth.finishPhoneVerification(req.user.id, body.code);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @Post('start-email-verification')
+  @HttpCode(200)
+  async startEmailVerification(@Req() req) {
+    return this.auth.startEmailVerification(req.user.id);
+  }
+
+  @Post('verify-email')
+  @HttpCode(200)
+  async verifyEmail(@Body() body: { token: string }) {
+    return this.auth.verifyEmail(body.token);
   }
 }

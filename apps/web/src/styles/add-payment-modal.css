@@ -1,0 +1,156 @@
+/* Add payment method popup — legacy AddPaymentMethod */
+
+.add-pay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 37, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.add-pay-modal {
+  background: #fff;
+  border-radius: 0.75rem;
+  width: min(100%, 26rem);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.add-pay-modal-form {
+  padding: 1.5rem 1.5rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.add-pay-modal-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #17252a;
+  margin: 0 0 0.25rem;
+  text-align: center;
+}
+
+.add-pay-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid #def2f1;
+  margin-bottom: 0.25rem;
+}
+
+.add-pay-tab {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 0.65rem 0.5rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ababab;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.add-pay-tab.is-active {
+  color: #4cb6b1;
+  border-bottom-color: #4cb6b1;
+}
+
+.add-pay-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  position: relative;
+}
+
+.add-pay-half {
+  flex: 1;
+  min-width: 0;
+}
+
+.add-pay-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #17252a;
+}
+
+.add-pay-input,
+.add-pay-stripe {
+  border-radius: 0.26rem;
+  border: solid 1px #a3a3a3;
+  background: #f9f9f9;
+  padding: 0.7rem 0.85rem;
+  box-sizing: border-box;
+  width: 100%;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #17252a;
+}
+
+.add-pay-input.is-error,
+.add-pay-stripe.is-error {
+  border-color: #f9493a;
+}
+
+.add-pay-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.add-pay-error-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #f9493a;
+  margin: 0;
+}
+
+.add-pay-paypal-stub {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: #ababab;
+  text-align: center;
+  padding: 2rem 0;
+  margin: 0;
+}
+
+.add-pay-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.add-pay-btn {
+  flex: 1;
+  border-radius: 0.35rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.75rem 0.5rem;
+  cursor: pointer;
+}
+
+.add-pay-btn--ghost {
+  border: 2px solid #4cb6b1;
+  background: #fff;
+  color: #4cb6b1;
+}
+
+.add-pay-btn--filled {
+  border: none;
+  background: #4cb6b1;
+  color: #fff;
+}
+
+.add-pay-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

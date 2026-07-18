@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -17,7 +18,7 @@ import { payoutsSummary } from '../services/payoutsApi';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const CHART_HEIGHT = 168 * scale;
 const CHART_PAD = { left: 8 * scale, right: 8 * scale, top: 12 * scale, bottom: 28 * scale };

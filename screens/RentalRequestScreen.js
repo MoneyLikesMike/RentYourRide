@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image, ScrollView } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -10,11 +11,11 @@ import { useGuestBookings } from '../context/GuestBookingsContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useListings } from '../context/ListingsContext';
 import { useAuth } from '../context/AuthContext';
-import { filterBookingsForHost } from '../utils/hostBookingFilter';
+import { filterBookingsForGuest, filterBookingsForHost } from '../utils/hostBookingFilter';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function RentalRequestScreen() {
   const navigation = useNavigation();
@@ -24,13 +25,10 @@ export default function RentalRequestScreen() {
   const { listings } = useListings();
   const [activeTab, setActiveTab] = useState('guest');
 
-  const guestOutboundPending = useMemo(() => {
-    return pendingRequests.filter((b) => {
-      if (!user?.id) return true;
-      if (!b.guestUserId) return true;
-      return String(b.guestUserId) === String(user.id);
-    });
-  }, [pendingRequests, user?.id]);
+  const guestOutboundPending = useMemo(
+    () => filterBookingsForGuest(pendingRequests, user?.id),
+    [pendingRequests, user?.id],
+  );
 
   const hostRentalRequests = useMemo(() => {
     return filterBookingsForHost(pendingRequests, listings, firstName, lastName, user?.id).filter(

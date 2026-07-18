@@ -5,13 +5,13 @@ import App from './App';
 if (ScrollView.defaultProps == null) {
   ScrollView.defaultProps = {};
 }
-ScrollView.defaultProps.keyboardShouldPersistTaps = 'never';
+ScrollView.defaultProps.keyboardShouldPersistTaps = 'handled';
 ScrollView.defaultProps.keyboardDismissMode = 'on-drag';
 
 if (FlatList.defaultProps == null) {
   FlatList.defaultProps = {};
 }
-FlatList.defaultProps.keyboardShouldPersistTaps = 'never';
+FlatList.defaultProps.keyboardShouldPersistTaps = 'handled';
 FlatList.defaultProps.keyboardDismissMode = 'on-drag';
 
 AppRegistry.registerComponent('main', () => App);

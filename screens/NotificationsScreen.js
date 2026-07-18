@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -10,7 +11,7 @@ import { getNotificationSettings, patchNotificationSettings } from '../services/
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const NOTIFICATION_PREFS_KEY = '@ryr_notification_prefs';
 
@@ -20,9 +21,10 @@ async function persistLocal(payload) {
 
 export default function NotificationsScreen({ navigation }) {
   const { isAuthenticated, isReady } = useAuth();
-  const [textNotif, setTextNotif] = useState(false);
-  const [emailNotif, setEmailNotif] = useState(false);
-  const [pushNotif, setPushNotif] = useState(false);
+  // Unset prefs default ON (matches API / legacy onboarding).
+  const [textNotif, setTextNotif] = useState(true);
+  const [emailNotif, setEmailNotif] = useState(true);
+  const [pushNotif, setPushNotif] = useState(true);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   useEffect(() => {

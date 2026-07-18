@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
@@ -9,7 +10,7 @@ import { useUserProfile } from '../context/UserProfileContext';
 import { formatCheckInTripStart } from '../utils/guestBookingFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 export default function HostCheckInScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -65,7 +66,7 @@ export default function HostCheckInScreen({ navigation, route }) {
           { paddingBottom: insets.bottom + 24 * scale },
         ]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.heroWrap}>
           <Image

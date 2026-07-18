@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
@@ -10,7 +11,7 @@ import { getReferralsSummary } from '../services/referralsApi';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const INVITE_COPY =
   'Share your referral link. When a friend completes their first trip as a guest, you can earn account credit.';

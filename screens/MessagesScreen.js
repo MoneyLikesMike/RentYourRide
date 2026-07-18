@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState, memo } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -19,7 +20,7 @@ import { useMessaging } from '../context/MessagingContext';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 function formatRelative(ts) {
   if (!ts) return '';
@@ -41,7 +42,7 @@ function initials(name) {
     .join('');
 }
 
-function ConversationRow({ conversation, currentUserId, onPress }) {
+const ConversationRow = memo(function ConversationRow({ conversation, currentUserId, onPress }) {
   const {
     counterpart = {},
     lastMessage,
@@ -60,7 +61,7 @@ function ConversationRow({ conversation, currentUserId, onPress }) {
   const isUnread = unreadCount > 0;
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.75} style={styles.row}>
+    <TouchableOpacity onPress={() => onPress(conversation)} activeOpacity={0.75} style={styles.row}>
       <View style={styles.avatarWrap}>
         {counterpart.avatarUrl ? (
           <Image source={{ uri: counterpart.avatarUrl }} style={styles.avatar} />
@@ -90,18 +91,28 @@ function ConversationRow({ conversation, currentUserId, onPress }) {
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 export default function MessagesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { conversations, loading, refresh } = useMessaging();
+  const { conversations, initialLoading, refresh } = useMessaging();
+  const [pullRefreshing, setPullRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       refresh();
     }, [refresh]),
   );
+
+  const handlePullRefresh = useCallback(async () => {
+    setPullRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setPullRefreshing(false);
+    }
+  }, [refresh]);
 
   const openConversation = useCallback(
     (conv) => {
@@ -119,7 +130,7 @@ export default function MessagesScreen({ navigation }) {
       <ConversationRow
         conversation={item}
         currentUserId={user?.id}
-        onPress={() => openConversation(item)}
+        onPress={openConversation}
       />
     ),
     [user?.id, openConversation],
@@ -155,7 +166,7 @@ export default function MessagesScreen({ navigation }) {
         <Text style={styles.heading}>MESSAGES</Text>
       </View>
 
-      {loading && conversations.length === 0 ? (
+      {initialLoading && conversations.length === 0 ? (
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={COLORS.GREENY_BLUE_TWO} />
         </View>
@@ -173,8 +184,8 @@ export default function MessagesScreen({ navigation }) {
           ListEmptyComponent={empty}
           refreshControl={
             <RefreshControl
-              refreshing={loading}
-              onRefresh={refresh}
+              refreshing={pullRefreshing}
+              onRefresh={handlePullRefresh}
               tintColor={COLORS.GREENY_BLUE_TWO}
             />
           }

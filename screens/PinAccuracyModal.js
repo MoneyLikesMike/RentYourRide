@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, TouchableOpacity, Modal, Dimensions, StyleSheet, ActivityIndicator } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { reverseGeocode } from '../services/geocodeApi';
 import { MAP_PROVIDER } from '../utils/mapProvider';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const PinAccuracyModal = ({ visible, onClose, onNext, addressData, onAddressUpdate }) => {
   const mapRef = useRef(null);

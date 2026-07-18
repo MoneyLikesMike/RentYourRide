@@ -1,4 +1,5 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, ScrollView, Platform, Linking } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
@@ -8,10 +9,11 @@ import { useAuth } from '../context/AuthContext';
 import { useAccountSetupSteps } from '../hooks/useAccountSetupSteps';
 import AccountSetupProgressCard from '../components/AccountSetupProgressCard';
 import { navigateRootStack } from '../utils/navigateRootStack';
+import { ensureIdentityVerified } from '../utils/verificationGates';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const PROFILE_OPTIONS = [
   { label: 'Contact Information', onPress: () => {} },
@@ -51,7 +53,7 @@ export default function AccountManagementScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
       >
         {/* Profile Card */}
         <TouchableOpacity
@@ -121,7 +123,10 @@ export default function AccountManagementScreen({ navigation }) {
           {/* Listings */}
           <TouchableOpacity
             style={styles.ridesGroupButton}
-            onPress={() => {
+            onPress={async () => {
+              if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to list' }))) {
+                return;
+              }
               if (canUseListingsHub) {
                 navigation.navigate('ListingsScreen');
               } else {

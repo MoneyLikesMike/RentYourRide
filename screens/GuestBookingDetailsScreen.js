@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -24,7 +25,7 @@ import { navigateToUserProfile, navigateToVehicleDetail } from '../utils/navigat
 import { openBookingChat } from '../utils/openBookingChat';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const EXTRA_DISPLAY_ORDER = ['clean', 'kms', 'fuel', 'delivery'];
 

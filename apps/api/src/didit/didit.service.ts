@@ -12,6 +12,7 @@ import { DiditWebhookEventEntity } from '../entities/didit-webhook-event.entity'
 import { UsersService } from '../users/users.service';
 import { DIDIT_LICENSE_WORKFLOW_ID, DIDIT_VERIFICATION_API } from './didit.constants';
 import { verifyDiditWebhookSignature } from './didit-webhook.utils';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type DiditSessionResponse = {
   session_id: string;
@@ -39,6 +40,7 @@ export class DiditService {
   constructor(
     private readonly config: ConfigService,
     private readonly users: UsersService,
+    private readonly notifications: NotificationsService,
     @InjectRepository(DiditWebhookEventEntity)
     private readonly webhookEvents: Repository<DiditWebhookEventEntity>,
   ) {}
@@ -131,10 +133,12 @@ export class DiditService {
           licenseNumber: docNumber,
           sessionId: event.session_id,
         });
+        this.notifications.licenseApproved(userId);
         break;
       }
       case 'Declined':
         await this.users.setLicenseVerificationStatus(userId, 'declined', event.session_id);
+        this.notifications.licenseDenied(userId);
         break;
       case 'In Review':
         await this.users.setLicenseVerificationStatus(userId, 'pending_review', event.session_id);

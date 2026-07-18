@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserEntity } from '../entities/user.entity';
 import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 import { PasswordResetTokenEntity } from '../entities/password-reset-token.entity';
+import { EmailVerificationTokenEntity } from '../entities/email-verification-token.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -20,6 +21,7 @@ import { UsersModule } from '../users/users.module';
       UserEntity,
       RefreshTokenEntity,
       PasswordResetTokenEntity,
+      EmailVerificationTokenEntity,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({

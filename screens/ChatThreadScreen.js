@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -31,7 +32,7 @@ import { mapMessagingError } from '../utils/openBookingChat';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const POLL_INTERVAL_MS = 6000;
 
@@ -128,6 +129,8 @@ export default function ChatThreadScreen({ navigation, route }) {
   const [error, setError] = useState(null);
   const listRef = useRef(null);
   const pollTimerRef = useRef(null);
+  const messageCountRef = useRef(0);
+  const shouldStickToBottomRef = useRef(true);
 
   const bootstrap = useCallback(async () => {
     setLoading(true);
@@ -151,7 +154,10 @@ export default function ChatThreadScreen({ navigation, route }) {
       if (!convId) throw new Error('Could not open conversation');
       setConversation(conv);
       const page = await messagingApi.listMessages(convId, { take: 50 });
-      setMessages(page.messages || []);
+      const nextMessages = page.messages || [];
+      setMessages(nextMessages);
+      messageCountRef.current = nextMessages.length;
+      shouldStickToBottomRef.current = true;
       setHasMore(!!page.hasMore);
       await messagingApi.markConversationRead(convId).catch(() => {});
       markRead(convId);
@@ -175,13 +181,23 @@ export default function ChatThreadScreen({ navigation, route }) {
         setMessages((prev) => {
           const prevIds = new Set(prev.map((m) => m.id));
           const merged = [...prev];
+          let changed = false;
           for (const m of page.messages) {
-            if (!prevIds.has(m.id)) merged.push(m);
+            if (!prevIds.has(m.id)) {
+              merged.push(m);
+              changed = true;
+            }
           }
+          if (!changed) return prev;
           merged.sort((a, b) => a.createdAt - b.createdAt);
+          messageCountRef.current = merged.length;
+          shouldStickToBottomRef.current = true;
           return merged;
         });
-        setHasMore(!!page.hasMore);
+        setHasMore((prev) => {
+          const next = !!page.hasMore;
+          return prev === next ? prev : next;
+        });
         messagingApi.markConversationRead(conversationId).catch(() => {});
       } catch {
         /* keep last known state */
@@ -224,6 +240,8 @@ export default function ChatThreadScreen({ navigation, route }) {
       pending: true,
     };
     setMessages((prev) => [...prev, optimistic]);
+    messageCountRef.current += 1;
+    shouldStickToBottomRef.current = true;
     setDraft('');
     try {
       const saved = await messagingApi.sendMessage(conversationId, text);
@@ -341,7 +359,11 @@ export default function ChatThreadScreen({ navigation, route }) {
             /* iOS chat convention: scroll up loads older */
           }}
           onEndReached={loadOlder}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={() => {
+            if (!shouldStickToBottomRef.current) return;
+            listRef.current?.scrollToEnd({ animated: false });
+            shouldStickToBottomRef.current = false;
+          }}
           ListEmptyComponent={
             <View style={styles.emptyThread}>
               <Text style={styles.emptyThreadText}>

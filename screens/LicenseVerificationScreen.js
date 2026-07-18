@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -8,13 +9,17 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { startVerification } from '@didit-protocol/sdk-react-native';
+import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { getMe } from '../services/usersApi';
-import { createDiditLicenseSession } from '../services/diditApi';
+import { submitLicenseToDidit } from '../services/diditLicenseFlow';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const scale = uiScale;
 
 function statusLabel(me) {
   if (me?.licenseVerified) return 'Verified';
@@ -30,8 +35,8 @@ function statusLabel(me) {
 
 export default function LicenseVerificationScreen({ navigation }) {
   const [me, setMe] = useState(null);
-  const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -51,31 +56,37 @@ export default function LicenseVerificationScreen({ navigation }) {
     }, [refresh]),
   );
 
+  const verified = !!me?.licenseVerified;
+  const label = statusLabel(me);
+  const status = (me?.licenseVerificationStatus || '').trim();
+  const showPending =
+    status === 'pending_review' || status === 'in_progress' || status === 'awaiting_user';
+
   const handleVerify = async () => {
+    if (showPending) {
+      navigation.navigate('LicenseVerificationPendingScreen');
+      return;
+    }
+
     setBusy(true);
     try {
-      const session = await createDiditLicenseSession();
-      const token = session?.session_token;
-      if (!token) {
-        throw new Error('Could not start verification session.');
-      }
-
-      const result = await startVerification(token);
+      const result = await submitLicenseToDidit();
 
       if (result.type === 'completed') {
-        Alert.alert(
-          'Submitted',
-          'Your license verification was submitted. We will update your status shortly after review.',
-          [{ text: 'OK', onPress: refresh }],
-        );
-      } else if (result.type === 'cancelled') {
-        Alert.alert('Cancelled', 'You can verify your license anytime from this screen.');
-      } else if (result.type === 'failed') {
-        Alert.alert(
-          'Verification failed',
-          result.error?.message || 'Something went wrong. Please try again.',
-        );
+        navigation.navigate('LicenseVerificationPendingScreen');
+        refresh();
+        return;
       }
+
+      if (result.type === 'cancelled') {
+        Alert.alert('Cancelled', 'You can verify your license anytime from this screen.');
+        return;
+      }
+
+      Alert.alert(
+        'Verification failed',
+        result.error?.message || 'Something went wrong. Please try again.',
+      );
     } catch (e) {
       Alert.alert('Could not start verification', e?.message || 'Please try again later.');
     } finally {
@@ -84,16 +95,21 @@ export default function LicenseVerificationScreen({ navigation }) {
     }
   };
 
-  const verified = !!me?.licenseVerified;
-  const label = statusLabel(me);
-
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>Back</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Svg width={23 * scale} height={23 * scale} viewBox="0 0 48 48" fill="none">
+            <Path
+              d="M31 8L17 24L31 40"
+              stroke={COLORS.MANGO_TWO}
+              strokeWidth={4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
         </TouchableOpacity>
-        <Text style={styles.title}>LICENSE</Text>
+        <Text style={styles.title}>LICENSE VERIFICATION</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -111,9 +127,9 @@ export default function LicenseVerificationScreen({ navigation }) {
           <View style={styles.disclosureBox}>
             <Text style={styles.disclosureTitle}>Identity verification</Text>
             <Text style={styles.disclosureBody}>
-              To rent or list vehicles, we verify your driver's license with our identity
-              partner Didit. You will be asked to scan your license and complete a short liveness
-              check. Images are processed by Didit for verification only.
+              To rent or list vehicles, we verify your driver&apos;s license with Didit. You will
+              scan your license and complete a short liveness check in the Didit flow. Images are
+              processed by Didit for verification only.
             </Text>
           </View>
 
@@ -127,7 +143,9 @@ export default function LicenseVerificationScreen({ navigation }) {
               {busy ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.primaryButtonText}>Verify my license</Text>
+                <Text style={styles.primaryButtonText}>
+                  {showPending ? 'View submission status' : 'Verify my license'}
+                </Text>
               )}
             </TouchableOpacity>
           ) : (
@@ -153,13 +171,21 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16 * scale,
     paddingBottom: 16,
   },
-  title: { fontFamily: FONTS.NUNITO_BOLD, fontSize: 15, color: 'rgb(100,100,100)' },
-  back: { fontFamily: FONTS.NUNITO_SEMIBOLD, fontSize: 16, color: COLORS.MANGO_TWO },
-  headerSpacer: { width: 48 },
+  backButton: {
+    marginRight: 8 * scale,
+  },
+  title: {
+    flex: 1,
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 15 * scale,
+    color: 'rgb(100,100,100)',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+  headerSpacer: { width: 31 * scale },
   loader: { marginTop: 40 },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   statusLabel: {

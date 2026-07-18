@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -17,11 +18,11 @@ import { useGuestBookings } from '../context/GuestBookingsContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useListings } from '../context/ListingsContext';
 import { useAuth } from '../context/AuthContext';
-import { filterBookingsForHost } from '../utils/hostBookingFilter';
+import { filterBookingsForGuest, filterBookingsForHost } from '../utils/hostBookingFilter';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 function formatSignedAt(ts) {
   if (ts == null || !Number.isFinite(Number(ts))) return '—';
@@ -63,13 +64,13 @@ export default function RentalAgreementsScreen() {
   );
 
   const guestCompletedAgreements = useMemo(() => {
-    return allBookings
+    return filterBookingsForGuest(allBookings, user?.id)
       .filter((b) => b.guestCheckoutRentalAgreementSignedAt != null)
       .sort(
         (a, b) =>
           (b.guestCheckoutRentalAgreementSignedAt || 0) - (a.guestCheckoutRentalAgreementSignedAt || 0)
       );
-  }, [allBookings]);
+  }, [allBookings, user?.id]);
 
   const hostCompletedAgreements = useMemo(() => {
     return filterBookingsForHost(allBookings, listings, firstName, lastName, user?.id)

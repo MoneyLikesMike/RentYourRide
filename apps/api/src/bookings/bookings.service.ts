@@ -1,19 +1,34 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { BookingEntity, BookingStatus } from '../entities/booking.entity';
+import { BookingExtensionEntity } from '../entities/booking-extension.entity';
 import { ListingEntity } from '../entities/listing.entity';
-import { ConfigService } from '@nestjs/config';
-import Stripe from 'stripe';
+import { UserEntity } from '../entities/user.entity';
 import { MessagingService } from '../messaging/messaging.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { PaymentsService } from '../payments/payments.service';
+import { assertIdentityVerified } from '../common/user-verification';
+import {
+  formatRentalStripeDescription,
+  formatRentalStripeDescriptionFromBooking,
+} from './booking-stripe-description';
+import {
+  DATE_BLOCKING_BOOKING_STATUSES,
+  bookingDatesToDayRange,
+  dayRangesOverlap,
+  manualAvailabilityToDayRanges,
+  toDayRangeMs,
+} from './booking-date-ranges';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
+const MS_PER_HOUR = 60 * 60 * 1000;
 function statusLabel(status: BookingStatus): string | null {
   switch (status) {
     case 'checkin_pending':
@@ -56,19 +71,20 @@ export interface QuoteInput {
 
 @Injectable()
 export class BookingsService {
-  private stripe: Stripe | null;
-
   constructor(
     @InjectRepository(BookingEntity)
     private readonly bookingsRepo: Repository<BookingEntity>,
+    @InjectRepository(BookingExtensionEntity)
+    private readonly extensionsRepo: Repository<BookingExtensionEntity>,
     @InjectRepository(ListingEntity)
     private readonly listingsRepo: Repository<ListingEntity>,
-    private readonly config: ConfigService,
+    @InjectRepository(UserEntity)
+    private readonly usersRepo: Repository<UserEntity>,
+    private readonly dataSource: DataSource,
     private readonly messaging: MessagingService,
-  ) {
-    const key = this.config.get<string>('STRIPE_SECRET_KEY');
-    this.stripe = key ? new Stripe(key) : null;
-  }
+    private readonly notifications: NotificationsService,
+    private readonly payments: PaymentsService,
+  ) {}
 
   quote(listing: ListingEntity, input: QuoteInput) {
     const start = input.bookingDates?.start;
@@ -108,6 +124,8 @@ export class BookingsService {
     const subtotal = discountedTripSubtotal + extrasSubtotal;
     const tripFee = discountedTripSubtotal * 0.1;
     const grandTotal = subtotal + tripFee;
+    // Platform keeps tripFee; host earns trip + extras (legacy receiveTotal parity).
+    const hostReceiveTotal = Math.max(0, Number(subtotal.toFixed(2)));
 
     const selectedExtras = [
       input.extraPrepaidClean
@@ -145,6 +163,7 @@ export class BookingsService {
       subtotal,
       tripFee,
       grandTotal,
+      hostReceiveTotal,
       kmIncludedLabel: input.extraUnlimitedKm
         ? 'Unlimited kms'
         : `${kmPerDayNumber * tripDays} km`,
@@ -153,7 +172,33 @@ export class BookingsService {
     };
   }
 
+  private dollarsToCents(dollars: number): number {
+    return Math.round(Number(dollars) * 100);
+  }
+
+  private paymentMethodIdFromBooking(b: BookingEntity): string | null {
+    const pm = b.selectedPaymentMethod as { id?: string } | null;
+    const id = pm?.id;
+    if (typeof id === 'string' && id.startsWith('pm_')) return id;
+    return null;
+  }
+
+  private hostReceiveCents(b: BookingEntity): number {
+    const p = (b.pricing || {}) as Record<string, unknown>;
+    const hostReceive = Number(p.hostReceiveTotal ?? p.subtotal ?? 0);
+    return this.dollarsToCents(hostReceive);
+  }
+
+  private guestPayCents(b: BookingEntity): number {
+    const p = (b.pricing || {}) as Record<string, unknown>;
+    return this.dollarsToCents(Number(p.grandTotal ?? 0));
+  }
+
   async createBooking(guestId: string, body: Record<string, unknown>, idempotencyKey?: string) {
+    const guest = await this.usersRepo.findOne({ where: { id: guestId } });
+    if (!guest) throw new NotFoundException('User not found');
+    assertIdentityVerified(guest);
+
     const snap = body.listingSnapshot as Record<string, unknown> | undefined;
     const listingId =
       (body.listingId as string) ||
@@ -172,67 +217,216 @@ export class BookingsService {
       throw new BadRequestException('Cannot book your own listing');
     }
 
-    if (idempotencyKey?.trim()) {
-      const existing = await this.bookingsRepo.findOne({
-        where: { idempotencyKey: idempotencyKey.trim() },
-      });
-      if (existing) return existing.toMobileDto();
-    }
-
-    const instantBooking = Boolean(
-      body.instantBooking !== undefined
-        ? body.instantBooking
-        : listing.instantBooking,
-    );
-    let status: BookingStatus = instantBooking ? 'confirmed' : 'pending_host';
-
-    const pricing = body.pricing as Record<string, unknown>;
+    const key = idempotencyKey?.trim() || null;
     const bookingDates = body.bookingDates as Record<string, unknown>;
+    const startMs = Number(bookingDates?.start);
+    const endMs = Number(bookingDates?.end);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+      throw new BadRequestException('bookingDates.start and end required');
+    }
 
-    const grandTotal = Number(pricing?.grandTotal ?? 0);
+    // Serialize all create attempts for this listing so overlapping trips
+    // cannot charge twice under a race.
+    const tripLockKey = `book:listing:${listing.id}`;
 
-    let stripePaymentIntentId: string | null = null;
-    const providedPiId =
-      typeof body.stripePaymentIntentId === 'string'
-        ? body.stripePaymentIntentId.trim()
-        : '';
-    if (providedPiId && this.stripe) {
-      stripePaymentIntentId = await this.assertSucceededPaymentIntent(
-        providedPiId,
-        guestId,
-        grandTotal,
+    return this.dataSource.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [
+        tripLockKey,
+      ]);
+
+      if (key) {
+        const existingByKey = await manager.findOne(BookingEntity, {
+          where: { idempotencyKey: key },
+        });
+        if (existingByKey) return existingByKey.toMobileDto();
+      }
+
+      const requestedRange = toDayRangeMs(startMs, endMs);
+      if (!requestedRange) {
+        throw new BadRequestException('Invalid booking date range');
+      }
+      if (requestedRange.end < requestedRange.start) {
+        throw new BadRequestException('End date must be on or after start date');
+      }
+
+      const openRows = await manager.find(BookingEntity, {
+        where: {
+          listingId: listing.id,
+          status: In(DATE_BLOCKING_BOOKING_STATUSES),
+        },
+      });
+
+      // Same guest + exact dates → return existing booking (idempotent retry).
+      const exactDuplicate = openRows.find(
+        (row) =>
+          row.guestUserId === guestId &&
+          Number(row.bookingDates?.start) === startMs &&
+          Number(row.bookingDates?.end) === endMs,
       );
-    }
+      if (exactDuplicate) return exactDuplicate.toMobileDto();
 
-    const row = this.bookingsRepo.create({
-      guestUserId: guestId,
-      hostUserId: listing.hostUserId,
-      listingId: listing.id,
-      status,
-      idempotencyKey: idempotencyKey?.trim() || null,
-      stripePaymentIntentId,
-      instantBooking,
-      listingSnapshot: body.listingSnapshot ?? listing.toDetailDto(listing.host),
-      bookingDates,
-      pickupAddress: (body.pickupAddress as string) || listing.pickupAddress,
-      dropoffAddress: (body.dropoffAddress as string) || null,
-      deliveryEnabled: Boolean(body.deliveryEnabled),
-      extras: (body.extras as unknown[]) ?? [],
-      introMessage: (body.introMessage as string) ?? '',
-      pricing,
-      selectedPaymentMethod: (body.selectedPaymentMethod as Record<string, unknown>) ?? null,
-      lifecycle: {},
+      const bookingConflict = openRows.find((row) => {
+        const existing = bookingDatesToDayRange(
+          row.bookingDates as Record<string, unknown>,
+        );
+        return existing ? dayRangesOverlap(existing, requestedRange) : false;
+      });
+      if (bookingConflict) {
+        throw new ConflictException(
+          'Those dates are no longer available for this vehicle',
+        );
+      }
+
+      const hostBlocks = manualAvailabilityToDayRanges(listing.availability);
+      if (hostBlocks.some((block) => dayRangesOverlap(block, requestedRange))) {
+        throw new ConflictException(
+          'Those dates are blocked by the host for this vehicle',
+        );
+      }
+
+      const instantBooking = Boolean(
+        body.instantBooking !== undefined
+          ? body.instantBooking
+          : listing.instantBooking,
+      );
+      const status: BookingStatus = instantBooking ? 'confirmed' : 'pending_host';
+
+      const pricingIn = (body.pricing as Record<string, unknown>) || {};
+      const extras = (body.extras as { key?: string }[] | undefined) || [];
+      const serverQuote = this.quote(listing, {
+        listingId: listing.id,
+        bookingDates: bookingDates as QuoteInput['bookingDates'],
+        extraUnlimitedKm:
+          extras.some((e) => e?.key === 'kms') || Number(pricingIn.unlimitedKmFee) > 0,
+        extraPrepaidFuel:
+          extras.some((e) => e?.key === 'fuel') || Number(pricingIn.prepaidFuelFee) > 0,
+        extraPrepaidClean:
+          extras.some((e) => e?.key === 'clean') || Number(pricingIn.prepaidCleanFee) > 0,
+        deliveryEnabled: Boolean(body.deliveryEnabled),
+      });
+      const pricing = {
+        ...pricingIn,
+        ...serverQuote,
+        hostReceiveTotal: serverQuote.hostReceiveTotal,
+        grandTotal: serverQuote.grandTotal,
+        tripFee: serverQuote.tripFee,
+        subtotal: serverQuote.subtotal,
+      };
+      const grandTotal = Number(pricing.grandTotal ?? 0);
+      const fullAmountCents = this.dollarsToCents(grandTotal);
+      const selectedPaymentMethod =
+        (body.selectedPaymentMethod as Record<string, unknown>) ?? null;
+      const paymentMethodId =
+        typeof selectedPaymentMethod?.id === 'string'
+          ? String(selectedPaymentMethod.id)
+          : '';
+
+      const rentalDescription = formatRentalStripeDescription({
+        host: listing.host,
+        listing,
+        bookingDates: bookingDates as { start?: number; end?: number },
+      });
+
+      let stripePaymentIntentId: string | null = null;
+      let lifecycle: Record<string, unknown> = {};
+      const providedPiId =
+        typeof body.stripePaymentIntentId === 'string'
+          ? body.stripePaymentIntentId.trim()
+          : '';
+
+      if (providedPiId) {
+        // Apple Pay / client-confirmed PI (full amount already captured).
+        stripePaymentIntentId = await this.assertSucceededPaymentIntent(
+          providedPiId,
+          guestId,
+          grandTotal,
+        );
+        await this.payments.updatePaymentIntentDescription(
+          stripePaymentIntentId,
+          rentalDescription,
+        );
+        const pi = await this.payments.retrievePaymentIntent(stripePaymentIntentId);
+        const chargeId =
+          typeof pi.latest_charge === 'string'
+            ? pi.latest_charge
+            : pi.latest_charge?.id ?? null;
+        lifecycle = {
+          stripeChargeId: chargeId,
+          paymentCapturedAt: Date.now(),
+          paymentFunding: 'client_pi',
+        };
+      } else if (this.payments.isConfigured()) {
+        if (!paymentMethodId.startsWith('pm_')) {
+          throw new BadRequestException('A valid card payment method is required');
+        }
+        const preauth = await this.payments.createBookingPreauth({
+          guestUserId: guestId,
+          paymentMethodId,
+          fullAmountCents,
+          description: rentalDescription,
+          metadata: { listingId: listing.id },
+        });
+        stripePaymentIntentId = preauth.paymentIntentId;
+        lifecycle = {
+          stripeChargeId: preauth.chargeId,
+          paymentFunding: preauth.funding,
+          preauthAmountCents: preauth.amountCents,
+        };
+
+        if (instantBooking) {
+          const captured = await this.payments.captureOrChargeBooking({
+            paymentIntentId: preauth.paymentIntentId,
+            fullAmountCents,
+            description: rentalDescription,
+            paymentMethodId,
+          });
+          stripePaymentIntentId = captured.paymentIntentId;
+          lifecycle = {
+            ...lifecycle,
+            stripeChargeId: captured.chargeId,
+            paymentCapturedAt: Date.now(),
+          };
+        }
+      } else {
+        throw new BadRequestException('Payments are not configured on this server');
+      }
+
+      const row = manager.create(BookingEntity, {
+        guestUserId: guestId,
+        hostUserId: listing.hostUserId,
+        listingId: listing.id,
+        status,
+        idempotencyKey: key,
+        stripePaymentIntentId,
+        instantBooking,
+        listingSnapshot: body.listingSnapshot ?? listing.toDetailDto(listing.host),
+        bookingDates,
+        pickupAddress: (body.pickupAddress as string) || listing.pickupAddress,
+        dropoffAddress: (body.dropoffAddress as string) || null,
+        deliveryEnabled: Boolean(body.deliveryEnabled),
+        extras: (body.extras as unknown[]) ?? [],
+        introMessage: (body.introMessage as string) ?? '',
+        pricing,
+        selectedPaymentMethod,
+        lifecycle,
+      });
+
+      await manager.save(row);
+
+      // Seed a conversation for this booking (intro message + system message).
+      // This is idempotent — the messaging service will find an existing conversation.
+      try {
+        await this.messaging.findOrCreateForBooking(guestId, row.id);
+      } catch {
+        // Never fail the booking on messaging setup issues.
+      }
+      if (status === 'confirmed') {
+        this.notifications.bookingApproved(row.id);
+      } else {
+        this.notifications.bookingCreated(row.id);
+      }
+      return row.toMobileDto();
     });
-
-    await this.bookingsRepo.save(row);
-    // Seed a conversation for this booking (intro message + system message).
-    // This is idempotent — the messaging service will find an existing conversation.
-    try {
-      await this.messaging.findOrCreateForBooking(guestId, row.id);
-    } catch {
-      // Never fail the booking on messaging setup issues.
-    }
-    return row.toMobileDto();
   }
 
   async listForUser(userId: string, role: 'guest' | 'host', status?: string) {
@@ -278,7 +472,14 @@ export class BookingsService {
     if (['completed', 'cancelled', 'declined'].includes(b.status)) {
       throw new BadRequestException('Cannot cancel');
     }
+    if (b.stripePaymentIntentId && !(b.lifecycle as { hostTransferId?: string })?.hostTransferId) {
+      await this.payments.refundBookingPayment(
+        b.stripePaymentIntentId,
+        'RentYourRide trip cancelled',
+      );
+    }
     b.status = 'cancelled';
+    b.lifecycle = { ...(b.lifecycle ?? {}), paymentRefundedAt: Date.now() };
     await this.bookingsRepo.save(b);
     const cancelledBy = b.guestUserId === userId ? 'guest' : 'host';
     await this.messaging.postBookingSystemMessage(
@@ -292,12 +493,32 @@ export class BookingsService {
   }
 
   async acceptHost(userId: string, id: string) {
-    const b = await this.bookingsRepo.findOne({ where: { id } });
+    const b = await this.bookingsRepo.findOne({
+      where: { id },
+      relations: ['listing', 'host'],
+    });
     if (!b) throw new NotFoundException('Booking not found');
     if (b.hostUserId !== userId) throw new ForbiddenException();
     if (b.status !== 'pending_host') {
       throw new BadRequestException('Invalid status');
     }
+
+    if (b.stripePaymentIntentId && this.payments.isConfigured()) {
+      const captured = await this.payments.captureOrChargeBooking({
+        paymentIntentId: b.stripePaymentIntentId,
+        fullAmountCents: this.guestPayCents(b),
+        description: formatRentalStripeDescriptionFromBooking(b, b.host),
+        paymentMethodId: this.paymentMethodIdFromBooking(b),
+      });
+      b.stripePaymentIntentId = captured.paymentIntentId;
+      b.lifecycle = {
+        ...(b.lifecycle ?? {}),
+        stripeChargeId: captured.chargeId,
+        paymentCapturedAt: Date.now(),
+        paymentFunding: captured.funding,
+      };
+    }
+
     b.status = 'confirmed';
     b.lifecycle = { ...(b.lifecycle ?? {}), acceptedAt: Date.now() };
     await this.bookingsRepo.save(b);
@@ -306,6 +527,7 @@ export class BookingsService {
       'Trip approved by the host. Coordinate pickup details below.',
       { event: 'accepted' },
     );
+    this.notifications.bookingApproved(b.id);
     return b.toMobileDto();
   }
 
@@ -316,13 +538,21 @@ export class BookingsService {
     if (b.status !== 'pending_host') {
       throw new BadRequestException('Invalid status');
     }
+    if (b.stripePaymentIntentId) {
+      await this.payments.refundBookingPayment(
+        b.stripePaymentIntentId,
+        'RentYourRide trip declined by host',
+      );
+    }
     b.status = 'declined';
+    b.lifecycle = { ...(b.lifecycle ?? {}), paymentRefundedAt: Date.now() };
     await this.bookingsRepo.save(b);
     await this.messaging.postBookingSystemMessage(
       b.id,
       'The host declined this trip request.',
       { event: 'declined' },
     );
+    this.notifications.bookingDenied(b.id);
     return b.toMobileDto();
   }
 
@@ -351,6 +581,7 @@ export class BookingsService {
     if (!allowedFrom.includes(b.status)) {
       throw new BadRequestException('Invalid transition');
     }
+    const prev = b.status;
     b.status = next;
     await this.bookingsRepo.save(b);
     const label = statusLabel(next);
@@ -360,7 +591,52 @@ export class BookingsService {
         status: next,
       });
     }
+    if (next === 'active' && prev === 'checkin_pending') {
+      await this.transferHostPayoutIfNeeded(b);
+      this.notifications.bookingCheckedIn(b.id);
+    }
+    if (next === 'completed' && prev === 'checkout_pending') {
+      this.notifications.bookingCheckedOut(b.id);
+      this.notifications.reviewReminder(b.id);
+    }
     return b.toMobileDto();
+  }
+
+  /** Legacy: Connect transfer when both parties finish check-in (status → active). */
+  private async transferHostPayoutIfNeeded(b: BookingEntity): Promise<void> {
+    const life = (b.lifecycle ?? {}) as {
+      hostTransferId?: string;
+      stripeChargeId?: string;
+    };
+    if (life.hostTransferId) return;
+    if (!this.payments.isConfigured()) return;
+
+    const host = await this.usersRepo.findOne({ where: { id: b.hostUserId } });
+    const connectId = host?.stripeConnectAccountId?.trim();
+    const chargeId = life.stripeChargeId?.trim();
+    const amountCents = this.hostReceiveCents(b);
+    if (!connectId || !chargeId || amountCents < 1) {
+      return;
+    }
+    try {
+      const transfer = await this.payments.transferToHost({
+        amountCents,
+        connectAccountId: connectId,
+        sourceChargeId: chargeId,
+        description: `RentYourRide host payout · booking ${b.id}`,
+      });
+      if (transfer) {
+        b.lifecycle = {
+          ...(b.lifecycle ?? {}),
+          hostTransferId: transfer.id,
+          hostTransferredAt: Date.now(),
+          hostTransferAmountCents: amountCents,
+        };
+        await this.bookingsRepo.save(b);
+      }
+    } catch {
+      // Match legacy fire-and-forget: don't block check-in if transfer fails.
+    }
   }
 
   async signAgreement(userId: string, id: string, payload: { role: string; signature?: string }) {
@@ -405,6 +681,11 @@ export class BookingsService {
       [`${body.role}Review`]: { rating: body.rating, text: body.text ?? '' },
     };
     await this.bookingsRepo.save(b);
+    if (body.role === 'guest') {
+      this.notifications.reviewByGuest(b.id);
+    } else {
+      this.notifications.reviewByHost(b.id);
+    }
     return b.toMobileDto();
   }
 
@@ -413,10 +694,10 @@ export class BookingsService {
     guestId: string,
     grandTotal: number,
   ): Promise<string> {
-    if (!this.stripe) {
+    if (!this.payments.isConfigured()) {
       throw new BadRequestException('Payments not configured');
     }
-    const pi = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+    const pi = await this.payments.retrievePaymentIntent(paymentIntentId);
     if (pi.status !== 'succeeded') {
       throw new BadRequestException('Payment not completed');
     }
@@ -428,5 +709,176 @@ export class BookingsService {
       throw new BadRequestException('Invalid payment');
     }
     return pi.id;
+  }
+
+  private extensionEligibleStatuses: BookingStatus[] = [
+    'active',
+    'extended',
+    'extension_declined',
+  ];
+
+  private bookingEndMs(booking: BookingEntity): number {
+    const dates = booking.bookingDates as { end?: number };
+    return Number(dates.end ?? 0);
+  }
+
+  private setBookingEnd(booking: BookingEntity, endMs: number) {
+    booking.bookingDates = { ...(booking.bookingDates ?? {}), end: endMs };
+  }
+
+  async quoteExtension(guestId: string, bookingId: string, newEndMs: number) {
+    const booking = await this.requireBookingForExtension(guestId, bookingId, newEndMs);
+    const listing = await this.listingsRepo.findOne({ where: { id: booking.listingId } });
+    if (!listing) throw new NotFoundException('Listing not found');
+    const currentEnd = this.bookingEndMs(booking);
+    const quote = this.quote(listing, {
+      listingId: listing.id,
+      bookingDates: { start: currentEnd, end: newEndMs },
+      deliveryEnabled: false,
+    });
+    return { ...quote, currentEndMs: currentEnd, newEndMs };
+  }
+
+  async requestExtension(
+    guestId: string,
+    bookingId: string,
+    body: { newEndMs: number; stripePaymentIntentId?: string; guestMessage?: string },
+  ) {
+    const newEndMs = Number(body.newEndMs);
+    const booking = await this.requireBookingForExtension(guestId, bookingId, newEndMs);
+    const pending = await this.extensionsRepo.findOne({
+      where: { bookingId, status: 'pending' },
+    });
+    if (pending) {
+      throw new BadRequestException('An extension request is already pending');
+    }
+
+    const listing = await this.listingsRepo.findOne({ where: { id: booking.listingId } });
+    if (!listing) throw new NotFoundException('Listing not found');
+    const currentEnd = this.bookingEndMs(booking);
+    const quote = this.quote(listing, {
+      listingId: listing.id,
+      bookingDates: { start: currentEnd, end: newEndMs },
+      deliveryEnabled: false,
+    });
+
+    let stripePaymentIntentId: string | null = null;
+    const piId = body.stripePaymentIntentId?.trim();
+    if (piId && this.payments.isConfigured()) {
+      stripePaymentIntentId = await this.assertSucceededPaymentIntent(
+        piId,
+        guestId,
+        Number(quote.grandTotal),
+      );
+    } else if (quote.grandTotal > 0) {
+      throw new BadRequestException('Payment required for extension');
+    }
+
+    const ext = this.extensionsRepo.create({
+      bookingId: booking.id,
+      previousEndMs: String(currentEnd),
+      newEndMs: String(newEndMs),
+      status: 'pending',
+      pricing: {
+        ...quote,
+        hostReceiveTotal: quote.subtotal,
+      },
+      stripePaymentIntentId,
+      guestMessage: body.guestMessage?.trim() || null,
+    });
+    const savedExt = await this.extensionsRepo.save(ext);
+
+    booking.status = 'extension_pending';
+    this.setBookingEnd(booking, newEndMs);
+    await this.bookingsRepo.save(booking);
+
+    await this.messaging.postBookingSystemMessage(
+      booking.id,
+      'Guest requested a trip extension. Host approval is required.',
+      { event: 'extension_requested', extensionId: savedExt.id },
+    );
+    this.notifications.extensionCreated(savedExt.id);
+    return booking.toMobileDto();
+  }
+
+  async respondExtension(hostId: string, bookingId: string, approved: boolean) {
+    const booking = await this.bookingsRepo.findOne({ where: { id: bookingId } });
+    if (!booking) throw new NotFoundException('Booking not found');
+    if (booking.hostUserId !== hostId) throw new ForbiddenException();
+    if (booking.status !== 'extension_pending') {
+      throw new BadRequestException('No pending extension');
+    }
+
+    const ext = await this.extensionsRepo.findOne({
+      where: { bookingId, status: 'pending' },
+      order: { createdAt: 'DESC' },
+    });
+    if (!ext) throw new NotFoundException('Extension not found');
+
+    if (approved) {
+      ext.status = 'approved';
+      booking.status = 'extended';
+      const pricing = booking.pricing as Record<string, unknown>;
+      const prevGrand = Number(pricing.grandTotal ?? 0);
+      const extGrand = Number((ext.pricing as Record<string, unknown>).grandTotal ?? 0);
+      booking.pricing = {
+        ...pricing,
+        grandTotal: prevGrand + extGrand,
+        extensionTotal: extGrand,
+      };
+      await this.extensionsRepo.save(ext);
+      await this.bookingsRepo.save(booking);
+      await this.messaging.postBookingSystemMessage(
+        booking.id,
+        'Host approved the trip extension.',
+        { event: 'extension_approved', extensionId: ext.id },
+      );
+      this.notifications.extensionApproved(ext.id);
+    } else {
+      ext.status = 'declined';
+      this.setBookingEnd(booking, Number(ext.previousEndMs));
+      booking.status = 'extension_declined';
+      if (ext.stripePaymentIntentId && this.payments.isConfigured()) {
+        try {
+          await this.payments.refundBookingPayment(
+            ext.stripePaymentIntentId,
+            'RentYourRide extension declined',
+          );
+        } catch {
+          // Refund failure should not block decline
+        }
+      }
+      await this.extensionsRepo.save(ext);
+      await this.bookingsRepo.save(booking);
+      await this.messaging.postBookingSystemMessage(
+        booking.id,
+        'Host declined the trip extension.',
+        { event: 'extension_declined', extensionId: ext.id },
+      );
+      this.notifications.extensionDenied(ext.id);
+    }
+
+    return booking.toMobileDto();
+  }
+
+  private async requireBookingForExtension(
+    guestId: string,
+    bookingId: string,
+    newEndMs: number,
+  ): Promise<BookingEntity> {
+    const booking = await this.bookingsRepo.findOne({ where: { id: bookingId } });
+    if (!booking) throw new NotFoundException('Booking not found');
+    if (booking.guestUserId !== guestId) throw new ForbiddenException();
+    if (!this.extensionEligibleStatuses.includes(booking.status)) {
+      throw new BadRequestException('Trip cannot be extended in its current status');
+    }
+    const currentEnd = this.bookingEndMs(booking);
+    if (!currentEnd || newEndMs <= currentEnd) {
+      throw new BadRequestException('New end date must be after the current trip end');
+    }
+    if (currentEnd - Date.now() < MS_PER_HOUR) {
+      throw new BadRequestException('Extensions must be requested at least 1 hour before trip end');
+    }
+    return booking;
   }
 }

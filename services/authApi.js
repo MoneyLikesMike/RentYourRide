@@ -59,3 +59,30 @@ export async function forgotPassword(email) {
 export async function resetPassword(token, newPassword) {
   return postJson('/v1/auth/password/reset', { token, newPassword });
 }
+
+export async function verifyEmail(token) {
+  return postJson('/v1/auth/verify-email', { token: token.trim() });
+}
+
+export async function startEmailVerification(accessToken) {
+  const base = getApiBaseUrl();
+  const url = `${base}/v1/auth/start-email-verification`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const text = await res.text();
+  let parsed = null;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    parsed = { raw: text };
+  }
+  if (!res.ok) {
+    throw new ApiError(parseErrorMessage(parsed), res.status, parsed);
+  }
+  return parsed;
+}

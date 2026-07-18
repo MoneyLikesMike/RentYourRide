@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -17,7 +18,7 @@ import { navigateAfterPaymentMethodSaved } from '../utils/navigateAfterPaymentSa
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 function isValidEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s).trim());

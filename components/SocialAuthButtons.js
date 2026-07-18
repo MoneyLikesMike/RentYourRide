@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
@@ -9,7 +10,7 @@ import { resetToMainTabs } from '../navigation/navigationRef';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 /**
  * Apple + Google sign-in buttons shared by Welcome, Login, and Sign Up.

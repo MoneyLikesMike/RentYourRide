@@ -5,7 +5,7 @@
  * @param {object | null | undefined} me — `GET /v1/users/me` payload
  */
 export function buildAccountSetupSteps(me) {
-  const hasEmail = Boolean((me?.email || '').trim());
+  const emailVerified = Boolean(me?.emailVerified);
   const phoneVerified = Boolean(me?.phoneVerified);
   const licenseVerified = Boolean(me?.licenseVerified);
   const licenseStatus = (me?.licenseVerificationStatus || '').trim();
@@ -21,14 +21,14 @@ export function buildAccountSetupSteps(me) {
     {
       id: 'email',
       title: 'Email verification',
-      status: hasEmail ? 'verified' : 'incomplete',
-      screen: 'ContactInformationScreen',
+      status: emailVerified ? 'verified' : 'incomplete',
+      screen: 'EmailVerificationScreen',
     },
     {
       id: 'phone',
       title: 'Phone verification',
       status: phoneVerified ? 'verified' : 'incomplete',
-      screen: 'ContactInformationScreen',
+      screen: 'ChangePhoneNumberScreen',
     },
     {
       id: 'license',

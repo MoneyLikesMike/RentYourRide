@@ -26,6 +26,14 @@ export function isStripeClientSecret(clientSecret) {
   return typeof clientSecret === 'string' && clientSecret.includes('_secret_');
 }
 
+/**
+ * Apple Pay is on hold (App Review Guideline 2.1: binary declared PassKit
+ * without offering Apple Pay). Flip to true only after the merchant ID is
+ * registered with Apple + Stripe and the in-app-payments entitlement is
+ * restored in ios/RentYourRide/RentYourRide.entitlements.
+ */
+const APPLE_PAY_ENABLED = false;
+
 const DEFAULT_APPLE_PAY_MERCHANT_ID = 'merchant.com.rentyourride.ios';
 
 /** Apple Pay merchant identifier — must match Apple Developer + Stripe Dashboard. */
@@ -46,5 +54,5 @@ export function getStripeMerchantIdentifier() {
 }
 
 export function isApplePayConfigured() {
-  return isStripeConfigured() && Boolean(getStripeMerchantIdentifier());
+  return APPLE_PAY_ENABLED && isStripeConfigured() && Boolean(getStripeMerchantIdentifier());
 }

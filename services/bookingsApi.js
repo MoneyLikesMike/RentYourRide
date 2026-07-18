@@ -73,6 +73,13 @@ export async function completeBooking(id) {
   });
 }
 
+export async function patchBookingLifecycle(id, body) {
+  return apiFetch(`/v1/bookings/${encodeURIComponent(id)}/lifecycle`, {
+    method: 'POST',
+    json: body || {},
+  });
+}
+
 export async function signAgreement(id, body) {
   return apiFetch(`/v1/bookings/${encodeURIComponent(id)}/agreement/sign`, {
     method: 'POST',
@@ -91,5 +98,26 @@ export async function submitReview(id, body) {
   return apiFetch(`/v1/bookings/${encodeURIComponent(id)}/reviews`, {
     method: 'POST',
     json: body,
+  });
+}
+
+export async function quoteExtension(id, newEndMs) {
+  return apiFetch(`/v1/bookings/${encodeURIComponent(id)}/extension/quote`, {
+    method: 'POST',
+    json: { newEndMs },
+  });
+}
+
+export async function requestExtension(id, body) {
+  return apiFetch(`/v1/bookings/${encodeURIComponent(id)}/extension`, {
+    method: 'POST',
+    json: body,
+  });
+}
+
+export async function respondExtension(id, approved) {
+  return apiFetch(`/v1/bookings/${encodeURIComponent(id)}/extension/respond`, {
+    method: 'POST',
+    json: { approved },
   });
 }

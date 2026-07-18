@@ -10,6 +10,7 @@ import { ConversationEntity } from '../entities/conversation.entity';
 import { MessageEntity, MessageType } from '../entities/message.entity';
 import { BookingEntity } from '../entities/booking.entity';
 import { UserEntity } from '../entities/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const MAX_TEXT = 2000;
 const PREVIEW_LEN = 200;
@@ -62,6 +63,7 @@ export class MessagingService {
     private readonly msgRepo: Repository<MessageEntity>,
     @InjectRepository(BookingEntity)
     private readonly bookingsRepo: Repository<BookingEntity>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private preview(text: string, type: MessageType): string {
@@ -325,6 +327,13 @@ export class MessagingService {
       type: 'text',
       text: clean,
     });
+    if (conv.bookingId) {
+      if (conv.hostUserId === userId) {
+        this.notifications.newMessageFromHost(conv.bookingId, clean);
+      } else if (conv.guestUserId === userId) {
+        this.notifications.newMessageFromGuest(conv.bookingId, clean);
+      }
+    }
     return this.toMessageDto(saved);
   }
 

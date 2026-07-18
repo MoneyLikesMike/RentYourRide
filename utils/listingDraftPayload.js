@@ -1,4 +1,8 @@
-/** Map list-ride draft fields to host create/patch body for the API. */
+/**
+ * Map list-ride draft fields to host create/patch body for the API.
+ * Do not send `published` — create defaults unpublished; patches must preserve
+ * verification (legacy UpdateRide did not clear isVerified).
+ */
 export function draftToListingBody(draft) {
   const extras = {
     ...(draft.extras && typeof draft.extras === 'object' ? draft.extras : {}),
@@ -41,7 +45,6 @@ export function draftToListingBody(draft) {
     licensePlate: draft.licensePlate ?? null,
     licenseProvince: draft.licenseProvince ?? null,
     vehicleData: draft.vehicleData ?? null,
-    published: false,
   };
   if (Array.isArray(draft.availability) && draft.availability.length > 0) {
     body.availability = draft.availability;

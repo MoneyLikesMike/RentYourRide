@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -19,7 +20,7 @@ import { useListings } from '../context/ListingsContext';
 import { useSaveListingStep } from '../hooks/useSaveListingStep';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 export const DESCRIPTION_MAX_LENGTH = 500;
 export const INSTRUCTIONS_MAX_LENGTH = 500;
@@ -139,7 +140,7 @@ const DescribeYourRideScreen = ({ navigation }) => {
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.sectionLabel}>VEHICLE DESCRIPTION</Text>
         <TextInput

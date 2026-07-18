@@ -1,4 +1,5 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { navigationRef } from './navigationRef';
@@ -12,6 +13,8 @@ import { FONTS } from '../constants/fonts';
 import AuthScreen from '../screens/AuthScreen';
 import TermsAndConditionsScreen from '../screens/TermsAndConditionsScreen';
 import NotificationOnboardingScreen from '../screens/NotificationOnboardingScreen';
+import EmailVerificationScreen from '../screens/EmailVerificationScreen';
+import ExtendTripScreen from '../screens/ExtendTripScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import HomeScreen from '../screens/HomeScreen';
@@ -19,9 +22,12 @@ import RentalManagerScreen from '../screens/RentalManagerScreen';
 import AccountManagementScreen from '../screens/AccountManagementScreen';
 import ContactInformationScreen from '../screens/ContactInformationScreen';
 import ChangeEmailScreen from '../screens/ChangeEmailScreen';
+import ChangePhoneNumberScreen from '../screens/ChangePhoneNumberScreen';
+import PhoneVerificationScreen from '../screens/PhoneVerificationScreen';
 import ChangeAddressScreen from '../screens/ChangeAddressScreen';
 import ChangeLicenseScreen from '../screens/ChangeLicenseScreen';
 import LicenseVerificationScreen from '../screens/LicenseVerificationScreen';
+import LicenseVerificationPendingScreen from '../screens/LicenseVerificationPendingScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import PaymentInformationScreen from '../screens/PaymentInformationScreen';
 import AddPaymentMethodScreen from '../screens/AddPaymentMethodScreen';
@@ -82,7 +88,7 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const ProfileStackNav = createNativeStackNavigator();
 const HomeStackNav = createNativeStackNavigator();
@@ -110,9 +116,12 @@ function ProfileStack() {
       <ProfileStackNav.Screen name="EditProfileScreen" component={EditProfileScreen} />
       <ProfileStackNav.Screen name="ContactInformationScreen" component={ContactInformationScreen} />
       <ProfileStackNav.Screen name="ChangeEmailScreen" component={ChangeEmailScreen} options={{ presentation: 'modal' }} />
+      <ProfileStackNav.Screen name="ChangePhoneNumberScreen" component={ChangePhoneNumberScreen} />
+      <ProfileStackNav.Screen name="PhoneVerificationScreen" component={PhoneVerificationScreen} />
       <ProfileStackNav.Screen name="ChangeAddressScreen" component={ChangeAddressScreen} />
       <ProfileStackNav.Screen name="ChangeLicenseScreen" component={ChangeLicenseScreen} />
       <ProfileStackNav.Screen name="LicenseVerificationScreen" component={LicenseVerificationScreen} />
+      <ProfileStackNav.Screen name="LicenseVerificationPendingScreen" component={LicenseVerificationPendingScreen} />
       <ProfileStackNav.Screen name="NotificationsScreen" component={NotificationsScreen} />
       <ProfileStackNav.Screen name="PaymentInformationScreen" component={PaymentInformationScreen} />
       <ProfileStackNav.Screen name="AddPaymentMethodScreen" component={AddPaymentMethodScreen} />
@@ -287,12 +296,14 @@ export default function AppNavigator() {
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        initialRouteName={isAuthenticated ? 'MainTabs' : 'Welcome'}
+        initialRouteName={'TermsAndConditionsScreen' /* TEMP iPad repro — revert */}
       >
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="AuthScreen" component={AuthScreen} />
         <Stack.Screen name="TermsAndConditionsScreen" component={TermsAndConditionsScreen} />
         <Stack.Screen name="NotificationOnboardingScreen" component={NotificationOnboardingScreen} />
+        <Stack.Screen name="EmailVerificationScreen" component={EmailVerificationScreen} />
+        <Stack.Screen name="ExtendTripScreen" component={ExtendTripScreen} />
         <Stack.Screen name="ForgotPasswordScreen" component={ForgotPasswordScreen} />
         <Stack.Screen name="ResetPasswordScreen" component={ResetPasswordScreen} />
         <Stack.Screen name="MainTabs" component={MainTabs} />
@@ -309,7 +320,7 @@ const tabBarStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: 375 * scale,
+    width: '100%',
     height: 78 * scale,
     backgroundColor: '#fff',
     paddingHorizontal: 24 * scale,
@@ -318,6 +329,7 @@ const tabBarStyles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     left: 0,
+    right: 0,
   },
   menuItem: {
     alignItems: 'center',

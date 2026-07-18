@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -16,7 +17,7 @@ import { resolveCurrentLocationAddress } from '../utils/currentLocation';
 import { forwardGeocode } from '../services/geocodeApi';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 function buildAddressQuery({ address, city, country }) {
   return [address, city, country].filter(Boolean).join(', ');

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -21,7 +22,7 @@ import { FONTS } from '../constants/fonts';
 import { getTripBillingDays } from '../utils/rentalTripDays';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 const HORIZONTAL_PADDING = 20 * scale;
 const GRID_PADDING = 12;
 const COL_WIDTH = (screenWidth - HORIZONTAL_PADDING * 2 - GRID_PADDING * 2) / 7;

@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { getReferralsSummary } from '../services/referralsApi';
@@ -17,7 +18,7 @@ import { FONTS } from '../constants/fonts';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const DEFAULT_EARNINGS = { dollars: '0', currency: 'CAD' };
 

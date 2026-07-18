@@ -6,14 +6,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import AppNavigator from './navigation/AppNavigator';
 import LaunchSplashVideo from './components/LaunchSplashVideo';
 import DismissKeyboard from './components/DismissKeyboard';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { FavoritesProvider } from './context/FavoritesContext';
 import { ListingsProvider } from './context/ListingsContext';
 import { UserProfileProvider } from './context/UserProfileContext';
 import { PaymentMethodsProvider } from './context/PaymentMethodsContext';
 import { GuestBookingsProvider } from './context/GuestBookingsContext';
 import { MessagingProvider } from './context/MessagingContext';
-import { getStripePublishableKey, getStripeMerchantIdentifier } from './constants/stripe';
+import { getStripePublishableKey } from './constants/stripe';
 import {
   useFonts,
   Nunito_300Light,
@@ -26,6 +26,28 @@ const SPLASH_BG = '#DFF2F1';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+function PushRegistration() {
+  const { isAuthenticated, isReady } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated || !isReady) return undefined;
+    let sub;
+    (async () => {
+      const push = await import('./services/pushNotifications');
+      push.registerForPushNotificationsAsync().catch(() => {});
+      sub = push.addNotificationResponseListener((response) => {
+        const data = response?.notification?.request?.content?.data || {};
+        if (data.bookingId) {
+          // Navigation is handled when user opens the app from a notification tap.
+        }
+      });
+    })();
+    return () => sub?.remove();
+  }, [isAuthenticated, isReady]);
+
+  return null;
+}
+
 function AppProviders() {
   return (
     <ListingsProvider>
@@ -34,6 +56,7 @@ function AppProviders() {
           <GuestBookingsProvider>
             <FavoritesProvider>
               <MessagingProvider>
+                <PushRegistration />
                 <AppNavigator />
               </MessagingProvider>
             </FavoritesProvider>
@@ -57,12 +80,7 @@ function MainApp() {
   return (
     <AuthProvider>
       {stripeKey ? (
-        <StripeProvider
-          publishableKey={stripeKey}
-          merchantIdentifier={getStripeMerchantIdentifier()}
-        >
-          {tree}
-        </StripeProvider>
+        <StripeProvider publishableKey={stripeKey}>{tree}</StripeProvider>
       ) : (
         tree
       )}
@@ -78,9 +96,16 @@ export default function App() {
     Nunito_600SemiBold,
     Nunito_700Bold,
   });
+  const [fontsTimedOut, setFontsTimedOut] = useState(false);
+  const appReady = fontsLoaded || fontsTimedOut;
 
   useEffect(() => {
     SplashScreen.setOptions?.({ fade: true, duration: 120 });
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setFontsTimedOut(true), 5000);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleLaunchFinish = useCallback(() => {
@@ -90,7 +115,7 @@ export default function App() {
   if (showLaunchVideo) {
     return (
       <View style={styles.splashRoot}>
-        <LaunchSplashVideo appReady={fontsLoaded} onFinish={handleLaunchFinish} />
+        <LaunchSplashVideo appReady={appReady} onFinish={handleLaunchFinish} />
       </View>
     );
   }

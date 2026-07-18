@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -28,7 +29,7 @@ import {
 import { getHostListingAvailability } from '../services/listingsApi';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const ADVANCE_NOTICE_OPTIONS = ['Instant booking', '3 hours', '6 hours', '12 hours', '1 day', '2 days', '3 days'];
 const TRIP_LENGTH_OPTIONS = ['1 day', '2 days', '3 days', '5 days', '1 week', '2 weeks', '1 month'];
@@ -260,7 +261,7 @@ const AvailabilitySetupScreen = ({ navigation, route }) => {
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
       >
         {renderDropdown(
           'ADVANCE NOTICE',

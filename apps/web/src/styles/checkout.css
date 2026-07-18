@@ -1,0 +1,606 @@
+/* Legacy Checkout (FindYourCar/screens/Checkout) */
+
+.checkout-page {
+  min-height: 100vh;
+  background: #fff;
+}
+
+.checkout-wrapper {
+  box-sizing: border-box;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 10vw, 12rem);
+}
+
+.checkout-caption-row {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.checkout-caption {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.5rem, 2vw, 2rem);
+  font-weight: 700;
+  color: #17252a;
+  margin: 0;
+}
+
+.checkout-go-back {
+  border: none;
+  background: none;
+  outline: none;
+  cursor: pointer;
+  text-decoration: none;
+  color: #4cb6b1;
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(0.95rem, 1.2vw, 1.15rem);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0;
+}
+
+.checkout-back-img {
+  width: 0.85rem;
+  height: auto;
+  margin-top: 0.1rem;
+}
+
+.checkout-border {
+  width: 100%;
+  height: 1px;
+  background: #def2f1;
+  margin: 1rem 0;
+}
+
+.checkout-details-wrapper {
+  display: flex;
+  width: 100%;
+  margin-top: 0.5rem;
+  justify-content: space-between;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.checkout-left {
+  width: min(60%, 40rem);
+  flex: 1.4;
+  min-width: 0;
+}
+
+.checkout-right {
+  width: min(38%, 22rem);
+  flex: 0.9;
+  min-width: 16rem;
+}
+
+.checkout-location {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  box-sizing: border-box;
+  padding: 0.85rem 1.25rem;
+  border-radius: 0.5rem;
+  background: #f2f2f2;
+  margin: 1.25rem 0;
+}
+
+.checkout-dates {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.checkout-date {
+  flex: 1;
+  min-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0.65rem 1rem;
+  border-radius: 0.5rem;
+  background: #f2f2f2;
+  margin-bottom: 0.75rem;
+}
+
+.checkout-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.checkout-delivery-field {
+  margin: 1rem 0;
+}
+
+.checkout-option {
+  width: 100%;
+}
+
+.checkout-option-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.checkout-option-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1rem, 1.1vw, 1.15rem);
+  font-weight: 700;
+  color: #17252a;
+}
+
+.checkout-chevron {
+  color: #4cb6b1;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.checkout-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-top: 0.5rem;
+}
+
+.checkout-toggle-item {
+  margin: 0.5rem 0;
+  width: calc(50% - 0.5rem);
+  min-width: 10rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.checkout-switch {
+  position: relative;
+  display: inline-block;
+  width: 2.5rem;
+  height: 1.35rem;
+  flex-shrink: 0;
+}
+
+.checkout-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkout-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #d0d0d0;
+  border-radius: 1rem;
+  transition: 0.2s;
+}
+
+.checkout-switch-slider::before {
+  position: absolute;
+  content: '';
+  height: 1.05rem;
+  width: 1.05rem;
+  left: 0.15rem;
+  bottom: 0.15rem;
+  background: #fff;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.checkout-switch input:checked + .checkout-switch-slider {
+  background: #4cb6b1;
+}
+
+.checkout-switch input:checked + .checkout-switch-slider::before {
+  transform: translateX(1.1rem);
+}
+
+.checkout-message-label {
+  display: block;
+  margin: 0.75rem 0 0.4rem;
+}
+
+.checkout-message {
+  width: 100%;
+  min-height: 7rem;
+  box-sizing: border-box;
+  padding: 0.85rem 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #17252a;
+  border: 1px solid #a3a3a3;
+  border-radius: 0.5rem;
+  resize: vertical;
+}
+
+.checkout-payments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  padding-top: 0.75rem;
+}
+
+.checkout-payment {
+  width: calc(50% - 0.5rem);
+  min-width: 12rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: none;
+  background: none;
+  padding: 0.35rem 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.checkout-radio {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 2px solid #4cb6b1;
+  flex-shrink: 0;
+}
+
+.checkout-radio-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #4cb6b1;
+}
+
+.checkout-card-brand {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #17252a;
+  text-transform: uppercase;
+}
+
+.checkout-card-meta {
+  margin-top: 0.25rem;
+  color: #ababab;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.checkout-add-method {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+.checkout-add-card {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+.checkout-card-element {
+  padding: 0.85rem 1rem;
+  border: 1px solid #a3a3a3;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.checkout-add-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.checkout-link-btn {
+  border: none;
+  background: none;
+  color: #4cb6b1;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.checkout-price-list {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.checkout-price-col {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.checkout-price-row {
+  margin-top: 0.35rem;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-sizing: border-box;
+  padding: 0.5rem 0;
+  border-bottom: 0.5px solid #979797;
+}
+
+.checkout-price-value {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  color: #17252a;
+  white-space: nowrap;
+}
+
+.checkout-booking-row {
+  margin-top: 1.5rem;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.checkout-total-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #17252a;
+  text-transform: uppercase;
+}
+
+.checkout-total-value {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.25rem, 1.5vw, 1.5rem);
+  font-weight: 700;
+  color: #4cb6b1;
+  margin-left: 0.75rem;
+}
+
+.checkout-primary-btn {
+  border: none;
+  border-radius: 0.4rem;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.85rem 1.5rem;
+  cursor: pointer;
+  min-width: 12rem;
+}
+
+.checkout-primary-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.checkout-primary-btn--sm {
+  min-width: auto;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+}
+
+.checkout-host-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.15rem, 1.5vw, 1.4rem);
+  color: #17252a;
+  margin: 0;
+}
+
+.checkout-host {
+  margin: 1rem 0;
+  display: flex;
+  gap: 0.85rem;
+}
+
+.checkout-host img {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 100%;
+  object-fit: cover;
+}
+
+.checkout-host-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.checkout-host-name {
+  font-size: 1.1rem;
+  font-family: 'Nunito', sans-serif;
+  color: #17252a;
+  font-weight: 700;
+}
+
+.checkout-host-location {
+  font-size: 0.85rem;
+  font-family: 'Nunito', sans-serif;
+  color: #17252a;
+}
+
+.checkout-host-joined {
+  font-size: 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  color: #ababab;
+}
+
+.checkout-desc {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ababab;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.checkout-desc.is-open {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.checkout-more {
+  padding: 0;
+  margin-top: 0.35rem;
+  color: #4cb6b1;
+  background: none;
+  outline: none;
+  border: none;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.checkout-main-photo {
+  width: 100%;
+  height: clamp(10rem, 12vw, 14rem);
+  object-fit: cover;
+  border-radius: 1rem;
+  margin: 1rem 0;
+  background: #f2f2f2;
+}
+
+.checkout-vehicle-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.1rem, 1.4vw, 1.35rem);
+  color: #17252a;
+  margin: 0 0 0.35rem;
+}
+
+.checkout-vehicle-meta {
+  display: flex;
+  gap: 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #545454;
+}
+
+.checkout-day-price {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 1rem;
+  border: 2px solid #4cb6b1;
+  border-radius: 0.5rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.25rem, 1.5vw, 1.5rem);
+  font-weight: 700;
+  color: #4cb6b1;
+  margin-top: 1.25rem;
+}
+
+.checkout-day-price span {
+  font-size: 0.85rem;
+  color: #ababab;
+}
+
+.checkout-green {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4cb6b1;
+}
+
+.checkout-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.checkout-text.uppercase {
+  text-transform: uppercase;
+}
+
+.checkout-error {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: #f9493a;
+  margin: 0.75rem 0 0;
+}
+
+.checkout-status {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.checkout-fee-note {
+  margin-top: 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  color: #ababab;
+  font-weight: 600;
+}
+
+.checkout-success {
+  max-width: 32rem;
+  margin: 2rem auto;
+  text-align: center;
+}
+
+.checkout-success h2 {
+  font-family: 'Nunito', sans-serif;
+  color: #17252a;
+  margin: 0 0 0.75rem;
+}
+
+.checkout-success p {
+  font-family: 'Nunito', sans-serif;
+  color: #545454;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.checkout-success-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .checkout-details-wrapper {
+    flex-direction: column;
+  }
+
+  .checkout-left,
+  .checkout-right {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .checkout-toggle-item,
+  .checkout-payment {
+    width: 100%;
+  }
+}

@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { getUploadsDir } from './common/uploads-path';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -24,8 +24,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const uploadsDir = join(process.cwd(), 'uploads');
-  app.useStaticAssets(uploadsDir, { prefix: '/v1/uploads/' });
+  app.useStaticAssets(getUploadsDir(), { prefix: '/v1/uploads/' });
 
   const config = new DocumentBuilder()
     .setTitle('RentYourRide API')

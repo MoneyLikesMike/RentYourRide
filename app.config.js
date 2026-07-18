@@ -9,8 +9,11 @@ module.exports = () => {
     extra.stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY.trim();
   }
   if (process.env.EXPO_PUBLIC_API_URL?.trim()) {
-    extra.devApiUrl = process.env.EXPO_PUBLIC_API_URL.trim().replace(/\/$/, '');
-    extra.useDevApi = true;
+    const url = process.env.EXPO_PUBLIC_API_URL.trim().replace(/\/$/, '');
+    extra.apiUrl = url;
+    extra.devApiUrl = url;
+    // bedev / local → useDevApi; production backend → production
+    extra.useDevApi = /bedev\.|localhost|127\.0\.0\.1/.test(url);
   }
   if (process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY?.trim()) {
     extra.googlePlacesApiKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY.trim();

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -25,7 +26,7 @@ import { navigateToUserProfile, navigateToVehicleDetail } from '../utils/navigat
 import { openBookingChat } from '../utils/openBookingChat';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const EXTRA_DISPLAY_ORDER = ['clean', 'kms', 'fuel', 'delivery'];
 
@@ -49,7 +50,7 @@ function getExtraIconSource(key) {
 export default function HostBookingDetailsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId } = route.params || {};
-  const { getBookingById, cancelGuestBooking, acceptGuestBooking, declineGuestBooking, pendingRequests } =
+  const { getBookingById, cancelGuestBooking, acceptGuestBooking, declineGuestBooking, respondExtension, pendingRequests } =
     useGuestBookings();
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
@@ -59,6 +60,8 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
     () => !!(bookingId && pendingRequests.some((b) => b.id === bookingId)),
     [bookingId, pendingRequests]
   );
+
+  const isExtensionPending = booking?.status === 'extension_pending';
 
   if (!booking) {
     return (
@@ -145,6 +148,25 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
   const onAccept = async () => {
     await acceptGuestBooking(booking.id);
     navigation.navigate('ActiveRentalsScreen', { initialTab: 'host' });
+  };
+
+  const onApproveExtension = async () => {
+    await respondExtension(booking.id, true);
+    navigation.goBack();
+  };
+
+  const onDenyExtension = () => {
+    Alert.alert('Decline extension', 'Turn down this trip extension?', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Decline',
+        style: 'destructive',
+        onPress: async () => {
+          await respondExtension(booking.id, false);
+          navigation.goBack();
+        },
+      },
+    ]);
   };
 
   const confirmCancelTrip = async () => {
@@ -308,6 +330,15 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
             </TouchableOpacity>
             <TouchableOpacity onPress={onDeny} activeOpacity={0.7}>
               <Text style={styles.denyLink}>Deny request</Text>
+            </TouchableOpacity>
+          </>
+        ) : isExtensionPending ? (
+          <>
+            <TouchableOpacity style={styles.rentYourRideBtn} activeOpacity={0.85} onPress={onApproveExtension}>
+              <Text style={styles.rentYourRideBtnText}>APPROVE EXTENSION</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onDenyExtension} activeOpacity={0.7}>
+              <Text style={styles.denyLink}>Decline extension</Text>
             </TouchableOpacity>
           </>
         ) : (

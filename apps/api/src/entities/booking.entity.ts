@@ -15,6 +15,9 @@ export type BookingStatus =
   | 'confirmed'
   | 'checkin_pending'
   | 'active'
+  | 'extension_pending'
+  | 'extended'
+  | 'extension_declined'
   | 'checkout_pending'
   | 'completed'
   | 'cancelled'
@@ -98,6 +101,7 @@ export class BookingEntity {
     const snap = this.listingSnapshot as Record<string, unknown>;
     const guest = this.guest;
     const guestName = guest ? [guest.firstName, guest.lastName].filter(Boolean).join(' ').trim() : '';
+    const lifecycle = (this.lifecycle ?? {}) as Record<string, unknown>;
     return {
       id: this.id,
       listingId: this.listingId,
@@ -116,7 +120,9 @@ export class BookingEntity {
       pricing: this.pricing,
       selectedPaymentMethod: this.selectedPaymentMethod ?? null,
       status: this.status,
-      lifecycle: this.lifecycle ?? {},
+      lifecycle,
+      // Flatten lifecycle so the mobile app can read check-in/out timestamps at top level.
+      ...lifecycle,
       createdAt: this.createdAt.getTime(),
     };
   }

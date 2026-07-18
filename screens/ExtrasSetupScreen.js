@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -21,7 +22,7 @@ import { useListings } from '../context/ListingsContext';
 import { useSaveListingStep } from '../hooks/useSaveListingStep';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const EXTRAS = [
   { key: 'fuel', label: 'PRE PAID FUEL', helpTitle: 'PRE PAID FUEL', helpBody: 'Offer a pre-paid fuel option so guests can return the vehicle with a full tank without a separate refuel stop. Set the price you charge for this add-on.' },
@@ -151,7 +152,7 @@ const ExtrasSetupScreen = ({ navigation }) => {
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
       >
         {renderExtraSection(EXTRAS[0], { marginBottom: 0 })}
         <View style={styles.divider} />

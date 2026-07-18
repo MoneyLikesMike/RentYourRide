@@ -125,7 +125,22 @@ export class BookingsController {
   async complete(@ReqUser() user: UserEntity, @Param('id') id: string) {
     return this.bookings.transitionStatus(user.id, id, 'completed', [
       'checkout_pending',
+      'active',
+      'extended',
+      'extension_declined',
+      'checkin_pending',
     ]);
+  }
+
+  @Post(':id/lifecycle')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  async patchLifecycle(
+    @ReqUser() user: UserEntity,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.bookings.patchLifecycle(user.id, id, body ?? {});
   }
 
   @Post(':id/agreement/sign')
@@ -164,5 +179,39 @@ export class BookingsController {
     @Body() body: { rating: number; text?: string; role: 'guest' | 'host' },
   ) {
     return this.bookings.submitReview(user.id, id, body);
+  }
+
+  @Post(':id/extension/quote')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  async extensionQuote(
+    @ReqUser() user: UserEntity,
+    @Param('id') id: string,
+    @Body() body: { newEndMs: number },
+  ) {
+    return this.bookings.quoteExtension(user.id, id, Number(body.newEndMs));
+  }
+
+  @Post(':id/extension')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  async requestExtension(
+    @ReqUser() user: UserEntity,
+    @Param('id') id: string,
+    @Body()
+    body: { newEndMs: number; stripePaymentIntentId?: string; guestMessage?: string },
+  ) {
+    return this.bookings.requestExtension(user.id, id, body);
+  }
+
+  @Post(':id/extension/respond')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  async respondExtension(
+    @ReqUser() user: UserEntity,
+    @Param('id') id: string,
+    @Body() body: { approved: boolean },
+  ) {
+    return this.bookings.respondExtension(user.id, id, Boolean(body.approved));
   }
 }

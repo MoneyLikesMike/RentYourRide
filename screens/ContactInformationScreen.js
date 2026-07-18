@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Svg, Path } from 'react-native-svg';
@@ -16,11 +17,11 @@ import PhoneVerificationScreen from './PhoneVerificationScreen';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const emptyUser = {
   email: '',
-  emailVerified: true,
+  emailVerified: false,
   password: '••••••••',
   address: '—',
   mobile: '—',
@@ -61,7 +62,7 @@ export default function ContactInformationScreen({ navigation }) {
           const license = (me.licenseNumber || '').trim();
           setUser({
             email: me.email || authUser?.email || '',
-            emailVerified: true,
+            emailVerified: !!me.emailVerified,
             password: '••••••••',
             address: addressParts.length ? addressParts.join(', ') : '—',
             mobile: phone ? formatPhoneForDisplay(phone) : '—',
@@ -110,6 +111,11 @@ export default function ContactInformationScreen({ navigation }) {
             <Text style={user.emailVerified ? styles.verifiedBadge : styles.notVerifiedBadge}>
               {user.emailVerified ? '(Verified)' : '(Not verified)'}
             </Text>
+            {!user.emailVerified ? (
+              <TouchableOpacity onPress={() => navigation.navigate('EmailVerificationScreen', { email: user.email })}>
+                <Text style={styles.changeButton}>Verify</Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity onPress={() => setShowChangeEmail(true)}>
               <Text style={styles.changeButton}>Change</Text>
             </TouchableOpacity>

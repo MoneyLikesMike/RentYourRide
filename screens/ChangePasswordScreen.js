@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
@@ -7,7 +8,7 @@ import { patchPassword } from '../services/usersApi';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function ChangePasswordScreen({ navigation, onSave }) {
   const { isAuthenticated, isReady } = useAuth();

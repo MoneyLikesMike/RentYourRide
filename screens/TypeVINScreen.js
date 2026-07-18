@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -13,7 +14,7 @@ import { Svg, Path } from 'react-native-svg';
 import { processVinForListing } from '../utils/vinListingFlow';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const TypeVINScreen = ({ navigation, route }) => {
   const { completedAddress } = route.params || {};

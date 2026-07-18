@@ -26,7 +26,7 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://bedev.rentyourride.ca"
+        "EXPO_PUBLIC_API_URL": "https://backend.rentyourride.ca"
       }
     }
   },
