@@ -11,11 +11,13 @@ import { AdminListingsController } from './admin-listings.controller';
 import { AdminListingsService } from './admin-listings.service';
 import { AdminGuard } from '../common/admin.guard';
 import { AuthModule } from '../auth/auth.module';
+import { DiditModule } from '../didit/didit.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserEntity, BookingEntity, ListingEntity]),
     AuthModule,
+    DiditModule,
   ],
   controllers: [
     AdminUsersController,

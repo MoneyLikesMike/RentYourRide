@@ -9,7 +9,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      host: true, // 0.0.0.0 — needed for Cloudflare/ngrok tunnels
       port: 5174,
+      // Allow trycloudflare.com / localtunnel preview hosts
+      allowedHosts: true,
       proxy: {
         // When VITE_API_ORIGIN is unset, browser calls `/api/v1/...`
         '/api': {

@@ -540,42 +540,50 @@ ${host.firstName} want to lease his vehicle
     );
   }
 
-  /** Transactional — always email. */
-  verifyEmail(user: Recipient, token: string): void {
-    this.run(
-      (async () => {
-        const vars = new TemplateVariablesBuilder()
-          .init()
-          .setVariable('User.FirstName', user.firstName ?? '')
-          .setVariable('User.Email', user.email)
-          .setVariable(
-            'Auth.EmailVerificationLink',
-            `https://rentyourride.app.link?emailVerificationToken=${token}`,
-          )
-          .build();
-        await this.notifyUser(user, {
-          email: { template: TemplateName.VerifyEmail, vars },
-          transactional: true,
-        });
-      })(),
+  /**
+   * Transactional — always email. Auth awaits this result so registration no
+   * longer loses delivery failures inside the generic background dispatcher.
+   */
+  async verifyEmail(
+    user: Recipient,
+    token: string,
+    code?: string,
+  ): Promise<boolean> {
+    const vars = new TemplateVariablesBuilder()
+      .init()
+      .setVariable('User.FirstName', user.firstName ?? '')
+      .setVariable('User.Email', user.email)
+      .setVariable(
+        'Auth.EmailVerificationLink',
+        `https://rentyourride.app.link?emailVerificationToken=${token}`,
+      )
+      .setVariable('Auth.EmailVerificationCode', code ?? '')
+      .build();
+    return this.pinpoint.sendTemplateEmail(
+      user.email,
+      TemplateName.VerifyEmail,
+      vars,
     );
   }
 
-  /** Transactional — always email. */
-  emailVerifiedWelcome(user: Recipient): void {
-    this.run(
-      (async () => {
-        const vars = new TemplateVariablesBuilder()
-          .init()
-          .setVariable('User.FirstName', user.firstName ?? '')
-          .setVariable('Url.SearchYourCity', 'https://rentyourride.ca/search')
-          .setVariable('Url.ListYourRide', 'https://rentyourride.ca/list')
-          .build();
-        await this.notifyUser(user, {
-          email: { template: TemplateName.Welcome, vars },
-          transactional: true,
-        });
-      })(),
+  /**
+   * Transactional — sent once, right after the user verifies their email.
+   * Matches legacy timing: signup sends VerifyEmail, verification sends Welcome.
+   */
+  async emailVerifiedWelcome(user: Recipient): Promise<boolean> {
+    const vars = new TemplateVariablesBuilder()
+      .init()
+      .setVariable('User.FirstName', user.firstName ?? '')
+      .setVariable('Url.SearchYourCity', 'https://rentyourride.ca/find-your-car')
+      .setVariable(
+        'Url.ListYourRide',
+        'https://rentyourride.ca/profile/list-your-ride',
+      )
+      .build();
+    return this.pinpoint.sendTemplateEmail(
+      user.email,
+      TemplateName.Welcome,
+      vars,
     );
   }
 

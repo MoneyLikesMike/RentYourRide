@@ -3,15 +3,24 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { ApiError } from '../api/http';
 import { getMe, type MeUser } from '../api/users';
 import { useAuth } from '../auth/AuthContext';
-import ProfileSidebar from './ProfileSidebar';
+import PageMeta from './PageMeta';
+import ProfileSidebar, { type OverviewStats } from './ProfileSidebar';
 import SiteHeader from './SiteHeader';
 
 type Props = {
   children: (me: MeUser, reload: () => Promise<void>) => ReactNode;
+  /** Browser tab label for this account screen. */
+  title?: string;
   overviewSidebar?: boolean;
+  overviewStats?: OverviewStats;
 };
 
-export default function ProfileLayout({ children, overviewSidebar }: Props) {
+export default function ProfileLayout({
+  children,
+  title,
+  overviewSidebar,
+  overviewStats,
+}: Props) {
   const { isAuthenticated, applyMeUser } = useAuth();
   const location = useLocation();
   const [me, setMe] = useState<MeUser | null>(null);
@@ -56,11 +65,13 @@ export default function ProfileLayout({ children, overviewSidebar }: Props) {
 
   return (
     <div className="profile-page">
+      <PageMeta title={`${title ?? 'Account'} | Rent Your Ride`} noindex />
       <SiteHeader />
       <div className="profile-shell">
         <ProfileSidebar
           me={me}
           mode={overviewSidebar ? 'overview' : 'nav'}
+          overviewStats={overviewStats}
         />
         <div className="profile-main">
           {status === 'loading' && !me ? (

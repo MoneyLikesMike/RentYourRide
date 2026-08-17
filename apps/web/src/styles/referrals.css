@@ -1,15 +1,21 @@
-/* Referrals & Credits — legacy ReferralsCredits layout */
+/* Referrals & Credits — Zeplin
+ * https://zpl.io/ML4BN03 landing
+ * https://zpl.io/OXBN78r invite friend
+ * https://zpl.io/LLNjE0Y refer a host
+ * https://zpl.io/BwOmGDk pending
+ * https://zpl.io/JQN5x4n share link
+ */
 
 .referrals-title-block {
   width: 100%;
-  padding: 0 0 1rem;
-  border-bottom: 1px solid #def2f1;
-  margin-bottom: 1.25rem;
+  padding: 0 0 1.15rem;
+  border-bottom: 2px solid #def2f1;
+  margin-bottom: 1.5rem;
 }
 
 .referrals-title {
   font-family: 'Nunito', sans-serif;
-  font-size: clamp(1.4rem, 1.6vw, 1.7rem);
+  font-size: 1.875rem; /* 30px */
   font-weight: 700;
   color: #17252a;
   margin: 0;
@@ -17,24 +23,29 @@
 
 .referrals-big-buttons {
   display: flex;
-  gap: 1.25rem;
+  gap: 1.875rem; /* 30px between 370 cards */
   flex-wrap: wrap;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2.5rem;
 }
 
+/* Zeplin cards: 370×149, radius 14; title @26px left / ~31px top */
 .referrals-card {
-  flex: 1;
-  min-width: 14rem;
+  flex: 0 1 23.125rem; /* 370px */
+  width: 23.125rem;
+  max-width: 100%;
+  height: 9.3125rem; /* 149px */
+  box-sizing: border-box;
   border: none;
-  border-radius: 0.9rem;
+  border-radius: 0.875rem; /* 14px */
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1);
   background: #fff;
   cursor: pointer;
-  padding: 1.15rem 1.25rem;
+  padding: 1.875rem 1.625rem 1.25rem; /* ~30/26 */
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  justify-content: flex-start;
+  gap: 0.85rem;
 }
 
 .referrals-card.is-active {
@@ -45,33 +56,48 @@
 .referrals-card-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
+  width: 100%;
 }
 
 .referrals-card-top span {
   font-family: 'Nunito', sans-serif;
-  font-size: 1.25rem;
+  font-size: 1.5rem; /* 24px */
   font-weight: 600;
   color: #17252a;
+  line-height: 1.2;
+  padding-top: 0.1rem;
 }
 
 .referrals-card.is-active .referrals-card-top span {
   color: #fff;
 }
 
+/* Zeplin users-alt ~29×19, host car ~32×31 — top-right of title row */
 .referrals-card-top img {
-  width: 2.5rem;
-  height: auto;
+  width: 1.875rem; /* 30px */
+  height: 1.25rem; /* 20px — users aspect */
+  object-fit: contain;
+  object-position: right top;
+  flex-shrink: 0;
+  margin-top: 0.35rem;
+}
+
+.referrals-card-top img.referrals-card-icon--host {
+  width: 2rem; /* 32px */
+  height: 1.9375rem; /* 31px */
+  margin-top: 0.1rem;
 }
 
 .referrals-card p {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.875rem; /* 14px */
   font-weight: 600;
   line-height: 1.43;
   color: #ababab;
   margin: 0;
+  max-width: 17.125rem; /* ~274px body width in Zeplin */
 }
 
 .referrals-card.is-active p {
@@ -80,65 +106,84 @@
 
 .referrals-panel {
   display: flex;
-  gap: 1.5rem;
+  gap: 2rem;
   flex-wrap: wrap;
   align-items: flex-start;
+  margin-top: 0.5rem;
 }
 
 .referrals-panel-main {
-  flex: 1.4;
+  flex: 1 1 28rem;
   min-width: 16rem;
+  max-width: 33rem;
 }
 
 .referrals-panel-main h2 {
   font-family: 'Nunito', sans-serif;
-  font-size: 1.15rem;
-  font-weight: 700;
+  font-size: 1.5rem; /* 24px */
+  font-weight: 400;
   color: #17252a;
-  margin: 0 0 0.75rem;
+  margin: 0 0 1.25rem;
+  line-height: 1.35;
 }
 
-.referrals-panel-main p {
+.referrals-panel-main > p {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
+  font-size: 1rem; /* 16px */
   font-weight: 600;
   color: #ababab;
-  line-height: 1.45;
-  margin: 0 0 0.65rem;
+  line-height: 1.5;
+  margin: 0 0 0.85rem;
+}
+
+/* Link field + Copy outside — Zeplin field 370×49, Copy at right */
+.referrals-link-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin: 1.5rem 0 1.25rem;
+  width: 100%;
+  max-width: 33rem;
 }
 
 .referrals-link-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  box-sizing: border-box;
+  flex: 1 1 16rem;
+  max-width: 23.125rem; /* 370px */
+  min-height: 3.0625rem; /* 49px */
   border: 1px solid #a3a3a3;
-  border-radius: 0.4rem;
+  border-radius: 0.3125rem;
   background: #f9f9f9;
-  padding: 0.65rem 0.85rem;
-  margin: 1rem 0;
+  padding: 0.65rem 1rem;
 }
 
 .referrals-link-text {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 400;
   color: #17252a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  width: 100%;
 }
 
 .referrals-copy {
   border: none;
   background: none;
-  color: #4cb6b1;
+  color: #ffb214; /* Zeplin orange */
   font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  font-size: 0.85rem;
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.25px;
   cursor: pointer;
   white-space: nowrap;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .referrals-copy:disabled {
@@ -151,137 +196,332 @@
   align-items: center;
   gap: 1.25rem;
   flex-wrap: wrap;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
+/* Zeplin CTA: 199×40, radius 20, teal glow */
 .referrals-share-btn {
   border: none;
-  border-radius: 2rem;
+  border-radius: 1.25rem;
   background: #4cb6b1;
   color: #fff;
   font-family: 'Nunito', sans-serif;
   font-weight: 700;
-  font-size: 0.85rem;
-  padding: 0.7rem 1.5rem;
+  font-size: 0.875rem;
+  padding: 0;
+  width: 12.4375rem;
+  height: 2.5rem;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.22px;
 }
 
 .referrals-share-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .referrals-terms {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #4cb6b1;
 }
 
 .referrals-green-note {
+  display: block;
+  width: 100%;
+  max-width: 33rem;
+  margin: 0 0 2rem;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.9375rem; /* 15px */
   font-weight: 600;
-  color: #4cb6b1 !important;
+  color: #4cb6b1;
+  line-height: 1.5;
 }
 
+.referrals-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.referrals-tab {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.125rem; /* 18px */
+  font-weight: 600;
+  color: #17252a;
+}
+
+.referrals-tab.is-active {
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
+.referrals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.referrals-empty {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.referrals-person {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.referrals-person-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.referrals-person-left img,
+.referrals-avatar-empty {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #d8d8d8;
+}
+
+.referrals-person-left > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.referrals-person-name {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.referrals-person-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #4cb6b1;
+}
+
+.referrals-person-status img {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 0;
+  background: none;
+}
+
+.referrals-person-pending {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ababab;
+  line-height: 1.35;
+}
+
+.referrals-person-amount {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #4cb6b1;
+  flex-shrink: 0;
+}
+
+/* Credit / earnings box — Zeplin ~270×175, radius 14, teal border */
 .referrals-credit-box {
-  flex: 0.9;
-  min-width: 14rem;
+  flex: 0 0 16.875rem;
+  width: 16.875rem;
+  box-sizing: border-box;
   border: 2px solid #4cb6b1;
-  border-radius: 0.75rem;
-  padding: 1.25rem;
+  border-radius: 0.875rem;
+  padding: 1.25rem 1.15rem;
+}
+
+.referrals-credit-box--host {
+  display: flex;
+  flex-direction: column;
 }
 
 .referrals-credit-label {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #17252a;
+  font-size: 1.125rem; /* 18px */
+  font-weight: 600;
+  color: #0e262b;
+}
+
+.referrals-credit-sublabel {
+  margin-top: 0.85rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ababab;
 }
 
 .referrals-credit-amount {
   display: flex;
   align-items: baseline;
-  gap: 0.4rem;
-  margin: 0.75rem 0;
+  gap: 0.35rem;
+  margin: 0.55rem 0 0.75rem;
+}
+
+.referrals-credit-amount--sm {
+  margin: 0.35rem 0 0;
 }
 
 .referrals-cost {
   font-family: 'Nunito', sans-serif;
-  font-size: 2rem;
+  font-size: 1.25rem; /* 20px */
   font-weight: 700;
   color: #4cb6b1;
 }
 
 .referrals-cad {
   font-family: 'Nunito', sans-serif;
-  font-size: 1rem;
+  font-size: 0.875rem; /* 14px */
   font-weight: 700;
   color: #ffbb2e;
 }
 
 .referrals-credit-copy {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #ababab;
   margin: 0;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
+/* Share link modal — Zeplin list with dividers */
 .referrals-share-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(23, 37, 42, 0.45);
+  background: rgba(23, 37, 42, 0.4);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 50;
-  padding: 1rem;
+  padding: 6rem 1rem 1rem;
 }
 
 .referrals-share-modal {
+  position: relative;
   background: #fff;
   border-radius: 0.75rem;
-  padding: 1.5rem;
-  width: min(100%, 22rem);
+  padding: 1.5rem 1.75rem 1.25rem;
+  width: min(100%, 23.125rem);
+  box-shadow: 0 16px 40px rgba(23, 37, 42, 0.18);
 }
 
 .referrals-share-modal h2 {
   font-family: 'Nunito', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 600;
   color: #17252a;
-  margin: 0 0 1rem;
+  margin: 0 0 1.25rem;
   text-align: center;
 }
 
-.referrals-share-actions {
+.referrals-share-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.referrals-share-list li {
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.referrals-share-list li:last-child {
+  border-bottom: none;
+}
+
+.referrals-share-list a,
+.referrals-share-list button {
   display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.95rem 0.15rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #17252a;
+  text-align: left;
+  text-transform: uppercase;
 }
 
-.referrals-share-actions a,
-.referrals-share-actions button {
-  border: 1px solid #def2f1;
-  border-radius: 0.4rem;
-  background: #fff;
-  padding: 0.75rem;
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  color: #4cb6b1;
-  text-decoration: none;
-  text-align: center;
-  cursor: pointer;
+.referrals-share-list img {
+  width: 1.35rem;
+  height: 1.15rem;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .referrals-share-close {
-  margin-top: 1rem;
-  width: 100%;
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
   border: none;
   background: none;
-  color: #ababab;
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.referrals-share-close img {
+  width: 0.85rem;
+  height: auto;
+}
+
+@media (max-width: 900px) {
+  .referrals-card {
+    width: 100%;
+    flex-basis: 100%;
+    height: auto;
+    min-height: 9.3125rem;
+  }
+
+  .referrals-credit-box {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .referrals-panel-main {
+    max-width: none;
+  }
 }

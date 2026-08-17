@@ -65,12 +65,49 @@ Legacy screen map (non-exhaustive): `Landing`, `Home`, `FindYourCar` (+ `Car`, `
 - Prefer shared Nest endpoints over duplicating business logic in the web app.
 - Keep website work scoped to `apps/web` (and deploy scripts); do not regress mobile/iOS unless asked.
 - When starting a fresh website session, read this skill first, then propose a short phased plan before large scaffolds.
+- Exhaustive QA (every page + mobile parity) is the **`ryr-qa`** agent. Do not turn a build session into a full regression unless asked.
+
+## Current state (as of Jul 17 2026 — continue from here)
+
+`apps/web` exists and is well underway: **Vite + React 18 + TypeScript + react-router**, Stripe via `@stripe/react-stripe-js`. Structure:
+
+- `src/api/` — typed Nest clients (auth, users, listings, hostListings, bookings, payments, referrals, maps, health, storage, http with JWT + refresh)
+- `src/auth/` — `AuthContext`, Google + Apple sign-in, validation
+- `src/components/` — `SiteHeader`, `SiteFooter`, `ProfileLayout`/`ProfileSidebar`, `AddPaymentMethodModal`, `AddCardPanel`, `PlacesAutocomplete`, `StoreBadges`, `SocialLogos`
+- `src/pages/` — Home, FindYourCar, ListingDetail, Checkout, Login, Signup, ForgotPassword, ProfileOverview, EditProfile, AccountSettings (contact info), PaymentInformation, ReferralsCredits, YourRides, ListYourRide
+- Legacy assets copied into `public/` (logo, home images, footer, profile, list-ride, `close.png`)
+
+**Not yet built** (legacy screens remaining): `EditRide`; plus anything else in `Web-old/src/screens` not listed above.
+
+**Deploy:** testing vs production mirrors mobile EAS (`apps/web/modes.json`, `WEB_DEPLOY.md`):
+
+| Command | Target |
+|---------|--------|
+| `npm run web:deploy:testing` | `fedev.rentyourride.ca` → bedev + Stripe test |
+| `npm run web:deploy:production` | `app.rentyourride.ca` → backend + Stripe live |
+
+Requires AWS SSO (`dev` / `ryr-prod`) and `WEB_INSTANCE_ID` if auto-detect fails. Never mix bedev into a production build.
+
+## Session decisions (honor these)
+
+- Auth buttons: **Apple + Google** (no Facebook), with real logos; label "Login with Google".
+- Home hero: legacy design, COVID strip removed, subtitle "Rent a diverse selection of vehicles from local hosts." under "Experience more together", App Store / Google Play badge buttons below it.
+- Footer: legacy footer with Get started + Learn more columns side by side; Stay in touch uses **X** (not Twitter) and **TikTok** logos; copyright "2026 RentYourRide Ltd. - All Rights Reserved".
+- All close/X controls use the icon at `apps/web/public/close.png` (`.close-x-img` class), not a "×" character or "Close" text button.
+- Run `npm run typecheck` (in `apps/web`) after changes; dev server via `npm run web:dev` from repo root.
+
+## Open item (interrupted mid-task)
+
+The previous session was replacing ×/Close buttons with `close.png` when the machine's disk filled up and the chat died. Done: HomePage how-it-works modal and ListYourRidePage photo-remove now render the icon; `.close-x-img` styling exists in `home.css`. Still to finish:
+
+1. `list-your-ride.css` — the `.lyr-photo-remove` restyle never applied (icon is dark on a dark `rgba(0,0,0,0.55)` circle; switch to a light background and add icon sizing).
+2. Add the corner icon close button to the add-payment modal, the photo-examples modal, and the referrals share modal (they still use text buttons).
+3. Disk space was freed afterwards; no cleanup work is pending.
 
 ## First session checklist
 
 When the user starts website work in a new chat:
 
-1. Confirm goal (scaffold only vs full parity vs go-live).
-2. Check whether `apps/web` exists; if not, propose stack + folder layout.
-3. Wire health check to `GET /v1/health` on bedev.
-4. Port auth (login/register/refresh) next, then search → detail → book.
+1. Read **Current state** and **Open item** above; finish the open item if still outstanding.
+2. Continue porting remaining legacy screens (legacy UI first, always).
+3. Confirm with the user before any deploy/go-live step (fedev → production per PRODUCTION.md discipline).

@@ -24,6 +24,7 @@ import {
   toUserListingRow,
   fullName,
 } from './admin.mapper';
+import { DiditService } from '../didit/didit.service';
 
 @Injectable()
 export class AdminUsersService {
@@ -34,6 +35,7 @@ export class AdminUsersService {
     private readonly bookings: Repository<BookingEntity>,
     @InjectRepository(ListingEntity)
     private readonly listings: Repository<ListingEntity>,
+    private readonly didit: DiditService,
   ) {}
 
   async listMembers(
@@ -72,7 +74,13 @@ export class AdminUsersService {
   async getMember(id: string) {
     const user = await this.users.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
-    return toAdminProfile(user);
+    try {
+      await this.didit.reconcileUserLicense(id);
+    } catch {
+      /* keep stored status if Didit is unreachable */
+    }
+    const fresh = (await this.users.findOne({ where: { id } })) ?? user;
+    return toAdminProfile(fresh);
   }
 
   async getMemberBookings(id: string, phase: BookingPhase) {
@@ -141,9 +149,12 @@ export class AdminUsersService {
   async listLicenseVerifications(opts: AdminLicensesPageOptionsDto) {
     const qb = this.users
       .createQueryBuilder('user')
-      .where('user.license_verification_status IN (:...statuses)', {
-        statuses: ['pending_review', 'in_progress', 'submitted'],
-      });
+      .where(
+        'user.license_verified = false AND user.license_verification_status IN (:...statuses)',
+        {
+          statuses: ['pending_review', 'in_progress', 'submitted', 'In Progress', 'In Review'],
+        },
+      );
 
     if (opts.query?.trim()) {
       const q = `%${opts.query.trim().toLowerCase()}%`;

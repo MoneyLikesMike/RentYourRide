@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# App / account surfaces — no need to index
+Disallow: /profile/
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /didit/
+Disallow: /messages
+Disallow: /studio
+Disallow: /*/checkout$
+
+Sitemap: https://www.rentyourride.ca/sitemap.xml

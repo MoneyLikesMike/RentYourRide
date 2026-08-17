@@ -12,5 +12,6 @@ import { DiditService } from './didit.service';
   ],
   controllers: [DiditController],
   providers: [DiditService],
+  exports: [DiditService],
 })
 export class DiditModule {}

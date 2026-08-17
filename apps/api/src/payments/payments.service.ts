@@ -4,6 +4,9 @@ import Stripe from 'stripe';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
+/** How long after Stripe creates a card we still treat it as newly added. */
+const NEW_CARD_WINDOW_MS = 30 * 60 * 1000;
+
 export type BookingPaymentResult = {
   paymentIntentId: string;
   chargeId: string | null;
@@ -15,6 +18,7 @@ export type BookingPaymentResult = {
 export class PaymentsService {
   private readonly log = new Logger(PaymentsService.name);
   private stripe: Stripe | null;
+  private readonly notifiedCards = new Map<string, number>();
 
   constructor(
     private readonly config: ConfigService,
@@ -104,6 +108,13 @@ export class PaymentsService {
     }
     const user = await this.users.requireById(userId);
     if (!user.stripeCustomerId) return [];
+    const customer = await this.stripe.customers.retrieve(user.stripeCustomerId);
+    const defaultPm =
+      !customer.deleted && customer.invoice_settings?.default_payment_method
+        ? typeof customer.invoice_settings.default_payment_method === 'string'
+          ? customer.invoice_settings.default_payment_method
+          : customer.invoice_settings.default_payment_method.id
+        : null;
     const pms = await this.stripe.paymentMethods.list({
       customer: user.stripeCustomerId,
       type: 'card',
@@ -114,7 +125,51 @@ export class PaymentsService {
       brand: pm.card?.brand ?? 'card',
       last4: pm.card?.last4 ?? '0000',
       funding: pm.card?.funding ?? null,
+      expMonth: pm.card?.exp_month ?? null,
+      expYear: pm.card?.exp_year ?? null,
+      isDefault: defaultPm ? pm.id === defaultPm : false,
+      cardholderName: pm.billing_details?.name ?? null,
+      country: pm.billing_details?.address?.country ?? null,
+      postalCode: pm.billing_details?.address?.postal_code ?? null,
     }));
+  }
+
+  async updateMethodBilling(
+    userId: string,
+    paymentMethodId: string,
+    body: {
+      cardholderName?: string;
+      country?: string;
+      postalCode?: string;
+    },
+  ) {
+    if (!this.stripe) {
+      return { ok: true };
+    }
+    const user = await this.users.requireById(userId);
+    if (!user.stripeCustomerId) return { ok: false };
+
+    const pm = await this.stripe.paymentMethods.retrieve(paymentMethodId);
+    const customerId =
+      typeof pm.customer === 'string' ? pm.customer : pm.customer?.id;
+    if (customerId !== user.stripeCustomerId) {
+      throw new BadRequestException('Payment method not found');
+    }
+
+    const name = body.cardholderName?.trim();
+    const country = body.country?.trim().toUpperCase();
+    const postalCode = body.postalCode?.trim();
+
+    await this.stripe.paymentMethods.update(paymentMethodId, {
+      billing_details: {
+        ...(name ? { name } : {}),
+        address: {
+          ...(country ? { country } : {}),
+          ...(postalCode ? { postal_code: postalCode } : {}),
+        },
+      },
+    });
+    return { ok: true };
   }
 
   async setDefaultPaymentMethod(userId: string, paymentMethodId: string) {
@@ -126,7 +181,65 @@ export class PaymentsService {
     await this.stripe.customers.update(user.stripeCustomerId, {
       invoice_settings: { default_payment_method: paymentMethodId },
     });
+    // App builds that predate POST /methods/added only tell us about a new card
+    // by making it the default right after saving it.
+    const pm = await this.stripe.paymentMethods
+      .retrieve(paymentMethodId)
+      .catch(() => null);
+    if (pm && this.isFreshlyAdded(pm)) {
+      this.notifyCardAdded(userId, paymentMethodId);
+    }
+    return { ok: true };
+  }
+
+  /** Cards are attached to Stripe from the client, so clients report the add. */
+  async notifyPaymentMethodAdded(userId: string, paymentMethodId: string) {
+    if (!this.stripe) {
+      return { ok: true };
+    }
+    const user = await this.users.requireById(userId);
+    if (!user.stripeCustomerId) return { ok: false };
+
+    const pm = await this.stripe.paymentMethods.retrieve(paymentMethodId);
+    const customerId =
+      typeof pm.customer === 'string' ? pm.customer : pm.customer?.id;
+    if (customerId !== user.stripeCustomerId) {
+      throw new BadRequestException('Payment method not found');
+    }
+    this.notifyCardAdded(userId, paymentMethodId);
+    return { ok: true };
+  }
+
+  private isFreshlyAdded(pm: Stripe.PaymentMethod): boolean {
+    return Date.now() - pm.created * 1000 < NEW_CARD_WINDOW_MS;
+  }
+
+  /** A single add can reach us twice (explicit report + set-default): email once. */
+  private notifyCardAdded(userId: string, paymentMethodId: string): void {
+    const now = Date.now();
+    for (const [id, at] of this.notifiedCards) {
+      if (now - at > NEW_CARD_WINDOW_MS) this.notifiedCards.delete(id);
+    }
+    if (this.notifiedCards.has(paymentMethodId)) return;
+    this.notifiedCards.set(paymentMethodId, now);
     this.notifications.newPaymentMethod(userId);
+  }
+
+  async deletePaymentMethod(userId: string, paymentMethodId: string) {
+    if (!this.stripe) {
+      return { ok: true };
+    }
+    const user = await this.users.requireById(userId);
+    if (!user.stripeCustomerId) return { ok: false };
+
+    const pm = await this.stripe.paymentMethods.retrieve(paymentMethodId);
+    const customerId =
+      typeof pm.customer === 'string' ? pm.customer : pm.customer?.id;
+    if (customerId !== user.stripeCustomerId) {
+      throw new BadRequestException('Payment method not found');
+    }
+
+    await this.stripe.paymentMethods.detach(paymentMethodId);
     return { ok: true };
   }
 

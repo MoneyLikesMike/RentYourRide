@@ -18,12 +18,18 @@ import {
   type ListingDetail,
 } from '../api/listings';
 import {
+  formatLocationLabel,
+  resolveBrowserCurrentLocation,
+  reverseGeocode,
+} from '../api/maps';
+import {
   listPaymentMethods,
   type StripePaymentMethod,
 } from '../api/payments';
 import { useAuth } from '../auth/AuthContext';
 import AddCardPanel from '../components/AddCardPanel';
 import PlacesAutocomplete from '../components/PlacesAutocomplete';
+import PageMeta from '../components/PageMeta';
 import SiteHeader from '../components/SiteHeader';
 import type { SearchNavState, SearchTripDates } from '../types/search';
 
@@ -31,6 +37,19 @@ export type CheckoutNavState = {
   search?: SearchNavState;
   dates?: SearchTripDates;
   listing?: ListingDetail;
+};
+
+const TRIP_FEE_DISCLOSURE =
+  'This fee helps us keep the platform safe and reliable for you. This fee also helps us provide our around the 24/7 customer service for you!';
+
+const EXTRA_ICONS: Record<string, string> = {
+  unlimitedKm: '/checkout/road.png',
+  kms: '/checkout/road.png',
+  prepaidFuel: '/checkout/fuel.png',
+  fuel: '/checkout/fuel.png',
+  prepaidClean: '/checkout/cleanCar.png',
+  clean: '/checkout/cleanCar.png',
+  delivery: '/checkout/shorttrip.png',
 };
 
 function formatMoney(n: number): string {
@@ -100,6 +119,35 @@ function brandLabel(brand?: string): string {
   return brand.toUpperCase();
 }
 
+function Stars({ rating }: { rating: number }) {
+  const filled = Math.max(0, Math.min(5, Math.round(rating || 0)));
+  return (
+    <span className="checkout-stars" aria-label={`${filled} of 5 stars`}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <svg
+          key={i}
+          className={`checkout-star${i < filled ? ' checkout-star--on' : ''}`}
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <path d="M12 2.5l2.9 6.1 6.7.7-5 4.6 1.4 6.6L12 17.8 5.99 20.5 7.4 13.9 2.4 9.3l6.7-.7L12 2.5z" />
+        </svg>
+      ))}
+    </span>
+  );
+}
+
+function SectionChevron({ open }: { open: boolean }) {
+  return (
+    <span
+      className={`checkout-chevron${open ? ' is-open' : ''}`}
+      aria-hidden
+    />
+  );
+}
+
 export default function CheckoutPage() {
   const { listingId = '' } = useParams<{ listingId: string }>();
   const location = useLocation();
@@ -118,15 +166,18 @@ export default function CheckoutPage() {
 
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [extraUnlimitedKm, setExtraUnlimitedKm] = useState(false);
   const [extraPrepaidFuel, setExtraPrepaidFuel] = useState(false);
   const [extraPrepaidClean, setExtraPrepaidClean] = useState(false);
   const [introMessage, setIntroMessage] = useState('');
 
-  const [isExtras, setExtras] = useState(true);
+  const [isExtras, setExtras] = useState(false);
   const [isMessage, setMessage] = useState(false);
-  const [isPayment, setPayment] = useState(true);
+  const [isPayment, setPayment] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
+  const [pickupDisplay, setPickupDisplay] = useState('Pickup location TBD');
 
   const [methods, setMethods] = useState<StripePaymentMethod[]>([]);
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
@@ -166,6 +217,48 @@ export default function CheckoutPage() {
     search?.location?.query ||
     search?.location?.city ||
     'Pickup location TBD';
+
+  useEffect(() => {
+    if (!listing) {
+      setPickupDisplay('Pickup location TBD');
+      return;
+    }
+
+    const raw = (listing.pickupAddress || '').replace(/^,\s*/, '').trim();
+    const fallback = formatLocationLabel({
+      fallback: raw || listing.city || 'Pickup location TBD',
+      city: listing.city,
+    });
+    setPickupDisplay(fallback);
+
+    const lat = listing.latitude;
+    const lng = listing.longitude;
+    if (typeof lat !== 'number' || typeof lng !== 'number') return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const geo = await reverseGeocode(lat, lng);
+        if (cancelled) return;
+        setPickupDisplay(
+          formatLocationLabel({
+            formatted: geo.formatted,
+            city: geo.city || listing.city,
+            region: geo.region,
+            postalCode: geo.postalCode,
+            country: geo.country,
+            fallback: raw || listing.city,
+          }),
+        );
+      } catch {
+        /* keep fallback */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [listing]);
 
   useEffect(() => {
     if (!isAuthenticated || listing || !listingId) return;
@@ -268,10 +361,37 @@ export default function CheckoutPage() {
   const vehicleTitle = [
     listing?.vehicleData?.make,
     listing?.vehicleData?.model,
-    listing?.title,
   ]
     .filter(Boolean)
-    .join(' ');
+    .join(' ')
+    .trim() || listing?.title || '';
+  const hostBio = listing?.hostBio?.trim() || '';
+
+  const onUseCurrentLocation = async () => {
+    setLocating(true);
+    setLocationError(null);
+    try {
+      const geo = await resolveBrowserCurrentLocation();
+      setDeliveryAddress(
+        (geo.formatted || '').trim() ||
+          [geo.street, geo.city, geo.region, geo.postalCode, geo.country]
+            .filter(Boolean)
+            .join(', '),
+      );
+    } catch (err) {
+      const geoErr = err as { code?: number; message?: string };
+      const denied = typeof geoErr?.code === 'number' && geoErr.code === 1;
+      setLocationError(
+        denied
+          ? 'Allow location access to use your current location.'
+          : err instanceof Error
+            ? err.message
+            : 'Could not get your current location.',
+      );
+    } finally {
+      setLocating(false);
+    }
+  };
 
   if (!isAuthenticated) {
     return (
@@ -302,6 +422,11 @@ export default function CheckoutPage() {
       setSubmitError('Enter a delivery address.');
       return;
     }
+    if (!introMessage.trim()) {
+      setMessage(true);
+      setSubmitError('Please introduce yourself before booking.');
+      return;
+    }
 
     submittingRef.current = true;
     setSubmitting(true);
@@ -317,10 +442,14 @@ export default function CheckoutPage() {
         [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
         user?.fullName ||
         'Guest';
+      const pickupForBooking =
+        pickupDisplay && pickupDisplay !== 'Pickup location TBD'
+          ? pickupDisplay
+          : pickupAddress;
       const dropAddr =
         deliveryEnabled && canDeliver && deliveryAddress.trim()
           ? deliveryAddress.trim()
-          : pickupAddress;
+          : pickupForBooking;
 
       const booking = await createBooking(
         {
@@ -329,7 +458,7 @@ export default function CheckoutPage() {
             id: listing.id,
             title: listing.title,
             photos: listing.photos,
-            pickupAddress: listing.pickupAddress,
+            pickupAddress: pickupForBooking,
             hostName: listing.hostName,
             hostPhotoUri: listing.hostPhotoUri,
             year: listing.vehicleData?.year,
@@ -340,7 +469,7 @@ export default function CheckoutPage() {
               : undefined,
           },
           bookingDates,
-          pickupAddress,
+          pickupAddress: pickupForBooking,
           dropoffAddress: dropAddr,
           deliveryEnabled: !!(deliveryEnabled && canDeliver),
           extras,
@@ -428,6 +557,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="checkout-page">
+      <PageMeta title="Checkout | Rent Your Ride" noindex />
       <SiteHeader />
       <main className="checkout-wrapper">
         <div className="checkout-caption-row">
@@ -463,7 +593,7 @@ export default function CheckoutPage() {
                 <span className="checkout-green">
                   Pickup &amp; drop off location:
                 </span>
-                <span className="checkout-text">{pickupAddress}</span>
+                <span className="checkout-text">{pickupDisplay}</span>
               </div>
 
               <div className="checkout-dates">
@@ -500,16 +630,41 @@ export default function CheckoutPage() {
                   </div>
                   {deliveryEnabled ? (
                     <div className="checkout-delivery-field">
-                      <PlacesAutocomplete
-                        value={deliveryAddress}
-                        onChange={setDeliveryAddress}
-                        onPlaceSelected={(place) => {
-                          setDeliveryAddress(
-                            place.query || place.city || deliveryAddress,
-                          );
-                        }}
-                        placeholder="Enter delivery address"
-                      />
+                      <div className="checkout-delivery-where">
+                        <PlacesAutocomplete
+                          value={deliveryAddress}
+                          onChange={(text) => {
+                            setDeliveryAddress(text);
+                            setLocationError(null);
+                          }}
+                          onPlaceSelected={(place) => {
+                            setDeliveryAddress(
+                              place.query ||
+                                place.city ||
+                                deliveryAddress,
+                            );
+                            setLocationError(null);
+                          }}
+                          placeholder="Enter city, airport or address"
+                          showLabel
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="checkout-current-location"
+                        onClick={() => void onUseCurrentLocation()}
+                        disabled={locating}
+                      >
+                        <img
+                          src="/current-location-pin.png"
+                          alt=""
+                          className="checkout-current-location-icon"
+                        />
+                        {locating ? 'Locating…' : 'Current location'}
+                      </button>
+                      {locationError ? (
+                        <p className="checkout-error">{locationError}</p>
+                      ) : null}
                     </div>
                   ) : null}
                   <div className="checkout-border" />
@@ -523,9 +678,7 @@ export default function CheckoutPage() {
                   onClick={() => setExtras(!isExtras)}
                 >
                   <span className="checkout-option-title">Extras</span>
-                  <span className="checkout-chevron">
-                    {isExtras ? '▴' : '▾'}
-                  </span>
+                  <SectionChevron open={isExtras} />
                 </button>
                 {isExtras ? (
                   <div className="checkout-options">
@@ -587,21 +740,32 @@ export default function CheckoutPage() {
                   onClick={() => setMessage(!isMessage)}
                 >
                   <span className="checkout-option-title">Message</span>
-                  <span className="checkout-chevron">
-                    {isMessage ? '▴' : '▾'}
-                  </span>
+                  <SectionChevron open={isMessage} />
                 </button>
                 {isMessage ? (
                   <div>
-                    <span className="checkout-text uppercase checkout-message-label">
+                    <span className="checkout-message-label">
                       Introduce yourself
                     </span>
                     <textarea
-                      className="checkout-message"
+                      className={`checkout-message${
+                        introMessage.trim() ? ' has-value' : ''
+                      }`}
                       value={introMessage}
-                      onChange={(e) => setIntroMessage(e.target.value)}
+                      onChange={(e) => {
+                        setIntroMessage(e.target.value);
+                        if (e.target.value.trim()) {
+                          setSubmitError((prev) =>
+                            prev ===
+                            'Please introduce yourself before booking.'
+                              ? null
+                              : prev,
+                          );
+                        }
+                      }}
                       placeholder="Say hello to your host…"
                       maxLength={2000}
+                      required
                     />
                   </div>
                 ) : null}
@@ -616,9 +780,7 @@ export default function CheckoutPage() {
                   onClick={() => setPayment(!isPayment)}
                 >
                   <span className="checkout-option-title">Payment methods</span>
-                  <span className="checkout-chevron">
-                    {isPayment ? '▴' : '▾'}
-                  </span>
+                  <SectionChevron open={isPayment} />
                 </button>
                 {isPayment ? (
                   <div>
@@ -630,7 +792,9 @@ export default function CheckoutPage() {
                         <button
                           key={m.id}
                           type="button"
-                          className="checkout-payment"
+                          className={`checkout-payment${
+                            selectedMethodId === m.id ? ' is-selected' : ''
+                          }`}
                           onClick={() => setSelectedMethodId(m.id)}
                         >
                           <div className="checkout-radio">
@@ -643,7 +807,9 @@ export default function CheckoutPage() {
                               {brandLabel(m.brand)}
                             </div>
                             <div className="checkout-card-meta">
-                              XXXX-XXXX-XXXX-{m.last4}
+                              <span>
+                                XXXX - XXXX - XXXX - {m.last4}
+                              </span>
                             </div>
                           </div>
                         </button>
@@ -679,99 +845,117 @@ export default function CheckoutPage() {
 
               <div className="checkout-border" />
 
-              <div className="checkout-price-list">
-                <div className="checkout-price-col">
-                  <div className="checkout-price-row">
-                    <span className="checkout-text uppercase">
-                      Kilometres included in the trip
-                    </span>
-                    <span className="checkout-price-value">
-                      {quote?.kmIncludedLabel ?? '—'}
-                    </span>
-                  </div>
-                  <div className="checkout-price-row">
-                    <span className="checkout-text uppercase">
-                      Price per day
-                    </span>
-                    <span className="checkout-price-value">
-                      {quote
-                        ? formatMoney(quote.pricePerDay)
-                        : formatMoney(listing.pricePerDay)}
-                    </span>
-                  </div>
+              <div className="checkout-summary">
+                <div className="checkout-summary-row">
+                  <span className="checkout-summary-label">
+                    Kilometres included in this trip
+                  </span>
+                  <span className="checkout-summary-value">
+                    {quote?.kmIncludedLabel ?? '—'}
+                  </span>
                 </div>
-                <div className="checkout-price-col">
-                  <div className="checkout-price-row">
-                    <span className="checkout-text uppercase">
-                      {quote?.tripDays ?? '—'} days
-                    </span>
-                    <span className="checkout-price-value">
-                      {quote
-                        ? formatMoney(quote.discountedTripSubtotal)
-                        : '—'}
-                    </span>
-                  </div>
-                  {quote && quote.tripDiscountSavings > 0 ? (
-                    <div className="checkout-price-row">
-                      <span className="checkout-text uppercase">Discount</span>
-                      <span className="checkout-price-value">
-                        −{formatMoney(quote.tripDiscountSavings)}
+                <div className="checkout-summary-row">
+                  <span className="checkout-summary-label">Price per day</span>
+                  <span className="checkout-summary-value">
+                    {quote
+                      ? formatMoney(quote.pricePerDay)
+                      : formatMoney(listing.pricePerDay)}
+                  </span>
+                </div>
+                <div className="checkout-summary-row">
+                  <span className="checkout-summary-label">
+                    {quote?.tripDays ?? '—'} days
+                  </span>
+                  <span className="checkout-summary-value">
+                    {quote ? formatMoney(quote.baseTripSubtotal) : '—'}
+                  </span>
+                </div>
+                {quote && quote.tripDiscountSavings > 0 ? (
+                  <>
+                    <div className="checkout-summary-row">
+                      <span className="checkout-summary-label">
+                        {quote.appliesMonthlyDiscount
+                          ? `Monthly discount (${listing.monthlyDiscount || `${quote.monthlyDiscountPct}%`})`
+                          : `Weekly discount (${listing.weeklyDiscount || `${quote.weeklyDiscountPct}%`})`}
+                      </span>
+                      <span className="checkout-summary-value checkout-summary-value--discount">
+                        − {formatMoney(quote.tripDiscountSavings)}
                       </span>
                     </div>
-                  ) : null}
-                  {quote && quote.unlimitedKmFee > 0 ? (
-                    <div className="checkout-price-row">
-                      <span className="checkout-text uppercase">
-                        Unlimited kms
+                    <div className="checkout-summary-row">
+                      <span className="checkout-summary-label">
+                        Trip total (after discount)
                       </span>
-                      <span className="checkout-price-value">
-                        {formatMoney(quote.unlimitedKmFee)}
+                      <span className="checkout-summary-value">
+                        {formatMoney(quote.discountedTripSubtotal)}
                       </span>
                     </div>
-                  ) : null}
-                  {quote && quote.prepaidFuelFee > 0 ? (
-                    <div className="checkout-price-row">
-                      <span className="checkout-text uppercase">
-                        Pre paid fuel
-                      </span>
-                      <span className="checkout-price-value">
-                        {formatMoney(quote.prepaidFuelFee)}
-                      </span>
+                  </>
+                ) : null}
+
+                {quote && quote.selectedExtras?.length ? (
+                  <>
+                    <div className="checkout-summary-divider" />
+                    <p className="checkout-extras-header">Selected extras</p>
+                    <div className="checkout-selected-extras">
+                      {quote.selectedExtras.map((extra) => (
+                        <div key={extra.key} className="checkout-summary-row">
+                          <span className="checkout-extra-label">
+                            {EXTRA_ICONS[extra.key] ? (
+                              <img
+                                src={EXTRA_ICONS[extra.key]}
+                                alt=""
+                                className="checkout-extra-icon"
+                              />
+                            ) : null}
+                            {extra.label}
+                          </span>
+                          <span className="checkout-summary-value">
+                            {formatMoney(extra.amount)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ) : null}
-                  {quote && quote.prepaidCleanFee > 0 ? (
-                    <div className="checkout-price-row">
-                      <span className="checkout-text uppercase">
-                        Pre paid clean
-                      </span>
-                      <span className="checkout-price-value">
-                        {formatMoney(quote.prepaidCleanFee)}
-                      </span>
-                    </div>
-                  ) : null}
-                  {quote && quote.selectedDeliveryFee > 0 ? (
-                    <div className="checkout-price-row">
-                      <span className="checkout-text uppercase">Delivery</span>
-                      <span className="checkout-price-value">
-                        {formatMoney(quote.selectedDeliveryFee)}
-                      </span>
-                    </div>
-                  ) : null}
-                  <div className="checkout-price-row">
-                    <span className="checkout-text uppercase">Trip fee</span>
-                    <span className="checkout-price-value">
-                      {quote ? formatMoney(quote.tripFee) : '—'}
-                    </span>
-                  </div>
+                    <div className="checkout-summary-divider checkout-summary-divider--teal" />
+                  </>
+                ) : null}
+
+                <div className="checkout-summary-row">
+                  <span className="checkout-summary-label">Subtotal</span>
+                  <span className="checkout-summary-value">
+                    {quote ? formatMoney(quote.subtotal) : '—'}
+                  </span>
+                </div>
+                <div className="checkout-summary-row">
+                  <span className="checkout-summary-label checkout-trip-fee-label">
+                    Trip fee
+                    <button
+                      type="button"
+                      className="checkout-trip-fee-info"
+                      aria-label="About trip fee"
+                      title={TRIP_FEE_DISCLOSURE}
+                      onClick={() =>
+                        window.alert(`Trip fee\n\n${TRIP_FEE_DISCLOSURE}`)
+                      }
+                    >
+                      i
+                    </button>
+                  </span>
+                  <span className="checkout-summary-value">
+                    {quote ? formatMoney(quote.tripFee) : '—'}
+                  </span>
+                </div>
+                <div className="checkout-summary-row checkout-summary-row--total">
+                  <span className="checkout-total-label">Total Price</span>
+                  <span className="checkout-total-value">
+                    {quote ? formatMoney(quote.grandTotal) : '—'}
+                  </span>
                 </div>
               </div>
+
               {quoteError ? (
                 <p className="checkout-error">{quoteError}</p>
               ) : null}
-              <p className="checkout-fee-note">
-                Trip fee is 10% of the daily rental (after discounts), not
-                extras.
-              </p>
 
               <div className="checkout-border" />
 
@@ -780,12 +964,6 @@ export default function CheckoutPage() {
               ) : null}
 
               <div className="checkout-booking-row">
-                <div>
-                  <span className="checkout-total-label">Total price:</span>
-                  <span className="checkout-total-value">
-                    {quote ? formatMoney(quote.grandTotal) : '—'}
-                  </span>
-                </div>
                 <button
                   type="button"
                   className="checkout-primary-btn"
@@ -797,7 +975,7 @@ export default function CheckoutPage() {
                   }
                   onClick={() => void onSubmit()}
                 >
-                  {submitting ? 'Sending…' : 'Send booking request'}
+                  {submitting ? 'SENDING…' : 'SEND BOOKING REQUEST'}
                 </button>
               </div>
             </div>
@@ -805,40 +983,40 @@ export default function CheckoutPage() {
             <div className="checkout-right">
               <h2 className="checkout-host-title">Hosted by</h2>
               <div className="checkout-host">
-                <img
-                  src={listing.hostPhotoUri || '/no-avatar.jpg'}
-                  alt=""
-                />
+                {listing.hostPhotoUri ? (
+                  <img src={listing.hostPhotoUri} alt="" />
+                ) : (
+                  <div className="checkout-host-avatar-empty" />
+                )}
                 <div className="checkout-host-info">
                   <span className="checkout-host-name">
                     {listing.hostName || 'Host'}
                   </span>
                   <span className="checkout-host-location">
-                    {(listing.city || 'Canada').toUpperCase()}
+                    {(listing.city || '').toUpperCase()}
+                    {listing.city ? ', CANADA' : 'CANADA'}
                   </span>
-                  {listing.hostTrips != null ? (
+                  {listing.hostJoinedYear != null ? (
                     <span className="checkout-host-joined">
-                      {listing.hostTrips} trips
+                      Joined in {listing.hostJoinedYear}
                     </span>
                   ) : null}
                 </div>
               </div>
-              {listing.description ? (
+              {hostBio ? (
                 <>
                   <p
                     className={`checkout-desc${descOpen ? ' is-open' : ''}`}
                   >
-                    {listing.description}
+                    {hostBio}
                   </p>
-                  {!descOpen && listing.description.length > 180 ? (
-                    <button
-                      type="button"
-                      className="checkout-more"
-                      onClick={() => setDescOpen(true)}
-                    >
-                      More
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    className="checkout-more"
+                    onClick={() => setDescOpen((open) => !open)}
+                  >
+                    {descOpen ? 'Less' : 'More'}
+                  </button>
                 </>
               ) : null}
               {photo ? (
@@ -854,15 +1032,11 @@ export default function CheckoutPage() {
                 {vehicleTitle || listing.title}
               </h2>
               <div className="checkout-vehicle-meta">
-                {listing.hostRating != null ? (
-                  <span>★ {listing.hostRating.toFixed(1)}</span>
-                ) : null}
-                {listing.hostTrips != null ? (
-                  <span>{listing.hostTrips} trips</span>
-                ) : null}
+                <Stars rating={listing.hostRating ?? 0} />
+                <span>{listing.hostTrips ?? 0} trips</span>
               </div>
               <div className="checkout-day-price">
-                {formatMoney(listing.pricePerDay).replace(/\.00$/, '')}
+                {formatMoney(listing.pricePerDay)}
                 <span>Per day</span>
               </div>
             </div>

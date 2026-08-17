@@ -13,6 +13,8 @@ type Props = {
   onPlaceSelected: (place: ParsedPlace) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Set false to hide the built-in "Where?" label. */
+  showLabel?: boolean;
 };
 
 function newSessionToken(): string {
@@ -28,6 +30,7 @@ export default function PlacesAutocomplete({
   onPlaceSelected,
   placeholder = 'Enter city, airport or address',
   disabled,
+  showLabel = true,
 }: Props) {
   const listId = useId();
   const [open, setOpen] = useState(false);
@@ -88,7 +91,7 @@ export default function PlacesAutocomplete({
 
   return (
     <div className="places" ref={wrapRef}>
-      <span className="option-caption">Where?</span>
+      {showLabel ? <span className="option-caption">Where?</span> : null}
       <input
         id={`${listId}-input`}
         className="places-input"

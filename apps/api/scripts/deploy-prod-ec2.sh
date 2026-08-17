@@ -93,7 +93,8 @@ append_env APPLE_CLIENT_ID "" "com.rentyourride.ios"
 append_env DIDIT_API_KEY "$DIDIT_API_KEY"
 append_env DIDIT_WEBHOOK_SECRET "$DIDIT_WEBHOOK_SECRET"
 append_env PHONENUMBER "$PHONENUMBER"
-append_env AWS_PINPOINT_APP_ID "$PINPOINT_APP"
+# RentYourRidePinpoint-production — without this every email is only logged.
+append_env AWS_PINPOINT_APP_ID "$PINPOINT_APP" "7cd30b694f16415999c21780666247b9"
 append_env AWS_PINPOINT_SENDER_ADDRESS "$PINPOINT_SENDER" "donotreply@rentyourride.ca"
 append_env ADMIN_EMAIL "$ADMIN_EMAIL" "donotreply@rentyourride.ca"
 echo "BEDEV_API_BASE_URL=https://bedev.rentyourride.ca" >> /tmp/nest-api.env
@@ -111,7 +112,7 @@ cat > "$PARAMS" <<REMOTE
     "source /home/ec2-user/.nvm/nvm.sh",
     "APP_DIR=/home/ec2-user/rentyourride-nest-api",
     "UPLOADS_DIR=/home/ec2-user/rentyourride-uploads",
-    "mkdir -p \$UPLOADS_DIR/listings \$UPLOADS_DIR/avatars",
+    "mkdir -p \$UPLOADS_DIR/listings \$UPLOADS_DIR/avatars \$UPLOADS_DIR/articles \$UPLOADS_DIR/team",
     "chown -R ec2-user:ec2-user \$UPLOADS_DIR",
     "rm -rf \$APP_DIR && mkdir -p \$APP_DIR /tmp/nest-extract",
     "aws s3 cp s3://${BUCKET}/deploy/nest-api-deploy.tgz /tmp/nest-api-deploy.tgz --region ${AWS_REGION}",

@@ -1,16 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ApiError } from '../api/http';
 import {
+  formatCardExpiry,
+  formatCardNumberMask,
   listPaymentMethods,
-  setDefaultPaymentMethod,
   type StripePaymentMethod,
 } from '../api/payments';
 import AddPaymentMethodModal from '../components/AddPaymentMethodModal';
+import CardBrandBadge from '../components/CardBrandBadge';
+import EditPaymentMethodModal from '../components/EditPaymentMethodModal';
 import ProfileLayout from '../components/ProfileLayout';
 
-function brandLabel(brand?: string): string {
-  if (!brand) return 'CARD';
-  return brand.toUpperCase();
+function resolveDefaultId(
+  list: StripePaymentMethod[],
+  preferId?: string,
+): string | null {
+  if (preferId && list.some((m) => m.id === preferId)) return preferId;
+  const flagged = list.find((m) => m.isDefault);
+  if (flagged) return flagged.id;
+  return list[0]?.id ?? null;
 }
 
 function PaymentInformationBody() {
@@ -18,20 +26,19 @@ function PaymentInformationBody() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [editMethod, setEditMethod] = useState<StripePaymentMethod | null>(
+    null,
+  );
   const [defaultId, setDefaultId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = async (preferId?: string) => {
     setLoading(true);
     setError(null);
     try {
       const list = await listPaymentMethods();
+      const nextDefault = resolveDefaultId(list, preferId);
       setMethods(list);
-      if (preferId && list.some((m) => m.id === preferId)) {
-        setDefaultId(preferId);
-      } else if (!defaultId && list[0]) {
-        setDefaultId(list[0].id);
-      }
+      setDefaultId(nextDefault);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -41,6 +48,7 @@ function PaymentInformationBody() {
             : 'Could not load payment methods',
       );
       setMethods([]);
+      setDefaultId(null);
     } finally {
       setLoading(false);
     }
@@ -48,27 +56,17 @@ function PaymentInformationBody() {
 
   useEffect(() => {
     void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onSetDefault = async (id: string) => {
-    setBusyId(id);
-    setError(null);
-    try {
-      await setDefaultPaymentMethod(id);
-      setDefaultId(id);
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Could not update default card',
-      );
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const sortedMethods = useMemo(() => {
+    const copy = [...methods];
+    copy.sort((a, b) => {
+      const aDef = a.id === defaultId ? 0 : 1;
+      const bDef = b.id === defaultId ? 0 : 1;
+      return aDef - bDef;
+    });
+    return copy;
+  }, [methods, defaultId]);
 
   return (
     <div className="pay-info">
@@ -88,29 +86,35 @@ function PaymentInformationBody() {
         <>
           <h2 className="pay-info-subtitle">Payment methods</h2>
           <div className="pay-info-methods">
-            {methods.map((m) => (
-              <div className="pay-info-method" key={m.id}>
-                <div className="pay-info-method-head">
-                  <span className="pay-info-brand">{brandLabel(m.brand)}</span>
-                  <button
-                    type="button"
-                    className="pay-info-action"
-                    disabled={busyId === m.id || defaultId === m.id}
-                    onClick={() => void onSetDefault(m.id)}
-                  >
-                    {defaultId === m.id
-                      ? 'Default'
-                      : busyId === m.id
-                        ? 'Saving…'
-                        : 'Set default'}
-                  </button>
+            {sortedMethods.map((m) => {
+              const expiry = formatCardExpiry(m.expMonth, m.expYear);
+              const isDefault = m.id === defaultId;
+              return (
+                <div className="pay-info-method" key={m.id}>
+                  <div className="pay-info-method-head">
+                    <CardBrandBadge brand={m.brand} />
+                    <button
+                      type="button"
+                      className="pay-info-action"
+                      onClick={() => setEditMethod(m)}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="pay-info-details">
+                    <span className="pay-info-number">
+                      {formatCardNumberMask(m.last4)}
+                    </span>
+                    {expiry ? (
+                      <span className="pay-info-expiry">{expiry}</span>
+                    ) : null}
+                  </div>
+                  {isDefault ? (
+                    <span className="pay-info-default">Default</span>
+                  ) : null}
                 </div>
-                <div className="pay-info-details">
-                  <span>XXXX-XXXX-XXXX-{m.last4}</span>
-                  {m.funding ? <span>{m.funding}</span> : null}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
       ) : null}
@@ -127,10 +131,24 @@ function PaymentInformationBody() {
 
       <AddPaymentMethodModal
         open={showAdd}
+        forceDefault={methods.length === 0}
         onClose={() => setShowAdd(false)}
-        onSaved={(id) => {
+        onSaved={(id, opts) => {
           setShowAdd(false);
-          void refresh(id);
+          void refresh(opts?.asDefault ? id : undefined);
+        }}
+      />
+
+      <EditPaymentMethodModal
+        open={!!editMethod}
+        method={editMethod}
+        isDefault={!!editMethod && editMethod.id === defaultId}
+        onClose={() => setEditMethod(null)}
+        onDeleted={() => {
+          void refresh();
+        }}
+        onSaved={(opts) => {
+          void refresh(opts?.asDefault ? editMethod?.id : undefined);
         }}
       />
     </div>
@@ -139,7 +157,7 @@ function PaymentInformationBody() {
 
 export default function PaymentInformationPage() {
   return (
-    <ProfileLayout>
+    <ProfileLayout title="Payment information">
       {() => <PaymentInformationBody />}
     </ProfileLayout>
   );

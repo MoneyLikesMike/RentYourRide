@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { forgotPassword } from '../api/auth';
 import { ApiError } from '../api/http';
 import { validateEmail } from '../auth/validation';
+import PageMeta from '../components/PageMeta';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -39,6 +40,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="auth-page">
+      <PageMeta title="Reset your password | Rent Your Ride" noindex />
       <form className="auth-card" onSubmit={onSubmit} noValidate>
         <h1 className="auth-caption">Forgot Password</h1>
         <p className="auth-note">

@@ -107,7 +107,7 @@ cat > "$PARAMS" <<'REMOTE'
     "source /home/ec2-user/.nvm/nvm.sh",
     "APP_DIR=/home/ec2-user/rentyourride-nest-api",
     "UPLOADS_DIR=/home/ec2-user/rentyourride-uploads",
-    "mkdir -p $UPLOADS_DIR/listings $UPLOADS_DIR/avatars",
+    "mkdir -p $UPLOADS_DIR/listings $UPLOADS_DIR/avatars $UPLOADS_DIR/articles $UPLOADS_DIR/team",
     "chown -R ec2-user:ec2-user $UPLOADS_DIR",
     "rm -rf $APP_DIR && mkdir -p $APP_DIR /tmp/nest-extract",
     "aws s3 cp s3://dev-ryrbs/deploy/nest-api-deploy.tgz /tmp/nest-api-deploy.tgz --region us-east-2",

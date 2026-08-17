@@ -1,0 +1,86 @@
+/* Shared search date/time controls (home, FYC, listing) */
+
+.search-time-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.search-time-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.search-time-picker-value {
+  font-family: 'Nunito', sans-serif;
+  font-size: inherit;
+  font-weight: 600;
+  color: #17252a;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.search-time-picker-chevron {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid rgba(58, 175, 169, 0.65);
+  border-bottom: 2px solid rgba(58, 175, 169, 0.65);
+  transform: rotate(45deg);
+  margin-top: -0.12rem;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.search-time-picker.is-open .search-time-picker-chevron {
+  margin-top: 0.15rem;
+  transform: rotate(225deg);
+}
+
+.search-time-picker-menu {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  z-index: 40;
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem 0;
+  min-width: 7.5rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ebebeb;
+  border-radius: 0.65rem;
+  box-shadow: 0 10px 28px rgba(23, 37, 42, 0.14);
+}
+
+.search-time-picker-option {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.45rem 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.search-time-picker-option:hover {
+  background: #def2f1;
+}
+
+.search-time-picker-option.is-selected {
+  color: #19ac9d;
+  background: rgba(222, 242, 241, 0.65);
+}

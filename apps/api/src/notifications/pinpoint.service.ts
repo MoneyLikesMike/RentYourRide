@@ -22,8 +22,12 @@ export class PinpointService {
     this.senderAddress =
       this.config.get<string>('AWS_PINPOINT_SENDER_ADDRESS')?.trim() ||
       (isProdApi ? 'donotreply@rentyourride.ca' : 'donotreply+dev@rentyourride.ca');
+    // Legacy backends used the literal "none" to disable admin mail; treat it as unset.
+    const configuredAdmin = this.config.get<string>('ADMIN_EMAIL')?.trim();
     this.adminEmail =
-      this.config.get<string>('ADMIN_EMAIL')?.trim() || 'okoyem@rentyourride.ca';
+      configuredAdmin && configuredAdmin.toLowerCase() !== 'none'
+        ? configuredAdmin
+        : 'donotreply@rentyourride.ca';
 
     if (this.region) {
       this.pinpoint = new PinpointClient({ region: this.region });
@@ -31,6 +35,12 @@ export class PinpointService {
     } else {
       this.pinpoint = null;
       this.sns = null;
+    }
+
+    if (!this.appId) {
+      this.log.warn(
+        'AWS_PINPOINT_APP_ID is not set — emails will be logged instead of sent.',
+      );
     }
   }
 
@@ -115,7 +125,14 @@ export class PinpointService {
           },
         }),
       );
-      return this.deliveryOk(this.adminEmail, out.MessageResponse?.Result as never);
+      const ok = this.deliveryOk(
+        this.adminEmail,
+        out.MessageResponse?.Result as never,
+      );
+      if (ok) {
+        this.log.log(`Admin email sent to=${this.adminEmail} subject=${subject}`);
+      }
+      return ok;
     } catch (err) {
       this.log.error('Admin email failed', err instanceof Error ? err.message : err);
       return false;

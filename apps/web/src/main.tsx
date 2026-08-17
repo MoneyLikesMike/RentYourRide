@@ -14,6 +14,11 @@ import './styles/payment-information.css';
 import './styles/add-payment-modal.css';
 import './styles/list-your-ride.css';
 import './styles/referrals.css';
+import './styles/messages.css';
+import './styles/content-pages.css';
+import './styles/search-time-picker.css';
+import './styles/notifications.css';
+import './styles/trips.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

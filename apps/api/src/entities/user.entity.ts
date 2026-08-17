@@ -68,6 +68,18 @@ export class UserEntity {
   @Column({ name: 'address_country', type: 'varchar', length: 120, nullable: true })
   addressCountry: string | null;
 
+  @Column({ name: 'address_province', type: 'varchar', length: 120, nullable: true })
+  addressProvince: string | null;
+
+  @Column({ name: 'address_postal_code', type: 'varchar', length: 32, nullable: true })
+  addressPostalCode: string | null;
+
+  @Column({ name: 'date_of_birth', type: 'date', nullable: true })
+  dateOfBirth: string | null;
+
+  @Column({ name: 'gender', type: 'varchar', length: 16, nullable: true })
+  gender: string | null;
+
   @Column({ name: 'license_number', type: 'varchar', length: 64, nullable: true })
   licenseNumber: string | null;
 
@@ -142,6 +154,9 @@ export class UserEntity {
         emailNotif: this.notificationSettings?.emailNotif !== false,
         pushNotif: this.notificationSettings?.pushNotif !== false,
       },
+      createdAt: this.createdAt?.toISOString?.() ?? this.createdAt,
+      googleConnected: !!this.googleSub,
+      appleConnected: !!this.appleSub,
     };
   }
 }

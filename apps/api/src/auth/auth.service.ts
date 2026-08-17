@@ -430,22 +430,34 @@ export class AuthService {
     };
   }
 
-  private async issueEmailVerification(user: UserEntity): Promise<void> {
-    if (user.emailVerified) return;
-    await this.emailVerifyRepo.delete({ userId: user.id, purpose: 'signup' });
+  private async issueEmailVerification(
+    user: UserEntity,
+  ): Promise<{ linkToken: string; code: string } | null> {
+    if (user.emailVerified) return null;
+    await this.emailVerifyRepo.delete({ userId: user.id });
     const plain = randomResetToken();
-    await this.emailVerifyRepo.save(
+    const code = randomPhoneOtpCode();
+    await this.emailVerifyRepo.save([
       this.emailVerifyRepo.create({
         userId: user.id,
         tokenHash: hashOpaque(plain),
         expiresAt: new Date(Date.now() + EMAIL_VERIFY_TTL_MS),
         purpose: 'signup',
       }),
-    );
-    this.notifications.verifyEmail(user, plain);
+      this.emailVerifyRepo.create({
+        userId: user.id,
+        tokenHash: hashOpaque(code),
+        expiresAt: new Date(Date.now() + PHONE_OTP_TTL_MS),
+        purpose: 'otp',
+      }),
+    ]);
+    await this.notifications.verifyEmail(user, plain, code);
     if (this.config.get<string>('NODE_ENV') !== 'production') {
-      this.log.warn(`[auth] email verification token for ${user.email}: ${plain}`);
+      this.log.warn(
+        `[auth] email verification for ${user.email}: link=${plain} code=${code}`,
+      );
     }
+    return { linkToken: plain, code };
   }
 
   async startEmailVerification(userId: string) {
@@ -454,8 +466,49 @@ export class AuthService {
     if (user.emailVerified) {
       return { ok: true, alreadyVerified: true };
     }
-    await this.issueEmailVerification(user);
-    return { ok: true, alreadyVerified: false };
+    const issued = await this.issueEmailVerification(user);
+    const expose =
+      this.smsExposeCodeEnabled() ||
+      this.config.get<string>('NODE_ENV') !== 'production';
+    return {
+      ok: true,
+      alreadyVerified: false,
+      ...(expose && issued?.code ? { devCode: issued.code } : {}),
+    };
+  }
+
+  async finishEmailVerification(userId: string, code: string) {
+    const cleanedCode = String(code || '').replace(/\D/g, '').trim();
+    if (cleanedCode.length !== 6) {
+      throw new BadRequestException('Enter the 6-digit verification code');
+    }
+
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+    if (user.emailVerified) {
+      return { ok: true, alreadyVerified: true, user: user.toPublicDto() };
+    }
+
+    const row = await this.emailVerifyRepo.findOne({
+      where: {
+        userId,
+        purpose: 'otp',
+        tokenHash: hashOpaque(cleanedCode),
+      },
+    });
+    if (!row || row.expiresAt < new Date()) {
+      throw new UnauthorizedException(
+        'Incorrect or expired verification code. Request a new code.',
+      );
+    }
+
+    user.emailVerified = true;
+    await this.usersRepo.save(user);
+    await this.emailVerifyRepo.delete({ userId });
+    // Legacy timing: Welcome goes out once the email is verified. Don't make
+    // the user wait on the send — delivery failures are logged by Pinpoint.
+    void this.notifications.emailVerifiedWelcome(user);
+    return { ok: true, user: user.toPublicDto() };
   }
 
   async verifyEmail(token: string) {
@@ -469,8 +522,8 @@ export class AuthService {
     }
     row.user.emailVerified = true;
     await this.usersRepo.save(row.user);
-    await this.emailVerifyRepo.delete({ userId: row.user.id, purpose: row.purpose });
-    this.notifications.emailVerifiedWelcome(row.user);
+    await this.emailVerifyRepo.delete({ userId: row.user.id });
+    void this.notifications.emailVerifiedWelcome(row.user);
     return { ok: true, user: row.user.toPublicDto() };
   }
 

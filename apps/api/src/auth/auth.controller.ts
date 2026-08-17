@@ -164,6 +164,17 @@ export class AuthController {
     return this.auth.startEmailVerification(req.user.id);
   }
 
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @Post('finish-email-verification')
+  @HttpCode(200)
+  async finishEmailVerification(
+    @Req() req,
+    @Body() body: FinishPhoneVerificationDto,
+  ) {
+    return this.auth.finishEmailVerification(req.user.id, body.code);
+  }
+
   @Post('verify-email')
   @HttpCode(200)
   async verifyEmail(@Body() body: { token: string }) {

@@ -19,6 +19,10 @@ export type GeocodeResult = {
 @Injectable()
 export class GeocodeService {
   private readonly log = new Logger(GeocodeService.name);
+  private readonly cityCoordinateCache = new Map<
+    string,
+    { latitude: number; longitude: number }
+  >();
 
   constructor(
     @InjectRepository(GeocodeCacheEntity)
@@ -666,6 +670,45 @@ export class GeocodeService {
 
     const parsed = this.parseGoogleResult(json.results[0]);
     return this.saveGeocodeCache(cacheKey, latitude, longitude, parsed);
+  }
+
+  /**
+   * City name → coordinates for search radius filtering. Cached in-process so a
+   * busy city like "Winnipeg" only hits Google once per API instance (city
+   * coordinates never change). Returns null instead of throwing so callers can
+   * fall back to plain text matching.
+   */
+  async geocodeCityCoordinates(
+    city: string,
+  ): Promise<{ latitude: number; longitude: number } | null> {
+    const key = city.trim().toLowerCase();
+    if (!key) return null;
+
+    const cached = this.cityCoordinateCache.get(key);
+    if (cached !== undefined) return cached;
+
+    try {
+      const result = await this.forwardGeocode(city);
+      if (
+        Number.isFinite(result.latitude) &&
+        Number.isFinite(result.longitude)
+      ) {
+        const coords = {
+          latitude: result.latitude,
+          longitude: result.longitude,
+        };
+        this.cityCoordinateCache.set(key, coords);
+        return coords;
+      }
+    } catch (err) {
+      // Missing key or an unrecognized place — leave it uncached so a later
+      // request can retry, and let the caller fall back to text matching.
+      this.log.warn(
+        `City geocode failed for "${city}"`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+    return null;
   }
 
   async forwardGeocode(address: string): Promise<GeocodeResult> {

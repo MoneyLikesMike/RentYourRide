@@ -1,0 +1,212 @@
+.edit-profile-information-wrapper {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  flex-direction: column;
+  padding: 2vw;
+  box-sizing: border-box;
+  width: 100%;
+  .detail-information-row {
+    width: 67%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .detail-info {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    flex-direction: column;
+    position: relative;
+    .about {
+      width: 67%;
+      height: 10vw;
+      border-radius: 5px;
+      border: solid 1px #a3a3a3;
+      background-color: #f9f9f9;
+      padding: 0.5vw;
+      box-sizing: border-box;
+      font-family: "Nunito", sans-serif;
+      font-size: 0.5vw;
+      color: #17252a;
+      &.invalid {
+        border: solid 1px #f9493a;
+      }
+    }
+    &.photo {
+      width: 10%;
+    }
+    &.date {
+      width: 39%;
+    }
+    &.notifications {
+      width: 34%;
+    }
+    .detail-title {
+      font-family: "Nunito", sans-serif;
+      font-size: .7vw;
+      font-weight: 600;
+      color: #17252a;
+      box-sizing: border-box;
+      padding-bottom: .5vw ;
+    }
+    .edit-avatar {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      .avatar {
+        width: 69px;
+        height: 69px;
+        border-radius: 5px;
+      }
+      .delete-button {
+        border: none;
+        outline: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: absolute;
+        width: 2vw;
+        height: 2vw;
+        border-radius: 1vw;
+        background: #3aafa9;
+        .delete {
+          width: 1vw;
+        }
+      }
+    }
+    .react-datepicker-wrapper {
+      width: 50%;
+      height: 3vw;
+      border-radius: 5px;
+      border: solid 1px #a3a3a3;
+      background-color: #f9f9f9;
+      padding: 0.5vw;
+      box-sizing: border-box;
+      font-family: "Nunito", sans-serif;
+      font-size: 0.5vw;
+      color: #17252a;
+      .react-datepicker__input-container {
+        position: relative;
+        width: 100%;
+        display: flex;
+        height: 100%;
+        background-color: #f9f9f9;
+        input {
+          border-radius: 0.4vw;
+          cursor: pointer;
+          border: none;
+          font-family: "Nunito", sans-serif;
+          font-size: .83vw;
+          font-weight: 600;
+          color: #3aafa9;
+          outline: none;
+          width: 100%;
+          background-color: #f9f9f9;
+        }
+      }
+    }
+    .notifications {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      align-items: center;
+      .notification {
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        .checked {
+          width: 1.2vw;
+          border-radius: 1vw;
+          margin-right: 0.5vw;
+        }
+        .unchecked {
+          border: 1px solid #979797;
+          width: 1.2vw;
+          height: 1.2vw;
+          border-radius: 1vw;
+          box-sizing: border-box;
+          padding: .5vw;
+          margin-right: 0.5vw;
+        }
+        .notification-title {
+          font-family: "Nunito", sans-serif;
+          font-size: .7vw;
+          color: #979797;
+        }
+      }
+    }
+  }
+  .detail-caption {
+    font-family: "Nunito", sans-serif;
+    font-size: 1.2vw;
+    font-weight: 600;
+    color: #17252a;
+    box-sizing: border-box;
+    padding: 1vw 0;
+  }
+  .dateContainer {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    .yearContainer{
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 30%;
+      height: 3vw;
+      border-radius: 5px;
+      border: solid 1px #a3a3a3;
+      background-color: #f9f9f9;
+      padding: 0.5vw;
+      box-sizing: border-box;
+      font-family: "Nunito", sans-serif;
+      font-size: 0.5vw;
+      color: #17252a;
+      .year {
+        border-radius: 0.4vw;
+        cursor: pointer;
+        border: none;
+        font-family: "Nunito", sans-serif;
+        font-size: .83vw;
+        font-weight: 600;
+        color: #3aafa9;
+        outline: none;
+        width: 100%;
+        background-color: #f9f9f9;
+        max-height: 10vw;
+      }
+    }
+    .option {
+      max-height: 10vw;
+      height: 10vw;
+    }
+  }
+  .border {
+    height: 2px;
+    background: #ebebeb;
+    width: 67%;
+    margin: 2vw 0;
+  }
+  .buttons-row {
+    box-sizing: border-box;
+    padding: 4vw 0;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    align-items: center;
+  }
+}
+.error {
+  font-family: "Nunito", sans-serif;
+  font-size: 0.5vw;
+  color: #f9493a;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  position: absolute;
+  top: 14vw;
+  right: 11vw;
+}

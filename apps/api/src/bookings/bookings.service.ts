@@ -562,8 +562,15 @@ export class BookingsService {
     if (b.guestUserId !== userId && b.hostUserId !== userId) {
       throw new ForbiddenException();
     }
-    b.lifecycle = { ...(b.lifecycle ?? {}), ...patch };
+    const before = (b.lifecycle ?? {}) as Record<string, unknown>;
+    const justCheckedIn = before.guestCheckedInAt == null && patch.guestCheckedInAt != null;
+    const justCheckedOut = before.guestCheckedOutAt == null && patch.guestCheckedOutAt != null;
+    b.lifecycle = { ...before, ...patch };
     await this.bookingsRepo.save(b);
+    // Check-in/out emails follow the guest finishing their own flow, not the
+    // status change that waits on the host.
+    if (justCheckedIn) this.notifications.bookingCheckedIn(b.id);
+    if (justCheckedOut) this.notifications.bookingCheckedOut(b.id);
     return b.toMobileDto();
   }
 
@@ -593,10 +600,8 @@ export class BookingsService {
     }
     if (next === 'active' && prev === 'checkin_pending') {
       await this.transferHostPayoutIfNeeded(b);
-      this.notifications.bookingCheckedIn(b.id);
     }
     if (next === 'completed' && prev === 'checkout_pending') {
-      this.notifications.bookingCheckedOut(b.id);
       this.notifications.reviewReminder(b.id);
     }
     return b.toMobileDto();

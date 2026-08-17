@@ -1,0 +1,154 @@
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+  background-color: #fff;
+  font-size: .75vw;
+  font-weight: bold;
+  padding: 0 2vw;
+  height: 2vw;
+  border-radius: 1.5vw;
+  cursor: pointer;
+  border: 2px solid transparent;
+  outline: none;
+  z-index: 1;
+  width: 117px;
+  font-family: "Nunito", sans-serif;
+  &:active {
+    opacity: 0.7;
+  }
+  &.disabled {
+    color: #ffffff;
+    width: 1vw;
+    margin: 0 0.5vw 0 0;
+  }
+  .btn-icon {
+    width: 0.9vw;
+    margin: 0 0.6vw;
+    &.add {
+      width: 1.1vw;
+    }
+    &.save {
+      width: 1.1vw;
+    }
+    &.done {
+      width: 1.1vw;
+    }
+    &.searchGreen {
+      width: 0.8vw;
+    }
+    &.play {
+      width: 0.53vw;
+    }
+    &.arrow {
+      width: 1.3vw;
+    }
+    &.cross {
+      width: 1.7vw;
+      margin: 0;
+    }
+    &.call {
+      width: 1.7vw;
+      margin: 0;
+    }
+    &.edit {
+      width: 1.7vw;
+      margin: 0;
+    }
+    &.back {
+      margin: 0;
+    }
+    &.location {
+      margin: 0 0.5vw 0 0;
+      width: 1.7vw;
+    }
+    &.search {
+      width: 0.8vw;
+      margin-right: 0.5vw;
+    }
+    &.add {
+      margin: 0 .5vw 0 0;
+    }
+  }
+  &.filled {
+    color: #ffffff;
+    &.yellow {
+      background-color: #ffb214;
+    }
+    &.green {
+      background-color: #4cb6b1;
+    }
+    &.blue {
+      background-color: #3b5998;
+    }
+    &.grey {
+      background: #979797;
+    }
+    &.white {
+      background: #ffffff;
+    }
+  }
+  &.outline {
+    &.yellow {
+      background-color: rgba(255, 178, 20, 0.1);
+      border-color: #ffb214;
+      color: #ffb214;
+    }
+    &.green {
+      background-color: #ffffff;
+      border-color: #4cb6b1;
+      color: #4cb6b1;
+    }
+    &.grey {
+      background: #979797;
+      color: #ffffff;
+    }
+  }
+  &.transparent {
+    background: transparent;
+    border: none;
+    &.yellow {
+      color: #ffb214;
+    }
+    &.green {
+      color: #4cb6b1;
+    }
+    &.grey {
+      background: #979797;
+      color: #ffffff;
+    }
+  }
+  &.rent {
+    background-color: rgba(255, 178, 20, 0.1);
+    border-color: #ffb214;
+    color: #17252a;
+  }
+  &.list {
+    background-color: #ffb214;
+    color: rgba(0, 0, 0, 0.5);
+  }
+  &.search {
+    border-radius: 0 3vw 3vw 0;
+    padding: 0;
+    height: 4.2vw;
+    width: 10.4vw;
+    font-size: 0.5vw;
+    background-color: #fffbf4;
+    border-color: #ffb214;
+    color: #17252a;
+  }
+  &.facebook {
+    font-size: 0.5vw;
+    color: #ffffff;
+    background-color: #3b5998;
+    margin-bottom: 1vw;
+  }
+  &.google {
+    font-size: 0.5vw;
+    color: #979797;
+    border-color: #979797;
+    opacity: 0.45;
+    background-color: #ffffff;
+  }
+}

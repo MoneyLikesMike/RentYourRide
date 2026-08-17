@@ -1,5 +1,7 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, forwardRef, Get, Inject, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { GeocodeService } from '../geocode/geocode.service';
+import { withApproximateLocation } from './approximate-location';
 import { ListingsService } from './listings.service';
 import { VinDecodeService } from './vin-decode.service';
 
@@ -9,13 +11,45 @@ export class ListingsPublicController {
   constructor(
     private readonly listings: ListingsService,
     private readonly vinDecode: VinDecodeService,
+    @Inject(forwardRef(() => GeocodeService))
+    private readonly geocode: GeocodeService,
   ) {}
 
   @Get('search')
-  async search(@Query('q') q?: string, @Query('city') city?: string) {
-    const rows = await this.listings.search(q, city);
+  async search(
+    @Query('q') q?: string,
+    @Query('city') city?: string,
+    @Query('latitude') latitude?: string,
+    @Query('longitude') longitude?: string,
+    @Query('radiusKm') radiusKm?: string,
+  ) {
+    let lat = latitude?.trim() ? Number(latitude) : undefined;
+    let lng = longitude?.trim() ? Number(longitude) : undefined;
+    const radius = radiusKm?.trim() ? Number(radiusKm) : undefined;
+
+    // When the client sends a city name but no coordinates (e.g. the mobile
+    // app, or a shared link), resolve the city here so nearby towns are still
+    // included in the radius search — no client update required.
+    if (
+      (!Number.isFinite(lat) || !Number.isFinite(lng)) &&
+      city?.trim()
+    ) {
+      const coords = await this.geocode.geocodeCityCoordinates(city);
+      if (coords) {
+        lat = coords.latitude;
+        lng = coords.longitude;
+      }
+    }
+
+    const rows = await this.listings.search(
+      q,
+      city,
+      lat,
+      lng,
+      Number.isFinite(radius) ? radius : undefined,
+    );
     // Search cards don't need blocked ranges; keep payload light.
-    return rows.map((l) => l.toDetailDto());
+    return rows.map((l) => withApproximateLocation(l.toDetailDto()));
   }
 
   @Get('vin/:vin/status')
@@ -57,6 +91,6 @@ export class ListingsPublicController {
   @Get(':id')
   async detail(@Param('id') id: string) {
     const l = await this.listings.findPublic(id);
-    return this.listings.toPublicDetailDto(l);
+    return withApproximateLocation(await this.listings.toPublicDetailDto(l));
   }
 }

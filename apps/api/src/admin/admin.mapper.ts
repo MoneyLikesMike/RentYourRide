@@ -8,16 +8,64 @@ export function fullName(user: UserEntity | null | undefined): string {
   return [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
 }
 
+function formatAdminGender(value: string | null | undefined): string {
+  const key = (value || '').trim().toUpperCase();
+  if (key === 'M' || key === 'MALE') return 'Male';
+  if (key === 'F' || key === 'FEMALE') return 'Female';
+  if (key === 'X' || key === 'U' || key === 'UNSPECIFIED') return 'Unspecified';
+  return (value || '').trim();
+}
+
+function formatAdminDate(value: string | Date | null | undefined): string {
+  if (!value) return '';
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : value;
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getUTCFullYear();
+    const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(value.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return '';
+}
+
+/** Legacy admin Contact Information reads `.address` / `.city` / `.country`. */
+function adminContactAddress(user: UserEntity) {
+  if (
+    !user.addressLine &&
+    !user.addressCity &&
+    !user.addressCountry &&
+    !user.addressProvince &&
+    !user.addressPostalCode
+  ) {
+    return null;
+  }
+  return {
+    address: user.addressLine ?? '',
+    city: user.addressCity ?? '',
+    country: user.addressCountry ?? '',
+    province: user.addressProvince ?? '',
+    postalCode: user.addressPostalCode ?? '',
+  };
+}
+
 /** Human-readable license status for the legacy admin Verifications card. */
 export function formatLicenseVerificationStatus(user: UserEntity): string {
   if (user.licenseVerified) return 'Verified';
-  const raw = (user.licenseVerificationStatus || '').trim().toLowerCase();
+  const raw = (user.licenseVerificationStatus || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
   switch (raw) {
     case 'approved':
+    case 'verified':
       return 'Verified';
     case 'in_progress':
       return 'In progress';
     case 'pending_review':
+    case 'in_review':
       return 'In review';
     case 'awaiting_user':
       return 'Awaiting user';
@@ -26,6 +74,7 @@ export function formatLicenseVerificationStatus(user: UserEntity): string {
     case 'resubmitted':
       return 'Resubmit required';
     case 'expired':
+    case 'kyc_expired':
       return 'Expired';
     case 'not_started':
     case '':
@@ -76,16 +125,10 @@ export function toAdminProfile(user: UserEntity) {
     updatedAt: user.updatedAt,
     hasPassword: !!user.passwordHash,
     isBanned: user.isActive === false,
-    driverLicenseDateOfBirth: '',
-    driverLicenseAddress: null,
-    address:
-      user.addressLine || user.addressCity || user.addressCountry
-        ? {
-            line: user.addressLine ?? '',
-            city: user.addressCity ?? '',
-            country: user.addressCountry ?? '',
-          }
-        : null,
+    driverLicenseDateOfBirth: formatAdminDate(user.dateOfBirth),
+    gender: formatAdminGender(user.gender),
+    driverLicenseAddress: adminContactAddress(user),
+    address: adminContactAddress(user),
     receivedNotes: [],
   };
 }

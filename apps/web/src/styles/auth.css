@@ -1,4 +1,4 @@
-/* Legacy Web-old auth tokens (Login/Signup screens) */
+/* Legacy Web-old auth tokens (Login/Signup screens) + Zeplin Log In o00A5xo */
 :root {
   --ryr-ink: #17252a;
   --ryr-muted: #ababab;
@@ -22,6 +22,15 @@
   background: rgba(0, 0, 0, 0.45);
 }
 
+/* Darken whatever page is currently behind login / signup (Zeplin overlay) */
+.auth-page--modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  min-height: 100%;
+  background: rgba(0, 0, 0, 0.45);
+}
+
 .auth-card {
   width: min(100%, 22rem);
   background: #fff;
@@ -34,12 +43,49 @@
   font-family: var(--ryr-font);
 }
 
+/* Zeplin Group 44 — 430 × 675 */
+.auth-card--login {
+  position: relative;
+  width: min(100%, 26.875rem);
+  min-height: min(42rem, calc(100vh - 3rem));
+  border-radius: 1.0625rem;
+  padding: 4.5rem 1.875rem 1.75rem;
+  box-sizing: border-box;
+  justify-content: flex-start;
+}
+
+.auth-close {
+  position: absolute;
+  top: 1.15rem;
+  right: 1.15rem;
+  width: 1.95rem;
+  height: 1.9rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-close img {
+  width: 1.15rem;
+  height: 1.15rem;
+  object-fit: contain;
+}
+
 .auth-caption {
-  font-size: 1.35rem;
+  font-size: 1.5rem;
   font-weight: 600;
   color: var(--ryr-ink);
   margin: 0 0 0.35rem;
   text-align: center;
+}
+
+.auth-card--login .auth-caption {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .auth-field {
@@ -48,17 +94,31 @@
   position: relative;
 }
 
+.auth-card--login .auth-field {
+  margin-top: 1.15rem;
+}
+
+.auth-card--login .auth-field:first-of-type {
+  margin-top: 0.5rem;
+}
+
 .auth-input {
   box-sizing: border-box;
   width: 100%;
-  padding: 0.7rem 2.4rem 0.7rem 0.85rem;
+  padding: 0.85rem 2.6rem 0.85rem 1.05rem;
   border-radius: 0.35rem;
   border: 1px solid var(--ryr-input-border);
   background: var(--ryr-input-bg);
   font-family: var(--ryr-font);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--ryr-ink);
+}
+
+.auth-card--login .auth-input {
+  height: 3.05rem;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .auth-input:focus {
@@ -68,8 +128,8 @@
 
 .auth-secure {
   position: absolute;
-  right: 0.45rem;
-  top: 50%;
+  right: 0.55rem;
+  top: 1.5rem;
   transform: translateY(-50%);
   background: none;
   border: none;
@@ -79,6 +139,14 @@
   font-family: var(--ryr-font);
   font-weight: 600;
   padding: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.auth-card--login .auth-secure {
+  top: 1.525rem;
 }
 
 .auth-error {
@@ -109,14 +177,14 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin: 0.75rem 0 0.35rem;
+  margin: 0.9rem 0 0.35rem;
 }
 
 .auth-remember {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
+  gap: 0.4rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--ryr-muted);
 }
@@ -130,7 +198,7 @@
 
 .auth-link-btn {
   font-family: var(--ryr-font);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--ryr-teal);
   border: none;
@@ -145,17 +213,18 @@
 }
 
 .auth-cta {
-  margin-top: 0.75rem;
+  margin-top: 0.85rem;
   width: 100%;
-  height: 2.75rem;
-  border-radius: 2rem;
+  height: 3.125rem;
+  border-radius: 1.55rem;
   border: 2px solid var(--ryr-yellow);
   background: var(--ryr-yellow-soft);
   color: var(--ryr-yellow);
   font-family: var(--ryr-font);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
   cursor: pointer;
 }
 
@@ -169,21 +238,21 @@
 }
 
 .auth-divider-text {
-  margin: 1rem 0;
-  font-size: 0.8rem;
+  margin: 1.15rem 0;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--ryr-muted);
 }
 
 .auth-apple {
   width: 100%;
-  height: 2.75rem;
-  border-radius: 2rem;
+  height: 3.125rem;
+  border-radius: 1.55rem;
   border: none;
   background: var(--ryr-apple);
   color: #fff;
   font-family: var(--ryr-font);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
@@ -198,15 +267,15 @@
 }
 
 .auth-google {
-  margin-top: 0.75rem;
+  margin-top: 0.85rem;
   width: 100%;
-  height: 2.75rem;
-  border-radius: 2rem;
-  border: 1px solid #dadce0;
+  height: 3.125rem;
+  border-radius: 1.55rem;
+  border: 1px solid rgba(151, 151, 151, 0.45);
   background: #fff;
-  color: #3c4043;
+  color: var(--ryr-ink);
   font-family: var(--ryr-font);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
@@ -226,8 +295,8 @@
 }
 
 .auth-footer {
-  margin-top: 1rem;
-  font-size: 0.8rem;
+  margin-top: 1.15rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--ryr-muted);
   text-align: center;
@@ -236,6 +305,65 @@
 .auth-footer a,
 .auth-footer .auth-link-btn {
   margin-left: 0.25rem;
+}
+
+/* Zeplin Group 44 — Sign Up 430 × 770 */
+.auth-card--signup {
+  position: relative;
+  width: min(100%, 26.875rem);
+  min-height: min(48rem, calc(100vh - 3rem));
+  border-radius: 1.0625rem;
+  padding: 4rem 1.875rem 1.75rem;
+  box-sizing: border-box;
+  justify-content: flex-start;
+}
+
+.auth-card--signup .auth-caption {
+  font-size: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.auth-card--signup .auth-field {
+  margin-top: 0.85rem;
+}
+
+.auth-card--signup .auth-input {
+  height: 3.05rem;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.auth-card--signup .auth-secure {
+  top: 1.525rem;
+}
+
+.auth-card--signup .auth-cta {
+  margin-top: 1rem;
+}
+
+.auth-card--signup .auth-divider-text--top {
+  margin: 0 0 0.85rem;
+}
+
+.auth-card--signup .auth-or-row {
+  margin: 0.85rem 0 0.35rem;
+}
+
+.auth-card--signup .auth-note {
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+}
+
+.auth-card--signup .auth-updates {
+  margin-top: 0.65rem;
+  border-top-color: var(--ryr-teal-2);
+}
+
+@media (max-width: 720px) {
+  .auth-card--signup {
+    min-height: auto;
+    padding: 3.5rem 1.25rem 1.5rem;
+  }
 }
 
 /* Signup-specific */
@@ -306,4 +434,11 @@
   width: 13px;
   height: 13px;
   accent-color: var(--ryr-teal);
+}
+
+@media (max-width: 720px) {
+  .auth-card--login {
+    min-height: auto;
+    padding: 3.5rem 1.25rem 1.5rem;
+  }
 }

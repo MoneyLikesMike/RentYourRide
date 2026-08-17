@@ -43,14 +43,21 @@ export class ListingsService {
     throw err;
   }
 
-  async search(q?: string, city?: string): Promise<ListingEntity[]> {
+  async search(
+    q?: string,
+    city?: string,
+    latitude?: number,
+    longitude?: number,
+    radiusKm = 50,
+  ): Promise<ListingEntity[]> {
     const qb = this.repo
       .createQueryBuilder('l')
       .leftJoinAndSelect('l.host', 'host')
       .where('l.active = true AND l.published = true');
 
     const parts: string[] = [];
-    const params: Record<string, string> = {};
+    const params: Record<string, string | number> = {};
+    let cityClause = '';
 
     if (city?.trim()) {
       const segments = city
@@ -59,13 +66,12 @@ export class ListingsService {
         .filter(Boolean);
       const primary = segments[0] ?? city.trim();
       const secondary = segments.length > 1 ? segments[1] : '';
-      parts.push(
+      cityClause =
         '(LOWER(l.city) = LOWER(:cityPrimary) OR LOWER(l.city) LIKE :cityLike OR LOWER(l.pickup_address) LIKE :cityLike' +
           (secondary
             ? ' OR LOWER(l.city) = LOWER(:citySecondary) OR LOWER(l.pickup_address) LIKE :citySecondaryLike'
             : '') +
-          ')',
-      );
+          ')';
       params.cityPrimary = primary;
       params.cityLike = `%${primary.toLowerCase()}%`;
       if (secondary) {
@@ -73,6 +79,37 @@ export class ListingsService {
         params.citySecondaryLike = `%${secondary.toLowerCase()}%`;
       }
     }
+
+    const hasCoordinates =
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude) &&
+      latitude! >= -90 &&
+      latitude! <= 90 &&
+      longitude! >= -180 &&
+      longitude! <= 180;
+    if (hasCoordinates) {
+      // Great-circle distance in kilometres. This lets searches for a major
+      // city include nearby municipalities (for example Headingley in a
+      // Winnipeg search) without requiring PostGIS.
+      const distanceClause = `(
+        l.latitude IS NOT NULL
+        AND l.longitude IS NOT NULL
+        AND 6371 * ACOS(
+          LEAST(1, GREATEST(-1,
+            COS(RADIANS(:searchLat)) * COS(RADIANS(l.latitude))
+            * COS(RADIANS(l.longitude) - RADIANS(:searchLng))
+            + SIN(RADIANS(:searchLat)) * SIN(RADIANS(l.latitude))
+          ))
+        ) <= :radiusKm
+      )`;
+      parts.push(cityClause ? `(${cityClause} OR ${distanceClause})` : distanceClause);
+      params.searchLat = latitude!;
+      params.searchLng = longitude!;
+      params.radiusKm = Math.min(100, Math.max(1, radiusKm));
+    } else if (cityClause) {
+      parts.push(cityClause);
+    }
+
     if (q?.trim()) {
       parts.push(
         '(LOWER(l.title) LIKE :q OR LOWER(l.city) LIKE :q OR LOWER(l.pickup_address) LIKE :q)',

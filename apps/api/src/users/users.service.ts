@@ -151,20 +151,42 @@ export class UsersService {
   async setDiditSession(userId: string, sessionId: string, status: string) {
     const user = await this.requireById(userId);
     user.diditSessionId = sessionId;
-    user.licenseVerificationStatus = status;
+    // Opening a new Didit session must not hide an already-approved license
+    // (admin would otherwise keep showing "In Progress").
+    const pending = status === 'in_progress' || status === 'awaiting_user' || status === 'not_started';
+    if (!(user.licenseVerified && pending)) {
+      user.licenseVerificationStatus = status;
+    }
     await this.repo.save(user);
     return user.toPublicDto();
   }
 
   async setLicenseVerified(
     userId: string,
-    opts: { licenseNumber?: string; sessionId?: string },
+    opts: {
+      licenseNumber?: string;
+      sessionId?: string;
+      addressLine?: string;
+      addressCity?: string;
+      addressCountry?: string;
+      addressProvince?: string;
+      addressPostalCode?: string;
+      dateOfBirth?: string;
+      gender?: string;
+    },
   ) {
     const user = await this.requireById(userId);
     if (opts.licenseNumber) user.licenseNumber = opts.licenseNumber;
     user.licenseVerified = true;
     user.licenseVerificationStatus = 'approved';
     if (opts.sessionId) user.diditSessionId = opts.sessionId;
+    if (opts.addressLine) user.addressLine = opts.addressLine.slice(0, 512);
+    if (opts.addressCity) user.addressCity = opts.addressCity.slice(0, 120);
+    if (opts.addressCountry) user.addressCountry = opts.addressCountry.slice(0, 120);
+    if (opts.addressProvince) user.addressProvince = opts.addressProvince.slice(0, 120);
+    if (opts.addressPostalCode) user.addressPostalCode = opts.addressPostalCode.slice(0, 32);
+    if (opts.dateOfBirth) user.dateOfBirth = opts.dateOfBirth.slice(0, 10);
+    if (opts.gender) user.gender = opts.gender.slice(0, 16);
     await this.repo.save(user);
     return user.toPublicDto();
   }
@@ -175,6 +197,12 @@ export class UsersService {
     sessionId?: string,
   ) {
     const user = await this.requireById(userId);
+    const pending = status === 'in_progress' || status === 'awaiting_user' || status === 'not_started';
+    if (user.licenseVerified && pending) {
+      if (sessionId) user.diditSessionId = sessionId;
+      await this.repo.save(user);
+      return user.toPublicDto();
+    }
     user.licenseVerificationStatus = status;
     if (status === 'expired' || status === 'declined') {
       user.licenseVerified = false;

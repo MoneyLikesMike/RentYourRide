@@ -73,8 +73,99 @@ find . -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.js
       "$f"
   done
 
+python3 <<'PY'
+from pathlib import Path
+import hashlib
+import os
+
+paths = list(Path("static/js").glob("main.*.chunk.js"))
+if not paths:
+    raise SystemExit("no main.*.chunk.js found")
+
+for path in paths:
+    text = path.read_text()
+
+    old_hide = 'return i.a.createElement("div",{className:"block-wrapper information-columns"},u.map(e=>e.value?i.a.createElement("div",{className:"data-block",key:e.title},i.a.createElement("span",{className:"data-caption"},e.title),i.a.createElement("span",{className:"data"},e.value)):null))'
+    new_show = 'return i.a.createElement("div",{className:"block-wrapper information-columns"},u.map(e=>i.a.createElement("div",{className:"data-block",key:e.title},i.a.createElement("span",{className:"data-caption"},e.title),i.a.createElement("span",{className:"data"},e.value||"—"))))'
+    if old_hide in text:
+        text = text.replace(old_hide, new_show, 1)
+        print("always show contact fields")
+    elif 'e.value||"—"' in text or "e.value||'—'" in text:
+        print("contact fields already always shown")
+    else:
+        raise SystemExit("contact field render pattern not found")
+
+    city_field = '{title:"city",value:(null===d||void 0===d||null===(o=d.driverLicenseAddress)||void 0===o?void 0:o.city)?null===d||void 0===d||null===(c=d.driverLicenseAddress)||void 0===c?void 0:c.city:null===d||void 0===d||null===(A=d.address)||void 0===A?void 0:A.city}'
+    extra_fields = ',{title:"province/state",value:d&&d.driverLicenseAddress&&d.driverLicenseAddress.province||d&&d.address&&d.address.province},{title:"postal code",value:d&&d.driverLicenseAddress&&d.driverLicenseAddress.postalCode||d&&d.address&&d.address.postalCode},{title:"date of birth",value:null===d||void 0===d?void 0:d.driverLicenseDateOfBirth}'
+    if '{title:"postal code"' in text and '{title:"date of birth"' in text:
+        print("province/postal/dob contact fields present")
+    elif city_field not in text:
+        raise SystemExit("city contact field not found")
+    else:
+        text = text.replace(city_field, city_field + extra_fields, 1)
+        print("added province/postal/dob contact fields")
+
+    gender_item = ',{title:"gender",value:null===d||void 0===d?void 0:d.gender}'
+    marker = '];return i.a.createElement("div",{className:"block-wrapper information-columns"}'
+    if '{title:"gender",value:null===d||void 0===d?void 0:d.gender}' in text:
+        print("gender contact field present")
+    else:
+        dob = '{title:"date of birth",value:null===d||void 0===d?void 0:d.driverLicenseDateOfBirth}'
+        if dob + marker in text:
+            text = text.replace(dob + marker, dob + gender_item + marker, 1)
+        elif marker in text:
+            text = text.replace(marker, gender_item + marker, 1)
+        else:
+            raise SystemExit("contact array end not found")
+        print("added gender contact field")
+
+    age_old = 'ql()().diff(t.driverLicenseDateOfBirth,"years",!1))),i.a.createElement("div",{className:"data-block"},i.a.createElement("span",{className:"data-caption"},"NOTIFICATIONS")'
+    age_new = 'ql()().diff(t.driverLicenseDateOfBirth,"years",!1))),(null===t||void 0===t?void 0:t.driverLicenseDateOfBirth)&&i.a.createElement("div",{className:"data-block age"},i.a.createElement("span",{className:"data-caption age"},"DATE OF BIRTH"),i.a.createElement("span",{className:"data age"},t.driverLicenseDateOfBirth)),(null===t||void 0===t?void 0:t.gender)&&i.a.createElement("div",{className:"data-block age"},i.a.createElement("span",{className:"data-caption age"},"GENDER"),i.a.createElement("span",{className:"data age"},t.gender)),i.a.createElement("div",{className:"data-block"},i.a.createElement("span",{className:"data-caption"},"NOTIFICATIONS")'
+    if 'DATE OF BIRTH' in text and 'data-caption age' in text:
+        print("profile date of birth already present")
+    elif age_old in text:
+        text = text.replace(age_old, age_new, 1)
+        print("added profile date of birth and gender")
+    else:
+        raise SystemExit("profile AGE pattern not found")
+
+    path.write_text(text)
+    print("patched", path)
+
+# Cache-bust: same hashed filename was keeping browsers on the old bundle.
+for path in list(Path("static/js").glob("main.*.chunk.js")):
+    digest = hashlib.md5(path.read_bytes()).hexdigest()[:8]
+    new_name = f"main.{digest}.chunk.js"
+    if path.name == new_name:
+        print("main chunk hash already unique", path.name)
+        continue
+    new_path = path.with_name(new_name)
+    os.rename(path, new_path)
+    map_path = Path(str(path) + ".map")
+    if map_path.exists():
+        os.rename(map_path, Path(str(new_path) + ".map"))
+    old = path.name
+    print(f"renamed {old} -> {new_name}")
+    for ref in Path(".").rglob("*"):
+        if not ref.is_file() or ref.suffix not in {".html", ".js", ".json", ".css", ".map"}:
+            continue
+        data = ref.read_text(errors="ignore")
+        if old in data:
+            ref.write_text(data.replace(old, new_name))
+
+index = Path("index.html")
+html = index.read_text()
+if "service-worker.js?" not in html:
+    html = html.replace("service-worker.js", "service-worker.js?v=license-fields")
+    index.write_text(html)
+    print("cache-busted service worker")
+PY
+
 grep -q 'backend.rentyourride.ca' static/js/main.*.chunk.js
 grep -q 'admin.rentyourride.ca' index.html
+grep -q 'DATE OF BIRTH' static/js/main.*.chunk.js
+grep -q 'province/state' static/js/main.*.chunk.js
+grep -q 'title:"gender"' static/js/main.*.chunk.js
 
 echo "==> Packaging + uploading"
 rm -f /tmp/admin-legacy-dist.tgz

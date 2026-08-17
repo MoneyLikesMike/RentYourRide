@@ -1,7 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/http';
 import { getAccessToken, getRefreshToken } from '../api/storage';
+import {
+  withAuthBackground,
+  type AuthLocationState,
+} from '../auth/authModal';
 import { useAuth } from '../auth/AuthContext';
 import { isAppleSignInConfigured } from '../auth/appleSignIn';
 import { isGoogleSignInConfigured } from '../auth/googleSignIn';
@@ -10,6 +14,7 @@ import {
   validatePassword,
   validateRequired,
 } from '../auth/validation';
+import PageMeta from '../components/PageMeta';
 import { AppleLogo, GoogleLogo } from '../components/SocialLogos';
 
 function hasStoredSession(): boolean {
@@ -20,6 +25,9 @@ export default function SignupPage() {
   const { isAuthenticated, signUp, signInWithApple, signInWithGoogle } =
     useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const authState = (location.state as AuthLocationState | null) ?? {};
+  const background = authState.backgroundLocation;
 
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -33,6 +41,17 @@ export default function SignupPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const busy = loading || appleLoading || googleLoading;
+
+  const closeSignup = () => {
+    if (background) {
+      navigate(
+        `${background.pathname}${background.search}${background.hash}`,
+        { replace: true, state: background.state },
+      );
+      return;
+    }
+    navigate('/', { replace: true });
+  };
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -127,13 +146,25 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="auth-page">
-      <form className="auth-card" onSubmit={onSubmit} noValidate>
+    <div className="auth-page auth-page--modal">
+      <PageMeta title="Sign up | Rent Your Ride" noindex />
+      <form
+        className="auth-card auth-card--signup"
+        onSubmit={onSubmit}
+        noValidate
+      >
+        <button
+          type="button"
+          className="auth-close"
+          onClick={closeSignup}
+          aria-label="Close"
+        >
+          <img src="/close.png" alt="" />
+        </button>
+
         <h1 className="auth-caption">Sign Up</h1>
 
-        <p className="auth-divider-text" style={{ marginTop: 0 }}>
-          Sign up with
-        </p>
+        <p className="auth-divider-text auth-divider-text--top">Sign up with</p>
 
         <button
           type="button"
@@ -151,7 +182,7 @@ export default function SignupPage() {
           disabled={busy}
         >
           <GoogleLogo />
-          <span>{googleLoading ? 'Continuing…' : 'Login with Google'}</span>
+          <span>{googleLoading ? 'Continuing…' : 'Sign up with Google'}</span>
         </button>
 
         <div className="auth-or-row">
@@ -221,7 +252,7 @@ export default function SignupPage() {
             onClick={() => setSecure((s) => !s)}
             aria-label={secure ? 'Show password' : 'Hide password'}
           >
-            {secure ? 'Show' : 'Hide'}
+            {secure ? <EyeSlashIcon /> : <EyeIcon />}
           </button>
           {fieldErrors.password ? (
             <span className="auth-error">{fieldErrors.password}</span>
@@ -243,16 +274,46 @@ export default function SignupPage() {
         ) : null}
 
         <button className="auth-cta" type="submit" disabled={busy}>
-          {loading ? 'Signing up…' : 'Sign Up'}
+          {loading ? 'Signing up…' : 'SIGN UP'}
         </button>
 
         <p className="auth-footer">
           Already have an account?
-          <Link className="auth-link-btn" to="/login">
+          <Link
+            className="auth-link-btn"
+            to="/login"
+            state={withAuthBackground(location)}
+          >
             Log in
           </Link>
         </p>
       </form>
     </div>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden fill="none">
+      <path
+        d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.75" />
+    </svg>
+  );
+}
+
+function EyeSlashIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden fill="none">
+      <path
+        d="M3 3l18 18M10.5 10.6a2.9 2.9 0 0 0 4 4M7.1 7.3C5.1 8.5 3.6 10.3 2.5 12c0 0 3.5 6.5 9.5 6.5 1.6 0 3-.3 4.3-.9M16.8 15.5c1.5-1 2.7-2.4 3.7-3.5 0 0-3.5-6.5-9.5-6.5-1 0-1.9.1-2.8.4"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

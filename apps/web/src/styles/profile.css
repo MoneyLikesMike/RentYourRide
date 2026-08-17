@@ -53,6 +53,13 @@
   color: #17252a;
 }
 
+.profile-sidebar-joined {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
 .profile-sidebar-from {
   font-family: 'Nunito', sans-serif;
   font-size: 0.85rem;
@@ -69,9 +76,10 @@
 
 .profile-sidebar-section {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  color: #17252a;
+  text-transform: uppercase;
+  color: #ababab;
   margin: 1.1rem 0 0.5rem;
 }
 
@@ -87,9 +95,9 @@
 
 .profile-sidebar-nav a {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #ababab;
+  color: #17252a;
   text-decoration: none;
 }
 
@@ -171,6 +179,40 @@
 
 .profile-sidebar-ok {
   color: #4cb6b1;
+}
+
+.profile-sidebar-check,
+.profile-sidebar-license-icon {
+  width: 1.25rem;
+  height: 1.15rem;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.profile-sidebar-stats {
+  margin-top: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #ebebeb;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.profile-sidebar-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.profile-sidebar-stat img {
+  width: 1.15rem;
+  height: 1.15rem;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .profile-top {
@@ -266,8 +308,9 @@
 
 .edit-avatar-wrap {
   position: relative;
-  width: clamp(8rem, 15vw, 12rem);
-  height: clamp(8rem, 15vw, 12rem);
+  width: clamp(10rem, 14vw, 12.5rem);
+  height: clamp(10rem, 14vw, 12.5rem);
+  flex-shrink: 0;
 }
 
 .edit-avatar {
@@ -275,12 +318,23 @@
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
+  display: block;
+}
+
+/* Zeplin circular vignette over the photo */
+.edit-avatar-fog {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2.75rem rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .edit-avatar-trash {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
+  top: 0.65rem;
+  right: 0.65rem;
   background: #4cb6b1;
   border: none;
   border-radius: 50%;
@@ -291,10 +345,11 @@
   justify-content: center;
   cursor: pointer;
   padding: 0;
+  z-index: 2;
 }
 
 .edit-avatar-trash img {
-  width: 0.9rem;
+  width: 0.75rem;
   height: auto;
 }
 
@@ -304,7 +359,29 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.15rem;
+  padding-top: 0.25rem;
+}
+
+.edit-thumbs {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.edit-thumb {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 0.4rem;
+  object-fit: cover;
+  border: 0.2rem solid transparent;
+  box-sizing: border-box;
+  display: block;
+  background: #f2f2f2;
+}
+
+.edit-thumb--active {
+  border-color: #4cb6b1;
 }
 
 .edit-photo-help {
@@ -319,7 +396,7 @@
 
 .edit-upload-btn {
   width: fit-content;
-  padding: 0.55rem 1.25rem;
+  padding: 0.55rem 1.35rem;
   border-radius: 2rem;
   border: solid 2px #ffb214;
   background: rgba(255, 178, 20, 0.1);
@@ -332,25 +409,36 @@
   cursor: pointer;
 }
 
+.edit-about-section {
+  margin-top: 0.5rem;
+}
+
 .edit-about {
   width: 100%;
-  min-height: 8rem;
+  min-height: 9rem;
   box-sizing: border-box;
   border: 1px solid #d0d0d0;
   border-radius: 0.5rem;
-  padding: 1rem;
+  padding: 1rem 1.1rem;
   font-family: 'Nunito', sans-serif;
   font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.47;
   color: #17252a;
   resize: vertical;
+}
+
+.edit-about::placeholder {
+  color: #ababab;
+  font-weight: 600;
 }
 
 .edit-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 2rem;
-  margin-top: 1.5rem;
+  gap: 2.5rem;
+  margin-top: 2rem;
 }
 
 .edit-cancel {
@@ -359,20 +447,23 @@
   font-weight: 600;
   color: #4cb6b1;
   text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .edit-save {
-  min-width: 9rem;
-  height: 2.4rem;
-  border-radius: 2rem;
+  min-width: 10.6rem;
+  height: 2.375rem;
+  border-radius: 1.2rem;
   border: none;
   background: #4cb6b1;
-  box-shadow: 0 0.2rem 0.8rem rgba(76, 182, 177, 0.45);
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
   color: #fff;
   font-family: 'Nunito', sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
+  text-transform: uppercase;
 }
 
 .edit-save:disabled {
@@ -380,110 +471,139 @@
   cursor: not-allowed;
 }
 
-/* Overview */
+/* Overview — Zeplin https://zpl.io/Zqx571G */
 .overview-about {
-  margin-bottom: 1.75rem;
+  margin: 2rem 0;
 }
 
 .overview-about-text {
   font-family: 'Nunito', sans-serif;
   font-size: 0.9rem;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.47;
   color: #ababab;
   margin: 0;
   text-align: justify;
 }
 
 .overview-rides {
-  margin-bottom: 1.75rem;
+  margin-bottom: 2rem;
 }
 
 .overview-cars {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: 1.25rem;
-  margin-top: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
 }
 
 .overview-car {
   border-radius: 1rem;
   box-shadow: 0 5px 11px rgba(0, 0, 0, 0.08);
   background: #fff;
-  text-decoration: none;
   color: inherit;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-car-image-wrap {
+  position: relative;
+}
+
+.overview-car-image-link {
   display: block;
+  text-decoration: none;
+  color: inherit;
 }
 
 .overview-car-image {
   width: 100%;
-  height: 9rem;
+  height: 11rem;
   object-fit: cover;
   display: block;
+  border-radius: 1rem 1rem 0 0;
 }
 
 .overview-car-image--empty {
   background: #f2f2f2;
 }
 
+.overview-car-body {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
 .overview-car-row {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.75rem 0.85rem 0.25rem;
+  padding: 0.85rem 1rem 0.35rem;
+}
+
+.overview-car-left,
+.overview-car-right {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .overview-car-name {
   font-family: 'Nunito', sans-serif;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: #17252a;
 }
 
 .overview-car-type {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #d1d3d4;
   text-transform: uppercase;
-  margin-left: 0.5rem;
 }
 
 .overview-car-price {
   font-family: 'Nunito', sans-serif;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: #388d89;
 }
 
 .overview-car-cad {
   font-family: 'Nunito', sans-serif;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: #ffbb2e;
-  margin-left: 0.35rem;
 }
 
 .overview-car-meta {
   display: flex;
-  justify-content: space-between;
-  padding: 0.35rem 0.85rem 0.85rem;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #545454;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem 0.9rem;
 }
 
 .overview-stars {
-  color: #ffbb2e;
+  color: #ffb214;
+  font-size: 1.1rem;
   letter-spacing: 0.05em;
+}
+
+.overview-trips {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #17252a;
 }
 
 .overview-review-count {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 400;
   color: #17252a;
   margin: 0 0 0.75rem;
 }
@@ -491,7 +611,9 @@
 .overview-review-tabs {
   display: flex;
   gap: 1.5rem;
-  margin-bottom: 1rem;
+  border-bottom: solid 2px #def2f1;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1.25rem;
 }
 
 .overview-review-tabs button {
@@ -500,7 +622,7 @@
   padding: 0;
   cursor: pointer;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #17252a;
 }
@@ -512,60 +634,69 @@
 .overview-reviews {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
 }
 
 .overview-review {
-  border-bottom: 1px solid #ebebeb;
-  padding-bottom: 1rem;
+  border-bottom: solid 2px #d3d3d3;
+  padding: 1.15rem 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .overview-review-date {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: #ababab;
+  color: #17252a;
 }
 
 .overview-review-text {
   font-family: 'Nunito', sans-serif;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #545454;
-  line-height: 1.45;
-  margin: 0.5rem 0 0.75rem;
+  line-height: 1.47;
+  color: #ababab;
+  margin: 0.85rem 0;
+  text-align: justify;
 }
 
 .overview-review-user {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .overview-review-user img {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 3.5rem;
+  height: 3.5rem;
   border-radius: 50%;
   object-fit: cover;
+  box-shadow: 0 9px 10px rgba(0, 0, 0, 0.2);
 }
 
 .overview-review-name {
   display: block;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: #17252a;
 }
 
 .overview-review-joined {
   display: block;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: #ababab;
 }
 
-/* Account settings */
+@media (max-width: 900px) {
+  .overview-cars {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Contact information — Zeplin https://zpl.io/YPJw74w */
 .account-block {
   margin-bottom: 0.5rem;
 }
@@ -575,14 +706,22 @@
   font-size: 1.2rem;
   font-weight: 700;
   color: #17252a;
-  margin: 1rem 0 1.25rem;
+  margin: 1.25rem 0 1.25rem;
 }
 
 .account-row {
   display: flex;
   gap: 1.5rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
   flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.account-row--date {
+  width: 48%;
+  min-width: 16rem;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
 }
 
 .account-field {
@@ -590,12 +729,27 @@
   min-width: 14rem;
 }
 
+.account-field--month {
+  flex: 1.4;
+  min-width: 0;
+}
+
+.account-field--day {
+  flex: 0.7;
+  min-width: 0;
+}
+
+.account-field--year {
+  flex: 1;
+  min-width: 0;
+}
+
 .account-field-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .account-label {
@@ -617,6 +771,17 @@
   color: #4cb6b1;
 }
 
+.account-action--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.account-action--icon img {
+  width: 0.85rem;
+  height: auto;
+}
+
 .account-action:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -630,6 +795,10 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: #ababab;
+}
+
+.account-verified--row {
+  min-height: 2.5rem;
 }
 
 .account-verified img {
@@ -658,8 +827,161 @@
   color: #17252a;
 }
 
+.account-input--secondary {
+  margin-top: 0.5rem;
+}
+
+.account-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%234cb6b1' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 0.65rem auto;
+  padding-right: 2rem;
+  cursor: pointer;
+}
+
 .account-input:disabled {
   color: #ababab;
+}
+
+.account-mobile {
+  display: flex;
+  width: 100%;
+  position: relative;
+  gap: 0;
+}
+
+.account-mobile-phone {
+  flex: 1;
+  min-width: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* Phone country picker (flag + dial code) — matches mobile ChangePhoneNumber */
+.phone-country {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.phone-country-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 100%;
+  min-height: 2.55rem;
+  padding: 0 0.65rem;
+  border-radius: 5px 0 0 5px;
+  border: solid 1px #a3a3a3;
+  border-right: none;
+  background: #f9f9f9;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.phone-country-flag {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.phone-country-code {
+  white-space: nowrap;
+}
+
+.phone-country-chevron {
+  width: 0;
+  height: 0;
+  border-left: 0.28rem solid transparent;
+  border-right: 0.28rem solid transparent;
+  border-top: 0.35rem solid #4cb6b1;
+  margin-left: 0.1rem;
+}
+
+.phone-country-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 40;
+  width: min(22rem, 80vw);
+  max-height: 18rem;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: solid 1px #d9d9d9;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(23, 37, 42, 0.12);
+  overflow: hidden;
+}
+
+.phone-country-search {
+  border: none;
+  border-bottom: solid 1px #ebebeb;
+  padding: 0.65rem 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  color: #17252a;
+  outline: none;
+}
+
+.phone-country-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  max-height: 14rem;
+}
+
+.phone-country-option {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  color: #17252a;
+  text-align: left;
+}
+
+.phone-country-option:hover,
+.phone-country-option--active {
+  background: #f3fbfa;
+}
+
+.phone-country-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-country-dial {
+  color: #ababab;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.phone-country-empty {
+  padding: 0.85rem 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  color: #ababab;
+}
+
+.account-mobile-country {
+  width: 32%;
+  min-width: 5.5rem;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
 }
 
 .account-password-panel {
@@ -669,8 +991,24 @@
   margin-top: 0.65rem;
 }
 
-.account-save,
+.account-save {
+  min-width: 10.6rem;
+  height: 2.375rem;
+  border: none;
+  border-radius: 1.2rem;
+  background: #4cb6b1;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 1.25rem;
+}
+
 .account-save-sm {
+  align-self: flex-start;
   border: none;
   border-radius: 0.35rem;
   background: #4cb6b1;
@@ -678,22 +1016,450 @@
   font-family: 'Nunito', sans-serif;
   font-size: 0.85rem;
   font-weight: 700;
-  text-transform: uppercase;
-  padding: 0.65rem 1.75rem;
-  cursor: pointer;
-  margin-top: 0.5rem;
-}
-
-.account-save-sm {
-  align-self: flex-start;
-  text-transform: none;
   padding: 0.5rem 1rem;
+  cursor: pointer;
+  margin-top: 0.25rem;
 }
 
 .account-save:disabled,
 .account-save-sm:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* Phone verification modal — Zeplin https://zpl.io/0PZem19 */
+.phone-verify-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(0, 0, 0, 0.45);
+  box-sizing: border-box;
+}
+
+.phone-verify-modal {
+  position: relative;
+  width: min(100%, 22.3rem);
+  background: #fff;
+  border-radius: 1rem;
+  padding: 2rem 1.75rem 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
+}
+
+.phone-verify-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phone-verify-close img {
+  width: 0.95rem;
+  height: 0.95rem;
+  object-fit: contain;
+}
+
+.phone-verify-title {
+  margin: 0 0 1.5rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  text-align: center;
+  color: #17252a;
+}
+
+.phone-verify-field {
+  margin-bottom: 1.5rem;
+}
+
+.phone-verify-label {
+  display: block;
+  margin-bottom: 0.65rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #17252a;
+}
+
+.phone-verify-digit-label {
+  margin: 0 0 0.65rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.phone-verify-hint {
+  margin: 0 0 1.25rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.43;
+  color: #ababab;
+}
+
+.phone-verify-code {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.phone-verify-code-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: text;
+  z-index: 1;
+}
+
+.phone-verify-digit {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 1.85rem;
+  height: 2.5rem;
+  border-radius: 0.3rem;
+  border: solid 1px #e0e0e0;
+  background: #fdfdfd;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #17252a;
+  padding: 0;
+  cursor: text;
+  pointer-events: none;
+}
+
+.phone-verify-digit--active {
+  border-color: #4cb6b1;
+}
+
+.phone-verify-resend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.75rem 0 1.25rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.phone-verify-error {
+  margin: 0 0 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #f9493a;
+  text-align: center;
+}
+
+.phone-verify-success {
+  margin: 0 0 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4cb6b1;
+  text-align: center;
+}
+
+.phone-verify-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.phone-verify-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 0.5rem 0;
+  cursor: not-allowed;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4cb6b1;
+  opacity: 0.7;
+}
+
+.phone-verify-continue {
+  flex: 1;
+  min-height: 2.25rem;
+  border: none;
+  border-radius: 0.35rem;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0.55rem 1rem;
+}
+
+.phone-verify-continue:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.phone-verify-actions--email {
+  justify-content: flex-start;
+}
+
+/* Success step — mirrors the app's PhoneVerificationSuccessScreen */
+.phone-verify-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.5rem 0 0.5rem;
+}
+
+.phone-verify-done-art {
+  width: 11.25rem;
+  height: 11.25rem;
+  object-fit: contain;
+  margin-bottom: 1.5rem;
+}
+
+.phone-verify-done-title {
+  margin: 0 0 2rem;
+  max-width: 16rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0e262b;
+}
+
+/* Brand highlight behind the first word, as on the app screen. */
+.phone-verify-done-mark {
+  background: linear-gradient(
+    to top,
+    rgba(255, 177, 49, 0.3) 0.7em,
+    transparent 0.7em
+  );
+  border-radius: 0.3rem;
+}
+
+.phone-verify-done-ok {
+  flex: 0 0 auto;
+  width: min(15.625rem, 100%);
+  min-height: 3.125rem;
+  border-radius: 1.5625rem;
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: 0.0125rem;
+}
+
+.phone-verify-actions--email .phone-verify-continue {
+  flex: 0 0 auto;
+  min-width: 48%;
+}
+
+/* License verification (Didit) — mirrors mobile LicenseVerificationScreen */
+.license-verify-modal {
+  width: min(100%, 24rem);
+}
+
+.license-verify-main {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.license-verify-status-label {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #4cb6b1;
+  text-transform: uppercase;
+}
+
+.license-verify-status-value {
+  margin: 0.35rem 0 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #505050;
+}
+
+.license-verify-status-value--ok {
+  color: #4cb6b1;
+}
+
+.license-verify-on-file {
+  margin: 0 0 1.25rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #787878;
+}
+
+.license-verify-disclosure {
+  background: #f7faf9;
+  border: solid 1px #e8f0ee;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.license-verify-disclosure-title {
+  margin: 0 0 0.5rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
+.license-verify-disclosure-body {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #5a5a5a;
+}
+
+.license-verify-primary {
+  border: none;
+  border-radius: 10px;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.95rem 1rem;
+  cursor: pointer;
+}
+
+.license-verify-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.license-verify-note {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #646464;
+}
+
+.license-verify-pending {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.license-verify-accent {
+  width: 1.5rem;
+  height: 0.25rem;
+  border-radius: 2px;
+  background: #ffb214;
+  margin-bottom: 0.75rem;
+}
+
+.license-verify-heading {
+  margin: 0 0 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0e262b;
+}
+
+.license-verify-status-line {
+  margin: 0 0 0.65rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
+.license-verify-body {
+  margin: 0 0 1.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #646464;
+}
+
+.license-verify-continue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12rem;
+  min-height: 2.75rem;
+  padding: 0 1.5rem;
+  border-radius: 1.5rem;
+  border: solid 2px #ffb214;
+  background: rgba(255, 178, 20, 0.1);
+  color: #ffb214;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  align-self: center;
+}
+
+.didit-callback-page {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  background: #fff;
+}
+
+.didit-callback-card {
+  width: min(100%, 26rem);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.didit-callback-card h1 {
+  margin: 0 0 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0e262b;
+}
+
+.phone-verify-modal .phone-country-panel {
+  z-index: 50;
+}
+
+@media (max-width: 860px) {
+  .account-row--date {
+    width: 100%;
+  }
 }
 
 @media (max-width: 860px) {
@@ -706,4 +1472,105 @@
   .profile-main {
     width: 100%;
   }
+}
+
+/* Trips (guest bookings) */
+.trips-page {
+  width: 100%;
+  max-width: 40rem;
+}
+
+.trips-title {
+  margin: 0 0 0.85rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #17252a;
+}
+
+.trips-rule {
+  width: 100%;
+  height: 0;
+  margin: 0 0 1.5rem;
+  border: none;
+  border-top: 2px solid #def2f1;
+}
+
+.trips-error {
+  margin: 0 0 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f9493a;
+}
+
+.trips-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.trips-empty p {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.trips-empty-cta {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #4cb6b1;
+  text-decoration: none;
+}
+
+.trips-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.trips-card {
+  padding: 1rem 1.1rem;
+  border: 1px solid #ebebeb;
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.trips-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.trips-card-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #17252a;
+}
+
+.trips-card-status {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4cb6b1;
+  text-transform: capitalize;
+  flex-shrink: 0;
+}
+
+.trips-card-dates {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ababab;
 }

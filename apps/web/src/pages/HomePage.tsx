@@ -1,42 +1,20 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { ParsedPlace } from '../api/maps';
+import { withAuthBackground } from '../auth/authModal';
+import { useAuth } from '../auth/AuthContext';
 import PlacesAutocomplete from '../components/PlacesAutocomplete';
+import SearchTimePicker, {
+  snapSearchTime,
+} from '../components/SearchTimePicker';
+import PageMeta, { HOME_SEO } from '../components/PageMeta';
+import CommunityExperiences from '../components/CommunityExperiences';
+import PhoneMockup from '../components/PhoneMockup';
 import SiteHeader from '../components/SiteHeader';
 import { AppStoreBadge, GooglePlayBadge } from '../components/StoreBadges';
 import TextDecorator from '../components/TextDecorator';
 import type { SearchNavState } from '../types/search';
-
-const RIDE_TYPES = [
-  {
-    title: 'Exotic',
-    text:
-      "Ride in style. You'll find an array of speedy, sexy, and luxurious vehicles available just for you. Stand out & shine!",
-    image: '/home/exotics.png',
-    value: ['SUV'],
-  },
-  {
-    title: 'Everyday rides',
-    text:
-      'For the economical and ordinary commuter. You want to get from point A to B, why overspend? Get where you need to go.',
-    image: '/home/everyday-rides.png',
-    value: ['Car'],
-  },
-  {
-    title: 'Offroad',
-    text:
-      "You're looking for adventure. You're looking in the right place. Browse a variety of off-road vehicles for wherever life takes you!",
-    image: '/home/off-road.png',
-    value: ['Pickup Truck'],
-  },
-  {
-    title: 'Motorcycles',
-    text:
-      "For the daring & passionate. You'll find a variety of bikes available for your next adventure. What's stopping you? Get riding.",
-    image: '/home/motorcycles.png',
-    value: ['Mooped And Scooter'],
-  },
-] as const;
+import { goToHomeTop } from '../utils/goToHomeTop';
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
@@ -56,6 +34,50 @@ function combineLocal(dateStr: string, timeStr: string): Date {
   return new Date(y!, (m ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0, 0, 0);
 }
 
+function formatDisplayDate(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return '';
+  return `${d}/${m}/${y}`;
+}
+
+function DateField({
+  value,
+  onChange,
+  'aria-label': ariaLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  'aria-label': string;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const openPicker = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    try {
+      el.showPicker?.();
+    } catch {
+      el.focus();
+      el.click();
+    }
+  };
+
+  return (
+    <label className="dt-control" onClick={openPicker}>
+      <span className="dt-value">{formatDisplayDate(value)}</span>
+      <span className="dt-chevron" aria-hidden />
+      <input
+        ref={inputRef}
+        type="date"
+        className="dt-input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={ariaLabel}
+      />
+    </label>
+  );
+}
+
 function defaultStart(): Date {
   const d = new Date();
   d.setMinutes(0, 0, 0);
@@ -72,28 +94,33 @@ function defaultEnd(start: Date): Date {
 export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const initialStart = useMemo(() => defaultStart(), []);
   const initialEnd = useMemo(() => defaultEnd(initialStart), [initialStart]);
 
   const [addressText, setAddressText] = useState('');
   const [place, setPlace] = useState<ParsedPlace | null>(null);
   const [startDate, setStartDate] = useState(() => toDateInput(initialStart));
-  const [startTime, setStartTime] = useState(() => toTimeInput(initialStart));
+  const [startTime, setStartTime] = useState(() =>
+    snapSearchTime(toTimeInput(initialStart)),
+  );
   const [endDate, setEndDate] = useState(() => toDateInput(initialEnd));
-  const [endTime, setEndTime] = useState(() => toTimeInput(initialEnd));
+  const [endTime, setEndTime] = useState(() =>
+    snapSearchTime(toTimeInput(initialEnd)),
+  );
   const [error, setError] = useState<string | null>(null);
-  const [howOpen, setHowOpen] = useState(false);
+  const [howVideo, setHowVideo] = useState<'renting' | 'listing' | null>(null);
 
   useEffect(() => {
     const state = location.state as { openHowItWorks?: boolean } | null;
     if (state?.openHowItWorks) {
-      setHowOpen(true);
+      setHowVideo('renting');
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
-    const onOpen = () => setHowOpen(true);
+    const onOpen = () => setHowVideo('renting');
     window.addEventListener('ryr:how-it-works', onOpen);
     return () => window.removeEventListener('ryr:how-it-works', onOpen);
   }, []);
@@ -154,15 +181,34 @@ export default function HomePage() {
     goSearch();
   };
 
+  /** Carries whatever they've typed over to the search page, filters open. */
+  const goAdvancedSearch = () => {
+    setError(null);
+    const state = buildNavState();
+    if (!state) return;
+    navigate('/find-your-car', { state: { ...state, openFilters: true } });
+  };
+
   const onPlaceSelected = (parsed: ParsedPlace) => {
     setPlace(parsed);
     setAddressText(parsed.query);
     setError(null);
   };
 
+  const goAuthenticated = (path: string) => {
+    if (!isAuthenticated) {
+      navigate('/login', {
+        state: withAuthBackground(location, { from: path }),
+      });
+      return;
+    }
+    navigate(path);
+  };
+
   return (
     <div className="home-page">
-      <SiteHeader onHowItWorks={() => setHowOpen(true)} />
+      <PageMeta {...HOME_SEO} />
+      <SiteHeader />
 
       <div className="home-wrapper">
         <div className="home-hero-copy">
@@ -198,7 +244,7 @@ export default function HomePage() {
         <button
           type="button"
           className="how-it-works-btn"
-          onClick={() => setHowOpen(true)}
+          onClick={() => setHowVideo('renting')}
         >
           <img src="/home/play.png" alt="" className="how-play" />
           How it works?
@@ -220,18 +266,14 @@ export default function HomePage() {
             <div className="option-wrapper">
               <span className="option-caption">Start</span>
               <div className="select-wrapper">
-                <input
-                  type="date"
-                  className="dt-input"
+                <DateField
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={setStartDate}
                   aria-label="Start date"
                 />
-                <input
-                  type="time"
-                  className="dt-input"
+                <SearchTimePicker
                   value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={setStartTime}
                   aria-label="Start time"
                 />
               </div>
@@ -240,18 +282,14 @@ export default function HomePage() {
             <div className="option-wrapper">
               <span className="option-caption">End</span>
               <div className="select-wrapper">
-                <input
-                  type="date"
-                  className="dt-input"
+                <DateField
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={setEndDate}
                   aria-label="End date"
                 />
-                <input
-                  type="time"
-                  className="dt-input"
+                <SearchTimePicker
                   value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
+                  onChange={setEndTime}
                   aria-label="End time"
                 />
               </div>
@@ -264,13 +302,23 @@ export default function HomePage() {
         </form>
 
         {error ? <p className="home-search-error">{error}</p> : null}
-        <span className="advanced-label">More advanced search</span>
+        <button
+          type="button"
+          className="advanced-label"
+          onClick={goAdvancedSearch}
+        >
+          More advanced search
+        </button>
 
         <img
           src="/home/home-background.png"
           alt=""
           className="home-background"
         />
+
+        <p className="home-subcaption home-platform-tagline">
+          Canada&apos;s next peer to peer vehicle rental platform.
+        </p>
 
         <img src="/home/divider.png" alt="" className="divider" />
 
@@ -283,44 +331,118 @@ export default function HomePage() {
           <img src="/home/circle.png" alt="" className="circle middle-left" />
           <div className="block left">
             <h2 className="block-caption">
-              <TextDecorator title="Earn" width="4rem" />
-              Money or
-              <TextDecorator title="Save" width="4rem" />
-              Money
+              <TextDecorator title="Unique Experiences" width="16rem" />
+              That Are
+              <TextDecorator title="Convenient" width="9rem" />
+              For You
             </h2>
-            <p className="block-text">
-              Let your ride work for you, list your vehicle and start earning
-              now. Save from traditional rental companies by renting the
-              perfect ride from a local vehicle owner.
-            </p>
+            <ol className="block-steps">
+              <li className="block-step">
+                <span className="block-step-num" aria-hidden>
+                  1
+                </span>
+                <h3 className="block-step-title">Find Your Perfect Ride</h3>
+                <p className="block-text">
+                  Filter your search with options that work best for you.
+                  Choose from a diverse selection of rental vehicles offered by
+                  local hosts.
+                </p>
+              </li>
+              <li className="block-step">
+                <span className="block-step-num" aria-hidden>
+                  2
+                </span>
+                <h3 className="block-step-title">Book Your Ride</h3>
+                <p className="block-text">
+                  Book trips quickly and easily through the app, message the
+                  host and choose extra rental options that make your trip
+                  easier and more convenient.
+                </p>
+              </li>
+              <li className="block-step">
+                <span className="block-step-num" aria-hidden>
+                  3
+                </span>
+                <h3 className="block-step-title">Hit the Road</h3>
+                <p className="block-text">
+                  Have the vehicle dropped off to you or pick it up from an
+                  agreed location. Check in through the app, grab the keys and
+                  experience more together.
+                </p>
+              </li>
+            </ol>
             <button
               type="button"
               className="block-button"
-              onClick={() => setHowOpen(true)}
+              onClick={() => setHowVideo('renting')}
             >
               See how it works
               <img src="/home/arrow.png" alt="" className="arrow" />
             </button>
           </div>
-          <img src="/home/home-1.png" alt="" className="home-image" />
+          <img
+            src="/home/home-1.png"
+            alt="A guest and a local host trading car keys for payment beside a rental vehicle."
+            className="home-image"
+          />
         </div>
 
         <img src="/home/divider.png" alt="" className="divider" />
 
         <div className="block-wrapper">
-          <img src="/home/home-2.png" alt="" className="home-image" />
+          <img
+            src="/home/home-2.png"
+            alt="A host picking up a traveller and their luggage in a car listed on Rent Your Ride."
+            className="home-image"
+          />
           <div className="block right">
             <h2 className="block-caption">
-              <TextDecorator title="Don’t worry!" width="11rem" />
-              We have you covered.
+              Let Your Ride{' '}
+              <TextDecorator title="Work" width="5rem" /> For You
             </h2>
-            <p className="block-text">
-              We want to make sure the Rent Your Ride community is safe for
-              both users and owners of vehicles on our platform. We have
-              coverage options for you to give you peace of mind!
-            </p>
-            <button type="button" className="block-button">
-              Coverage Options
+            <ol className="block-steps">
+              <li className="block-step">
+                <span className="block-step-num" aria-hidden>
+                  1
+                </span>
+                <h3 className="block-step-title">List Your Ride</h3>
+                <p className="block-text">
+                  List your ride in under 5 minutes. It&apos;s free! Set your
+                  price and set your expectations. Choose your ride&apos;s
+                  availability that best fits your schedule.
+                </p>
+              </li>
+              <li className="block-step">
+                <span className="block-step-num" aria-hidden>
+                  2
+                </span>
+                <h3 className="block-step-title">Meet New People</h3>
+                <p className="block-text">
+                  With over 24,000 new users our community is growing every
+                  day. You will receive booking requests. Accept a booking
+                  request, confirm the trip details, and ask any questions you
+                  may have. Check in through the app, exchange the keys and
+                  start earning.
+                </p>
+              </li>
+              <li className="block-step">
+                <span className="block-step-num" aria-hidden>
+                  3
+                </span>
+                <h3 className="block-step-title">Relax &amp; Earn Extra Cash</h3>
+                <p className="block-text">
+                  Offset your car payments. The average host earns up to $600 a
+                  month. Get paid directly to your bank account a couple days
+                  after each trip. You&apos;ll earn 75% of your trip price.
+                </p>
+              </li>
+            </ol>
+            <button
+              type="button"
+              className="block-button"
+              onClick={() => setHowVideo('listing')}
+            >
+              See how it works
               <img src="/home/arrow.png" alt="" className="arrow" />
             </button>
           </div>
@@ -338,49 +460,49 @@ export default function HomePage() {
 
         <img src="/home/divider.png" alt="" className="divider" />
 
-        <div className="block-wrapper center">
-          <img
-            src="/home/half-circle.png"
-            alt=""
-            className="circle half-left"
-          />
-          <div className="block center">
-            <h2 className="block-caption">
-              <TextDecorator title="Types of ride" width="11rem" />
-            </h2>
-            <div className="ride-types-wrapper">
-              {RIDE_TYPES.map((type) => (
-                <div className="type" key={type.title}>
-                  <img
-                    src={type.image}
-                    alt=""
-                    className="type-image"
-                  />
-                  <span className="type-caption">{type.title}</span>
-                  <span className="block-text center">{type.text}</span>
-                  <button
-                    type="button"
-                    className="block-button center"
-                    onClick={() => goSearch([...type.value])}
-                  >
-                    Rent
-                    <img src="/home/arrow.png" alt="" className="arrow" />
-                  </button>
-                </div>
-              ))}
+        <section className="coverage-section">
+          <h2 className="coverage-heading">
+            <TextDecorator title="Don’t Worry" width="11rem" /> We&apos;ve Got
+            You Covered
+          </h2>
+          <div className="block-wrapper coverage-row">
+            <div className="block left coverage-copy">
+              <h3 className="coverage-subheading">Peace Of Mind</h3>
+              <p className="coverage-text">
+                We want to make sure the Rent Your Ride community is safe for
+                both users and owners of vehicles on our platform. We have
+                coverage options for you to give you peace of mind!
+              </p>
+              <Link to="/insurance" className="block-button">
+                Read More
+                <img src="/home/arrow.png" alt="" className="arrow" />
+              </Link>
             </div>
+            <img
+              src="/home/car-protection.png"
+              alt="Vehicle protection and insurance."
+              className="home-image coverage-image"
+            />
           </div>
-        </div>
+        </section>
 
         <img src="/home/divider.png" alt="" className="divider" />
 
-        <div className="block-wrapper center">
+        <div className="block-wrapper get-started-row">
           <img
             src="/home/half-circle-2.png"
             alt=""
             className="circle half-right"
           />
-          <div className="block center">
+          <div className="get-started-visual">
+            <PhoneMockup
+              src="/about/app-listing-screen.png"
+              alt="The Rent Your Ride app showing a vehicle listing ready to book."
+              className="get-started-phone"
+            />
+            <img src="/home/mouse.png" alt="" className="get-started-mouse" />
+          </div>
+          <div className="block right get-started-copy">
             <h2 className="block-caption">
               Get started
               <TextDecorator title="today" width="5rem" />
@@ -395,25 +517,31 @@ export default function HomePage() {
               <button
                 type="button"
                 className="cta-rent"
-                onClick={() => goSearch()}
+                onClick={() => goToHomeTop(navigate, location.pathname)}
               >
-                Rent car
+                Rent a ride
                 <img src="/home/arrow.png" alt="" className="arrow" />
               </button>
-              <Link to="/signup" className="cta-list">
-                List car
+              <button
+                type="button"
+                className="cta-list"
+                onClick={() => goAuthenticated('/profile/list-your-ride')}
+              >
+                List your ride
                 <img src="/home/arrow.png" alt="" className="arrow" />
-              </Link>
+              </button>
             </div>
           </div>
         </div>
+
+        <CommunityExperiences />
       </div>
 
-      {howOpen ? (
+      {howVideo ? (
         <div
           className="how-modal-backdrop"
           role="presentation"
-          onClick={() => setHowOpen(false)}
+          onClick={() => setHowVideo(null)}
         >
           <div
             className="how-modal"
@@ -425,24 +553,23 @@ export default function HomePage() {
             <button
               type="button"
               className="how-modal-close"
-              onClick={() => setHowOpen(false)}
+              onClick={() => setHowVideo(null)}
               aria-label="Close"
             >
               <img src="/close.png" alt="" className="close-x-img" />
             </button>
             <h2 id="how-title">How it works?</h2>
-            <p>
-              Search for a ride near you, book instantly or request approval,
-              then pick up and go. Hosts list their vehicles and earn when
-              guests rent.
-            </p>
-            <button
-              type="button"
-              className="search-ride-btn how-modal-cta"
-              onClick={() => setHowOpen(false)}
-            >
-              Got it
-            </button>
+            <video
+              key={howVideo}
+              className="how-modal-video"
+              src={
+                howVideo === 'listing'
+                  ? '/home/how-listing-works.mp4'
+                  : '/home/how-it-works.mp4'
+              }
+              controls
+              autoPlay
+            />
           </div>
         </div>
       ) : null}

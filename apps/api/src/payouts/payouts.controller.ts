@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ReqUser } from '../common/req-user.decorator';
 import { UserEntity } from '../entities/user.entity';
+import { PayoutSetupDto } from './payout-setup.dto';
 import { PayoutsService } from './payouts.service';
 
 @ApiTags('payouts')
@@ -22,6 +23,11 @@ export class PayoutsController {
       body.refreshUrl ?? '',
       body.returnUrl ?? '',
     );
+  }
+
+  @Post('connect/setup')
+  async setup(@ReqUser() user: UserEntity, @Body() body: PayoutSetupDto) {
+    return this.payouts.submitPayoutDetails(user.id, body);
   }
 
   @Get('account-status')

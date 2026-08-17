@@ -49,14 +49,22 @@ export type ListingDetail = ListingSummary & {
   pickupAddress: string;
   active: boolean;
   published: boolean;
+  vin?: string;
+  licensePlate?: string;
+  licenseProvince?: string;
   carFeatures: string[];
   extras: ListingExtras;
+  availability?: Array<{ start: string; end: string }>;
   hostName: string;
   hostTrips: number;
   hostRating: number;
   guestReviews: GuestListingReview[];
   hostPhotoUri?: string;
   hostUserId?: string;
+  /** Calendar year the host account was created */
+  hostJoinedYear?: number;
+  /** Host about / bio text shown under “Hosted by” */
+  hostBio?: string;
   vehicleData?: {
     make?: string;
     model?: string;
@@ -72,10 +80,22 @@ export type ListingDetail = ListingSummary & {
 export async function searchListings(params: {
   city?: string;
   q?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  radiusKm?: number;
 }): Promise<ListingSummary[]> {
   const qs = new URLSearchParams();
   if (params.city?.trim()) qs.set('city', params.city.trim());
   if (params.q?.trim()) qs.set('q', params.q.trim());
+  if (typeof params.latitude === 'number' && Number.isFinite(params.latitude)) {
+    qs.set('latitude', String(params.latitude));
+  }
+  if (typeof params.longitude === 'number' && Number.isFinite(params.longitude)) {
+    qs.set('longitude', String(params.longitude));
+  }
+  if (typeof params.radiusKm === 'number' && Number.isFinite(params.radiusKm)) {
+    qs.set('radiusKm', String(params.radiusKm));
+  }
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   return apiFetch<ListingSummary[]>(`v1/listings/search${suffix}`, {
     method: 'GET',
@@ -106,16 +126,31 @@ export function listingPhotoUrls(listing: Pick<ListingSummary, 'photos'>): strin
 }
 
 export const CAR_FEATURE_LABELS: Record<string, string> = {
-  navigation: 'NAVIGATION',
-  remoteStart: 'REMOTE START',
-  backUpCamera: 'BACK UP CAMERA',
-  audioInput: 'AUDIO INPUT',
+  navigation: 'Navigation',
+  remoteStart: 'Remote start',
+  backUpCamera: 'Back up camera',
+  audioInput: 'Audio input',
   usb: 'USB',
-  bluetooth: 'BLUETOOTH',
-  petFriendly: 'PET FRIENDLY',
-  convertible: 'CONVERTIBLE',
-  sunroof: 'SUNROOF',
-  heatedSeats: 'HEATED SEATS',
-  snowTires: 'SNOW TIRES',
-  allWheelDrive: 'ALL-WHEEL DRIVE',
+  bluetooth: 'Bluetooth',
+  petFriendly: 'Pet friendly',
+  convertible: 'Convertible',
+  sunroof: 'Sunroof',
+  heatedSeats: 'Heated seats',
+  snowTires: 'Snow tires',
+  allWheelDrive: 'All-wheel drive',
+};
+
+export const CAR_FEATURE_ICONS: Record<string, string> = {
+  navigation: '/fyc/features/feature1.png',
+  remoteStart: '/fyc/features/feature2.png',
+  backUpCamera: '/fyc/features/feature3.png',
+  audioInput: '/fyc/features/feature4.png',
+  usb: '/fyc/features/feature5.png',
+  bluetooth: '/fyc/features/feature6.png',
+  petFriendly: '/fyc/features/feature7.png',
+  convertible: '/fyc/features/feature8.png',
+  sunroof: '/fyc/features/feature9.png',
+  heatedSeats: '/fyc/features/feature10.png',
+  snowTires: '/fyc/features/feature11.png',
+  allWheelDrive: '/fyc/features/feature12.png',
 };

@@ -1,0 +1,442 @@
+/* Messages — Zeplin https://zpl.io/2jJGX9x */
+
+.messages-page {
+  min-height: 100vh;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 73rem; /* ~1170px content */
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.75rem clamp(1rem, 4vw, 2.5rem) 3rem;
+  box-sizing: border-box;
+}
+
+.messages-title {
+  margin: 0 0 1.1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.875rem; /* 30px */
+  font-weight: 700;
+  color: #17252a;
+}
+
+/* Zeplin Path 23 — under Messages header (~61px above list) */
+.messages-header-rule {
+  width: 100%;
+  height: 0;
+  margin: 0 0 3.8rem;
+  border: none;
+  border-top: 2px solid #def2f1;
+}
+
+.messages-body {
+  display: grid;
+  /* Zeplin: list 352 + gap 48 + thread 770 = 1170 */
+  grid-template-columns: 22rem 48.125rem;
+  gap: 3rem;
+  flex: 1;
+  min-height: 0;
+  justify-content: start;
+}
+
+.messages-list-pane {
+  width: 22rem; /* 352px — text can sit past the 300px pill */
+  min-width: 0;
+}
+
+.messages-conv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* 12px between 86px cards */
+}
+
+.messages-conv {
+  display: flex;
+  align-items: center;
+  gap: 1.3125rem; /* avatar x=9 → text x=100 → ~21px + account for padding */
+  width: 18.75rem; /* 300px pill */
+  height: 5.375rem; /* 86px */
+  min-height: 5.375rem;
+  padding: 0.5rem 1rem 0.5rem 0.5625rem; /* ~9px left */
+  border: 2px solid transparent;
+  border-radius: 3.5625rem; /* 57px Zeplin */
+  background: #fff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1); /* Zeplin unselected */
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+/* Zeplin selected — 2px #4cb6b1 border, no fill/shadow */
+.messages-conv.is-active {
+  border-color: #4cb6b1;
+  background: transparent;
+  box-shadow: none;
+}
+
+.messages-conv-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.msg-avatar {
+  display: block;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #d8d8d8;
+}
+
+.msg-avatar--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #4cb6b1;
+  background: #def2f1;
+}
+
+.msg-avatar-spacer {
+  width: 4.375rem;
+  flex-shrink: 0;
+}
+
+.messages-unread-dot {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.15rem;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: #4cb6b1;
+}
+
+.messages-conv-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+  flex: 1;
+  padding-right: 0.25rem;
+}
+
+.messages-conv-top {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.messages-conv-name {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem; /* 15px */
+  font-weight: 600;
+  color: #0e262b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.messages-new-badge {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem; /* 12px */
+  font-weight: 600;
+  color: #4cb6b1;
+  flex-shrink: 0;
+}
+
+.messages-conv-status {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem; /* 12px */
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.messages-conv-status--approved {
+  color: #4cb6b1;
+}
+
+.messages-conv-status--requested {
+  color: #ff6c6c;
+}
+
+.messages-conv-status--complete,
+.messages-conv-status--neutral {
+  color: #8e8e8e;
+}
+
+.messages-conv-preview {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8125rem; /* 13px */
+  font-weight: 600;
+  color: #adadad;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.messages-thread-pane {
+  display: flex;
+  flex-direction: column;
+  width: 48.125rem; /* 770px */
+  max-width: 100%;
+  height: 45rem; /* 720px thread + composer spacing */
+  min-height: 45rem;
+  min-width: 0;
+}
+
+.messages-thread-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* ~24px between message blocks */
+  padding: 0 0 1.5rem;
+  min-height: 0;
+}
+
+/* Zeplin Group 9 — Today with lines on both sides */
+.messages-day-sep {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+.messages-day-sep-line {
+  flex: 1;
+  height: 0;
+  border: none;
+  border-top: 1px solid #ebebeb;
+}
+
+.messages-day-sep-label {
+  flex-shrink: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  color: #17252a;
+  line-height: 1.2;
+}
+
+.messages-bubble-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.875rem; /* 70px avatar → text at +100 = 30px gap */
+}
+
+.messages-bubble-row.is-mine {
+  flex-direction: row-reverse;
+}
+
+.messages-bubble-row.is-system .messages-bubble-text {
+  font-style: italic;
+  color: #8e8e8e;
+}
+
+.messages-bubble-body {
+  min-width: 0;
+  max-width: 41.875rem; /* 670px */
+}
+
+.messages-bubble-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin-bottom: 0.35rem;
+}
+
+.messages-bubble-name {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.125rem; /* 18px */
+  font-weight: 600;
+  color: #17252a;
+}
+
+.messages-bubble-time {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  color: #4cb6b1; /* Zeplin teal */
+}
+
+.messages-bubble-text {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem; /* 16px */
+  font-weight: 600;
+  line-height: 1.45;
+  color: #545454;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.messages-composer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: auto;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.messages-composer-input {
+  width: 100%;
+  height: 3.25rem; /* 52px */
+  padding: 0 14rem 0 1.25rem; /* room for 170px Send + icon gap */
+  border: 1px solid #a3a3a3;
+  border-radius: 1.65625rem; /* 26.5px */
+  background: #f9f9f9;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #17252a;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.messages-composer-input::placeholder {
+  color: #ababab;
+  font-weight: 600;
+  opacity: 1;
+}
+
+.messages-send {
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10.625rem; /* 170px */
+  height: 2.375rem; /* 38px */
+  border: none;
+  border-radius: 1.1875rem; /* 19px */
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.45);
+}
+
+.messages-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.messages-muted,
+.messages-thread-empty {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.messages-empty-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 1rem 0;
+}
+
+.messages-empty-icon {
+  width: 2rem;
+  height: auto;
+  opacity: 0.85;
+}
+
+.messages-empty-panel p {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.messages-empty-link {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #4cb6b1;
+  text-decoration: none;
+}
+
+.messages-error {
+  max-width: 73rem;
+  margin: 0 auto 1.5rem;
+  padding: 0 clamp(1rem, 4vw, 2.5rem);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f9493a;
+}
+
+@media (max-width: 1100px) {
+  .messages-body {
+    grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
+    gap: 1.75rem;
+  }
+
+  .messages-list-pane,
+  .messages-thread-pane {
+    width: auto;
+  }
+
+  .messages-thread-pane {
+    height: auto;
+    min-height: 28rem;
+  }
+
+  .messages-conv {
+    width: 100%;
+    max-width: 18.75rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .messages-body {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .messages-list-pane {
+    width: 100%;
+  }
+
+  .messages-conv {
+    max-width: none;
+  }
+
+  .messages-thread-pane {
+    min-height: 24rem;
+    border-top: 1px solid #ebebeb;
+    padding-top: 1.25rem;
+  }
+
+  .messages-send {
+    width: 6.5rem;
+  }
+
+  .messages-composer-input {
+    padding-right: 7.25rem;
+  }
+
+  .msg-avatar-spacer {
+    display: none;
+  }
+}

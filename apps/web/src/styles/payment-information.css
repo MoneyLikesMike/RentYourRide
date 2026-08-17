@@ -1,4 +1,4 @@
-/* Payment information — legacy PaymentInformation tokens */
+/* Payment information — Zeplin https://zpl.io/kKrOo05 */
 
 .pay-info-title {
   font-family: 'Nunito', sans-serif;
@@ -20,7 +20,7 @@
   font-size: 1.15rem;
   font-weight: 700;
   color: #17252a;
-  margin: 0 0 1rem;
+  margin: 0 0 1.25rem;
 }
 
 .pay-info-empty {
@@ -36,12 +36,14 @@
 .pay-info-methods {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.25rem 4%;
-  margin-bottom: 1.5rem;
+  justify-content: space-between;
+  gap: 1.75rem 0;
+  margin-bottom: 1.75rem;
+  width: 100%;
 }
 
 .pay-info-method {
-  width: calc(48% - 0.5rem);
+  width: 48%;
   min-width: 14rem;
 }
 
@@ -54,10 +56,52 @@
 
 .pay-info-brand {
   font-family: 'Nunito', sans-serif;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #17252a;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.card-brand-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.card-brand-badge--icon {
+  height: 1.35rem;
+}
+
+.card-brand-badge-img {
+  display: block;
+  height: 1.35rem;
+  width: auto;
+  object-fit: contain;
+}
+
+.card-brand-badge--pill {
+  min-width: 2.75rem;
+  height: 1.1rem;
+  padding: 0 0.4rem;
+  border-radius: 0.2rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fff;
+  justify-content: center;
+  line-height: 1.1rem;
+}
+
+.card-brand-badge--paypal {
+  background: #003087;
+}
+
+.card-brand-badge--other {
+  background: #4a4a4a;
 }
 
 .pay-info-action {
@@ -66,47 +110,69 @@
   padding: 0;
   cursor: pointer;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: #4cb6b1;
+  letter-spacing: 0.02em;
 }
 
-.pay-info-action:disabled {
-  opacity: 0.7;
-  cursor: default;
+.pay-info-action:hover {
+  text-decoration: underline;
 }
 
 .pay-info-details {
-  margin-top: 0.4rem;
+  margin-top: 0.55rem;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 1rem;
+}
+
+.pay-info-number {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #ababab;
 }
 
+.pay-info-expiry {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ababab;
+  flex-shrink: 0;
+}
+
+.pay-info-default {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #4cb6b1;
+}
+
 .pay-info-add-btn {
+  min-width: 16.875rem;
+  height: 2.5rem;
   border: none;
-  border-radius: 0.35rem;
+  border-radius: 1.25rem;
   background: #4cb6b1;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
   color: #fff;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 700;
   text-transform: uppercase;
-  padding: 0.7rem 1.5rem;
+  letter-spacing: 0.02em;
+  padding: 0 1.75rem;
   cursor: pointer;
   margin-top: 0.5rem;
 }
 
-.pay-info-add-panel {
-  margin-top: 1rem;
-  max-width: 28rem;
-  padding: 1.25rem;
-  border: 1px solid #ebebeb;
-  border-radius: 0.5rem;
+.pay-info-add-btn:hover {
+  filter: brightness(0.97);
 }
 
 @media (max-width: 720px) {

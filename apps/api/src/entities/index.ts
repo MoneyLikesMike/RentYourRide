@@ -11,6 +11,8 @@ export * from './message.entity';
 export * from './push-device-token.entity';
 export * from './email-verification-token.entity';
 export * from './booking-extension.entity';
+export * from './article.entity';
+export * from './team-member.entity';
 
 import { UserEntity } from './user.entity';
 import { RefreshTokenEntity } from './refresh-token.entity';
@@ -25,6 +27,8 @@ import { MessageEntity } from './message.entity';
 import { PushDeviceTokenEntity } from './push-device-token.entity';
 import { EmailVerificationTokenEntity } from './email-verification-token.entity';
 import { BookingExtensionEntity } from './booking-extension.entity';
+import { ArticleEntity } from './article.entity';
+import { TeamMemberEntity } from './team-member.entity';
 
 export const entities = [
   UserEntity,
@@ -40,4 +44,6 @@ export const entities = [
   ConversationEntity,
   MessageEntity,
   PushDeviceTokenEntity,
+  ArticleEntity,
+  TeamMemberEntity,
 ];

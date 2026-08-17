@@ -1,12 +1,20 @@
 const EMAIL_RE =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
-/** Nest register requires min 8 (legacy UI used 6). */
+/** New and changed passwords match the current app/API requirement. */
 export const PASSWORD_MIN = 8;
 
 export function validateEmail(email: string): string | undefined {
   if (!email) return 'Email is required';
   if (!EMAIL_RE.test(email)) return 'Invalid email address';
+  return undefined;
+}
+
+/** Login accepts existing legacy passwords regardless of their length. */
+export function validateLoginPassword(
+  password: string,
+): string | undefined {
+  if (!password) return 'Password is required';
   return undefined;
 }
 

@@ -1,0 +1,387 @@
+/* List Your Ride — host calendar / date blocking modal (app CalendarScreen parity) */
+
+.lyr-cal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(23, 37, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.lyr-cal-modal {
+  background: #fff;
+  border-radius: 0.75rem;
+  width: min(28rem, 100%);
+  max-height: min(92vh, 52rem);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(23, 37, 42, 0.22);
+}
+
+.lyr-cal-header {
+  display: flex;
+  align-items: center;
+  padding: 0.85rem 1rem 0.65rem;
+  flex-shrink: 0;
+}
+
+.lyr-cal-back {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lyr-cal-title {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #4a4a4a;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+
+.lyr-cal-header-spacer {
+  width: 2.5rem;
+}
+
+.lyr-cal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0 1.15rem 1rem;
+}
+
+.lyr-cal-month-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0.35rem 0 1rem;
+}
+
+.lyr-cal-month-arrow {
+  border: none;
+  background: none;
+  padding: 0.35rem;
+  cursor: pointer;
+  display: flex;
+}
+
+.lyr-cal-month-center {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #17252a;
+}
+
+.lyr-cal-grid {
+  width: 100%;
+}
+
+.lyr-cal-weekdays,
+.lyr-cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.lyr-cal-weekday {
+  text-align: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #9b9b9b;
+  padding: 0.35rem 0 0.55rem;
+}
+
+.lyr-cal-day {
+  aspect-ratio: 1;
+  border: none;
+  background: transparent;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(69, 89, 151);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 0;
+}
+
+.lyr-cal-day.is-empty {
+  pointer-events: none;
+}
+
+.lyr-cal-day.is-past {
+  color: #c8c8c8;
+  cursor: default;
+}
+
+.lyr-cal-day.is-sunday:not(.is-past) {
+  color: rgb(255, 83, 83);
+}
+
+.lyr-cal-day.is-select-middle,
+.lyr-cal-day.is-block-middle {
+  background: rgba(76, 182, 177, 0.1);
+}
+
+.lyr-cal-day.is-block-middle {
+  background: rgba(237, 120, 120, 0.1);
+}
+
+.lyr-cal-day.is-select-single,
+.lyr-cal-day.is-select-start,
+.lyr-cal-day.is-select-end,
+.lyr-cal-day.is-block-single,
+.lyr-cal-day.is-block-start,
+.lyr-cal-day.is-block-end {
+  color: #fff;
+}
+
+.lyr-cal-day.is-select-single::before,
+.lyr-cal-day.is-select-start::before,
+.lyr-cal-day.is-select-end::before,
+.lyr-cal-day.is-block-single::before,
+.lyr-cal-day.is-block-start::before,
+.lyr-cal-day.is-block-end::before {
+  content: '';
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  z-index: -1;
+}
+
+.lyr-cal-day.is-select-single::before,
+.lyr-cal-day.is-select-start::before,
+.lyr-cal-day.is-select-end::before {
+  background: #4cb6b1;
+}
+
+.lyr-cal-day.is-block-single::before,
+.lyr-cal-day.is-block-start::before,
+.lyr-cal-day.is-block-end::before {
+  background: rgb(237, 120, 120);
+}
+
+.lyr-cal-day.is-select-start:not(.is-select-end)::after,
+.lyr-cal-day.is-block-start:not(.is-block-end)::after {
+  content: '';
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: 50%;
+  right: 0;
+  z-index: -2;
+}
+
+.lyr-cal-day.is-select-end:not(.is-select-start)::after,
+.lyr-cal-day.is-block-end:not(.is-block-start)::after {
+  content: '';
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: 0;
+  right: 50%;
+  z-index: -2;
+}
+
+.lyr-cal-day.is-select-start:not(.is-select-end)::after,
+.lyr-cal-day.is-select-end:not(.is-select-start)::after {
+  background: rgba(76, 182, 177, 0.1);
+}
+
+.lyr-cal-day.is-block-start:not(.is-block-end)::after,
+.lyr-cal-day.is-block-end:not(.is-block-start)::after {
+  background: rgba(237, 120, 120, 0.1);
+}
+
+.lyr-cal-day.is-endpoint {
+  color: #fff;
+  font-weight: 700;
+}
+
+.lyr-cal-dates,
+.lyr-cal-hours {
+  margin-top: 1.35rem;
+}
+
+.lyr-cal-section-title {
+  margin: 0 0 0.55rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #17252a;
+}
+
+.lyr-cal-empty {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.lyr-cal-blocked-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.4rem 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #545454;
+}
+
+.lyr-cal-blocked-row.is-pending {
+  color: #4cb6b1;
+  padding-left: 1.65rem;
+}
+
+.lyr-cal-blocked-x {
+  border: none;
+  background: none;
+  color: #ff5353;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.15rem 0.25rem;
+  line-height: 1;
+}
+
+.lyr-cal-hours-desc {
+  margin: 0 0 0.85rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #8e8e8e;
+}
+
+.lyr-cal-hours-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #17252a;
+  margin-bottom: 0.85rem;
+}
+
+.lyr-cal-switch {
+  width: 2.75rem;
+  height: 1.55rem;
+  appearance: none;
+  border-radius: 999px;
+  background: #bebebe;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.lyr-cal-switch::before {
+  content: '';
+  position: absolute;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: #fff;
+  top: 0.15rem;
+  left: 0.15rem;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.17);
+  transition: transform 0.15s ease;
+}
+
+.lyr-cal-switch:checked {
+  background: #4cb6b1;
+}
+
+.lyr-cal-switch:checked::before {
+  transform: translateX(1.2rem);
+}
+
+.lyr-cal-hours-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+.lyr-cal-hours-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #17252a;
+}
+
+.lyr-cal-hours-select {
+  height: 2.75rem;
+  border: 1px solid #a3a3a3;
+  border-radius: 5px;
+  background: #f9f9f9;
+  padding: 0 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.lyr-cal-footer {
+  flex-shrink: 0;
+  padding: 0.85rem 1.15rem 1.15rem;
+  border-top: 1px solid #ebebeb;
+}
+
+.lyr-cal-block-btn {
+  width: 100%;
+  height: 2.75rem;
+  border: none;
+  border-radius: 1.5rem;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.45);
+}
+
+.lyr-cal-block-btn:hover {
+  filter: brightness(0.97);
+}
+
+@media (max-width: 480px) {
+  .lyr-cal-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .lyr-cal-modal {
+    width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+}

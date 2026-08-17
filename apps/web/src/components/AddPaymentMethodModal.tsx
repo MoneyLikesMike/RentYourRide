@@ -10,6 +10,7 @@ import {
 import {
   createSetupIntent,
   isStripeClientSecret,
+  reportPaymentMethodAdded,
   setDefaultPaymentMethod,
 } from '../api/payments';
 import { ApiError } from '../api/http';
@@ -21,42 +22,75 @@ import {
 const ELEMENT_STYLE = {
   base: {
     fontFamily: 'Nunito, sans-serif',
-    fontSize: '15px',
+    fontSize: '16px',
+    fontWeight: '600',
+    letterSpacing: '0',
     color: '#17252a',
-    '::placeholder': { color: '#ababab' },
+    '::placeholder': {
+      fontFamily: 'Nunito, sans-serif',
+      fontSize: '16px',
+      fontWeight: '600',
+      letterSpacing: '0',
+      color: '#ababab',
+    },
   },
   invalid: { color: '#ea0c0c' },
 };
 
+const STRIPE_ELEMENTS_OPTIONS = {
+  fonts: [
+    {
+      cssSrc:
+        'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap',
+    },
+  ],
+};
+
+/** Same billing countries as mobile AddCardScreen. */
+const COUNTRIES = [
+  { code: 'US', label: 'United States' },
+  { code: 'CA', label: 'Canada' },
+] as const;
+
+type CountryCode = (typeof COUNTRIES)[number]['code'];
+
 type Props = {
   open: boolean;
   onClose: () => void;
-  onSaved: (paymentMethodId: string) => void;
+  onSaved: (paymentMethodId: string, opts?: { asDefault?: boolean }) => void;
+  /** When true (no other cards), default toggle stays on. */
+  forceDefault?: boolean;
 };
 
-function AddPaymentMethodForm({ onClose, onSaved }: Omit<Props, 'open'>) {
+function AddPaymentMethodForm({
+  onClose,
+  onSaved,
+  forceDefault = false,
+}: Omit<Props, 'open'>) {
   const stripe = useStripe();
   const elements = useElements();
   const [tab, setTab] = useState<'card' | 'paypal'>('card');
   const [cardholderName, setCardholderName] = useState('');
-  const [country, setCountry] = useState('Canada');
+  const [country, setCountry] = useState<CountryCode>('US');
   const [postalCode, setPostalCode] = useState('');
+  const [makeDefault, setMakeDefault] = useState(true);
   const [touched, setTouched] = useState({
     name: false,
-    country: false,
     zip: false,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const nameOk = cardholderName.trim().length > 0;
-  const countryOk = country.trim().length > 0;
   const zipOk = postalCode.trim().length > 0;
+  const zipLabel = country === 'US' ? 'Zip code' : 'Postal code';
+  const zipPlaceholder = country === 'US' ? '12345' : 'A1A 1A1';
+  const willBeDefault = forceDefault || makeDefault;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setTouched({ name: true, country: true, zip: true });
-    if (!nameOk || !countryOk || !zipOk) return;
+    setTouched({ name: true, zip: true });
+    if (!nameOk || !zipOk) return;
     if (!stripe || !elements) return;
 
     setError(null);
@@ -75,13 +109,7 @@ function AddPaymentMethodForm({ onClose, onSaved }: Omit<Props, 'open'>) {
           billing_details: {
             name: cardholderName.trim(),
             address: {
-              country: country.trim().length === 2
-                ? country.trim().toUpperCase()
-                : country.trim().toLowerCase().includes('canada')
-                  ? 'CA'
-                  : country.trim().toLowerCase().includes('united')
-                    ? 'US'
-                    : undefined,
+              country,
               postal_code: postalCode.trim(),
             },
           },
@@ -94,8 +122,11 @@ function AddPaymentMethodForm({ onClose, onSaved }: Omit<Props, 'open'>) {
       const id = typeof pmId === 'string' ? pmId : pmId?.id;
       if (!id) throw new Error('No payment method returned from Stripe');
 
-      await setDefaultPaymentMethod(id);
-      onSaved(id);
+      await reportPaymentMethodAdded(id);
+      if (willBeDefault) {
+        await setDefaultPaymentMethod(id);
+      }
+      onSaved(id, { asDefault: willBeDefault });
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -135,16 +166,17 @@ function AddPaymentMethodForm({ onClose, onSaved }: Omit<Props, 'open'>) {
           PayPal isn’t available yet. Please add a card.
         </p>
       ) : (
-        <>
+        <div className="add-pay-fields">
           <label className="add-pay-field">
             <span className="add-pay-label">Cardholder Name</span>
             <input
               className={`add-pay-input${!touched.name || nameOk ? '' : ' is-error'}`}
               type="text"
-              placeholder="Enter Cardholder Name"
+              placeholder="Name"
               value={cardholderName}
               onChange={(e) => setCardholderName(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+              autoComplete="cc-name"
             />
             {touched.name && !nameOk ? (
               <span className="add-pay-error-text">
@@ -154,9 +186,14 @@ function AddPaymentMethodForm({ onClose, onSaved }: Omit<Props, 'open'>) {
           </label>
 
           <div className="add-pay-field">
-            <span className="add-pay-label">Card Number</span>
+            <span className="add-pay-label">Card number</span>
             <div className="add-pay-stripe">
-              <CardNumberElement options={{ style: ELEMENT_STYLE }} />
+              <CardNumberElement
+                options={{
+                  style: ELEMENT_STYLE,
+                  placeholder: '4242  4242  4242  4242',
+                }}
+              />
             </div>
           </div>
 
@@ -164,13 +201,23 @@ function AddPaymentMethodForm({ onClose, onSaved }: Omit<Props, 'open'>) {
             <div className="add-pay-field add-pay-half">
               <span className="add-pay-label">Exp. date</span>
               <div className="add-pay-stripe">
-                <CardExpiryElement options={{ style: ELEMENT_STYLE }} />
+                <CardExpiryElement
+                  options={{
+                    style: ELEMENT_STYLE,
+                    placeholder: '12 / 34',
+                  }}
+                />
               </div>
             </div>
             <div className="add-pay-field add-pay-half">
               <span className="add-pay-label">CVV</span>
               <div className="add-pay-stripe">
-                <CardCvcElement options={{ style: ELEMENT_STYLE }} />
+                <CardCvcElement
+                  options={{
+                    style: ELEMENT_STYLE,
+                    placeholder: '123',
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -178,39 +225,54 @@ function AddPaymentMethodForm({ onClose, onSaved }: Omit<Props, 'open'>) {
           <div className="add-pay-row">
             <label className="add-pay-field add-pay-half">
               <span className="add-pay-label">Country</span>
-              <input
-                className={`add-pay-input${!touched.country || countryOk ? '' : ' is-error'}`}
-                type="text"
-                placeholder="Enter Country"
+              <select
+                className="add-pay-input add-pay-select"
                 value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                onBlur={() => setTouched((t) => ({ ...t, country: true }))}
-              />
-              {touched.country && !countryOk ? (
-                <span className="add-pay-error-text">Please enter Country!</span>
-              ) : null}
+                onChange={(e) => setCountry(e.target.value as CountryCode)}
+                autoComplete="country"
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="add-pay-field add-pay-half">
-              <span className="add-pay-label">Zip code</span>
+              <span className="add-pay-label">{zipLabel}</span>
               <input
                 className={`add-pay-input${!touched.zip || zipOk ? '' : ' is-error'}`}
                 type="text"
-                placeholder="Enter Zip code"
+                placeholder={zipPlaceholder}
                 value={postalCode}
                 onChange={(e) => setPostalCode(e.target.value)}
                 onBlur={() => setTouched((t) => ({ ...t, zip: true }))}
+                autoComplete="postal-code"
               />
               {touched.zip && !zipOk ? (
                 <span className="add-pay-error-text">
-                  Please enter Postal Code!
+                  Please enter {country === 'US' ? 'Zip' : 'Postal'} Code!
                 </span>
               ) : null}
             </label>
           </div>
-        </>
+        </div>
       )}
 
       {error ? <p className="add-pay-error-text">{error}</p> : null}
+
+      <label className="add-pay-default">
+        <span className="add-pay-default-label">Set as default</span>
+        <span className="add-pay-default-switch">
+          <input
+            type="checkbox"
+            checked={willBeDefault}
+            disabled={forceDefault || saving}
+            onChange={(e) => setMakeDefault(e.target.checked)}
+          />
+          <span className="add-pay-default-slider" aria-hidden />
+        </span>
+      </label>
 
       <div className="add-pay-actions">
         <button
@@ -226,7 +288,7 @@ function AddPaymentMethodForm({ onClose, onSaved }: Omit<Props, 'open'>) {
           className="add-pay-btn add-pay-btn--filled"
           disabled={saving || tab !== 'card' || !stripe}
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? 'SAVING…' : 'SAVE'}
         </button>
       </div>
     </form>
@@ -237,6 +299,7 @@ export default function AddPaymentMethodModal({
   open,
   onClose,
   onSaved,
+  forceDefault = false,
 }: Props) {
   if (!open) return null;
 
@@ -253,6 +316,14 @@ export default function AddPaymentMethodModal({
         aria-label="Add payment method"
         onClick={(e) => e.stopPropagation()}
       >
+        <button
+          type="button"
+          className="add-pay-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img src="/close.png" alt="" className="close-x-img" />
+        </button>
         {!isWebStripeConfigured() ? (
           <div className="add-pay-modal-form">
             <h2 className="add-pay-modal-title">Add payment method</h2>
@@ -270,8 +341,15 @@ export default function AddPaymentMethodModal({
             </div>
           </div>
         ) : (
-          <Elements stripe={getStripePromise()}>
-            <AddPaymentMethodForm onClose={onClose} onSaved={onSaved} />
+          <Elements
+            stripe={getStripePromise()}
+            options={STRIPE_ELEMENTS_OPTIONS}
+          >
+            <AddPaymentMethodForm
+              onClose={onClose}
+              onSaved={onSaved}
+              forceDefault={forceDefault}
+            />
           </Elements>
         )}
       </div>

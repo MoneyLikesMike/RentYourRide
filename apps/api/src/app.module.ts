@@ -15,6 +15,8 @@ import { GeocodeModule } from './geocode/geocode.module';
 import { DiditModule } from './didit/didit.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { AdminModule } from './admin/admin.module';
+import { ArticlesModule } from './articles/articles.module';
+import { TeamModule } from './team/team.module';
 import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
@@ -57,6 +59,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     DiditModule,
     MessagingModule,
     AdminModule,
+    ArticlesModule,
+    TeamModule,
   ],
 })
 export class AppModule {}

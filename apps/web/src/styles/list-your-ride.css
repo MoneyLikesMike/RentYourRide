@@ -10,7 +10,7 @@
 
 .lyr-title {
   font-family: 'Nunito', sans-serif;
-  font-size: clamp(1.4rem, 1.6vw, 1.7rem);
+  font-size: clamp(1.5rem, 1.9vw, 1.875rem); /* 30px Zeplin */
   font-weight: 700;
   color: #17252a;
   margin: 0;
@@ -18,9 +18,9 @@
 
 .lyr-step-label {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #4cb6b1;
+  font-size: 1.125rem; /* 18px Zeplin */
+  font-weight: 600;
+  color: #17252a; /* Zeplin zwYkXoA — not teal */
 }
 
 .lyr-progress {
@@ -46,6 +46,904 @@
   font-weight: 700;
   color: #17252a;
   margin: 0 0 0.75rem;
+}
+
+.lyr-section-title--light {
+  font-size: 1.5rem; /* 24px Zeplin */
+  font-weight: 400;
+  margin: 0 0 1.25rem;
+}
+
+.lyr-section-title--spaced {
+  margin-top: 0; /* spacing comes from .lyr-divider above */
+}
+
+/* Step 1 — Zeplin https://zpl.io/zwYkXoA (+ tooltip https://zpl.io/258nD40) */
+.lyr-step1 {
+  max-width: 48.125rem; /* 770px */
+}
+
+.lyr-vin-block {
+  margin-bottom: 1.25rem;
+  max-width: 23.125rem; /* match one column of the pair (~370px) */
+}
+
+.lyr-vin-gate {
+  margin: 0 0 1.25rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.lyr-vehicle-summary {
+  margin: 0.65rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #17252a;
+  line-height: 1.35;
+}
+
+.lyr-step1 .lyr-label {
+  font-size: 0.75rem; /* 12px */
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.lyr-step1 .lyr-field {
+  gap: 0.7rem; /* ~11px label → input (Zeplin) */
+}
+
+.lyr-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.6875rem 1.875rem; /* ~27px row / 30px column — Zeplin */
+  margin-bottom: 1.6875rem;
+}
+
+.lyr-pair:last-child {
+  margin-bottom: 0;
+}
+
+.lyr-pair--address {
+  align-items: end;
+  margin-bottom: 0;
+}
+
+.lyr-divider {
+  width: 100%;
+  height: 0;
+  margin: 2rem 0 2.2rem; /* Zeplin ~49px before / ~35px after section rules */
+  border: none;
+  border-top: 1px solid #ebebeb;
+}
+
+.lyr-pair + .lyr-divider {
+  margin-top: 1.25rem;
+}
+
+.lyr-divider--accent {
+  margin: 1.75rem 0 1.5rem;
+  border-top: 2px solid #def2f1;
+}
+
+.lyr-location-or {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 3.0625rem;
+  padding-bottom: 0.1rem;
+}
+
+.lyr-or {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem; /* 16px */
+  font-weight: 600;
+  color: #ababab;
+  flex-shrink: 0;
+}
+
+.lyr-location-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem; /* ~9px — Zeplin pin to label */
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem; /* 16px */
+  font-weight: 600;
+  letter-spacing: 0.25px;
+  color: #ffb214;
+  text-align: left;
+}
+
+.lyr-location-pin {
+  width: 0.9375rem; /* 15px Zeplin */
+  height: 1.375rem; /* 22px Zeplin */
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.lyr-location-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.lyr-plate-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.35rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.lyr-plate-note-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 1.5px solid #4cb6b1;
+  color: #4cb6b1;
+  font-size: 0.7rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.lyr-step1-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-top: 0;
+}
+
+.lyr-step1-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-shrink: 0;
+}
+
+.lyr-salvage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem; /* ~8px Zeplin text → switch */
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem; /* 16px */
+  font-weight: 600;
+  letter-spacing: 0.25px;
+  color: #4cb6b1;
+}
+
+/* Zeplin Switch OFF — 48×30 track, 27×26 handle @ 2,2 */
+.lyr-switch--lg {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 30px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.lyr-switch--lg input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  position: absolute;
+}
+
+.lyr-switch--lg .lyr-switch-slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  background: #bebebe;
+  border-radius: 15px;
+  transition: background 0.2s ease;
+  pointer-events: none;
+}
+
+.lyr-switch--lg .lyr-switch-slider::before {
+  content: '';
+  position: absolute;
+  width: 27px;
+  height: 26px;
+  left: 2px;
+  top: 2px;
+  bottom: auto;
+  background: #fff;
+  border-radius: 13px;
+  border: 0.1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.17);
+  transform: none;
+  transition: transform 0.2s ease;
+}
+
+.lyr-switch--lg input:checked + .lyr-switch-slider {
+  background: #4cb6b1;
+}
+
+.lyr-switch--lg input:checked + .lyr-switch-slider::before {
+  /* 48 - 27 - 2 = 19 */
+  transform: translateX(19px);
+}
+
+.lyr-next--step1 {
+  flex: 0 0 auto;
+  width: 10.625rem; /* 170px */
+  height: 2.5rem; /* 40px */
+  min-height: 2.5rem;
+  padding: 0;
+  border-radius: 1.25rem; /* 20px */
+  font-size: 0.875rem; /* 14px */
+  font-weight: 700;
+  letter-spacing: 0.22px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
+}
+
+.lyr-step1 .lyr-input,
+.lyr-step1 .places-input {
+  height: 3.0625rem; /* 49px */
+  min-height: 3.0625rem;
+  padding: 0 1.25rem;
+  font-size: 1rem; /* 16px */
+  font-weight: 400; /* filled values — Zeplin Canada */
+  box-sizing: border-box;
+}
+
+.lyr-step1 .places-input {
+  border: solid 1px #a3a3a3;
+  border-radius: 5px;
+  background: #f9f9f9;
+  outline: none;
+  color: #17252a;
+}
+
+.lyr-step1 .lyr-input::placeholder,
+.lyr-step1 .places-input::placeholder {
+  color: #ababab;
+  font-weight: 600;
+  opacity: 1;
+}
+
+/* Zeplin dropdown chevron ~9×4, stroke #3aafa9 @ 50% */
+.lyr-step1 .lyr-select {
+  appearance: none;
+  background-color: #f9f9f9;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1.5L5 4.5L9 1.5' stroke='%233aafa9' stroke-opacity='0.5' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1.1rem center;
+  background-size: 0.625rem 0.375rem;
+  padding-right: 2.5rem;
+  cursor: pointer;
+  font-weight: 400;
+  color: #17252a;
+}
+
+.lyr-step1 .lyr-select.is-placeholder {
+  color: #ababab;
+  font-weight: 600;
+}
+
+.lyr-step1 .lyr-select option {
+  color: #17252a;
+  font-weight: 600;
+}
+
+.lyr-color-select {
+  position: relative;
+  width: 100%;
+}
+
+.lyr-color-trigger {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding-right: 2.5rem;
+  position: relative;
+}
+
+.lyr-color-trigger::after {
+  content: '';
+  position: absolute;
+  right: 1.1rem;
+  top: 50%;
+  width: 0.625rem;
+  height: 0.375rem;
+  transform: translateY(-50%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1.5L5 4.5L9 1.5' stroke='%233aafa9' stroke-opacity='0.5' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: contain;
+  pointer-events: none;
+}
+
+.lyr-color-trigger.is-open::after {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.lyr-color-trigger.is-placeholder {
+  color: #ababab;
+  font-weight: 600;
+}
+
+.lyr-color-trigger.is-placeholder .fyc-color-value {
+  color: #ababab;
+  font-weight: 600;
+}
+
+.lyr-color-trigger .fyc-color-swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.lyr-color-dropdown {
+  position: absolute;
+  z-index: 12;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  max-height: 14rem;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  box-shadow: 0 8px 20px rgba(8, 12, 12, 0.12);
+  padding: 0.35rem;
+}
+
+@media (max-width: 720px) {
+  .lyr-pair,
+  .lyr-pair--address {
+    grid-template-columns: 1fr;
+  }
+
+  .lyr-location-or {
+    min-height: 0;
+    padding-bottom: 0;
+  }
+
+  .lyr-step1-bottom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lyr-next--step1 {
+    width: 100%;
+  }
+}
+
+/* Step 2 — Zeplin https://zpl.io/QMWm7DR (+ app option lists / Calendar) */
+.lyr-step2 {
+  max-width: 48.125rem; /* 770px — two 370px columns + 30px gap */
+}
+
+.lyr-step2 .lyr-label {
+  font-size: 0.75rem; /* 12px */
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.lyr-step2 .lyr-field {
+  gap: 0.7rem;
+}
+
+.lyr-step2 .lyr-pair {
+  margin-bottom: 1.6875rem; /* ~27px — Zeplin row rhythm */
+}
+
+.lyr-step2 .lyr-input,
+.lyr-step2 .lyr-select {
+  height: 3.0625rem; /* 49px */
+  min-height: 3.0625rem;
+  padding: 0 1.25rem;
+  font-size: 1rem;
+  font-weight: 400;
+  box-sizing: border-box;
+}
+
+.lyr-step2 .lyr-select {
+  appearance: none;
+  background-color: #f9f9f9;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1.5L5 4.5L9 1.5' stroke='%233aafa9' stroke-opacity='0.5' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1.1rem center;
+  background-size: 0.625rem 0.375rem;
+  padding-right: 2.5rem;
+  cursor: pointer;
+  color: #17252a;
+}
+
+.lyr-step2 .lyr-select.is-placeholder {
+  color: #ababab;
+  font-weight: 600;
+}
+
+.lyr-step2 .lyr-select option {
+  color: #17252a;
+  font-weight: 600;
+}
+
+.lyr-pair--avail {
+  align-items: end;
+}
+
+.lyr-avail-helper {
+  margin: 0;
+  padding-bottom: 0.85rem; /* align with 49px input mid/center-ish */
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  line-height: 1.35;
+  color: #8e8e8e;
+  max-width: 18.25rem; /* ~292px Zeplin */
+}
+
+.lyr-calendar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 1rem 0.25rem 0.25rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lyr-calendar-row:hover .lyr-calendar-label {
+  color: #4cb6b1;
+}
+
+.lyr-calendar-icon-wrap {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lyr-calendar-icon {
+  display: block;
+  width: 1.375rem;
+  height: 1.375rem;
+  object-fit: contain;
+}
+
+.lyr-calendar-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.lyr-calendar-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: #17252a;
+}
+
+.lyr-calendar-desc {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8e8e8e;
+  line-height: 1.35;
+}
+
+.lyr-calendar-chevron {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .lyr-pair--avail {
+    align-items: start;
+  }
+
+  .lyr-avail-helper {
+    padding-bottom: 0;
+    max-width: none;
+  }
+
+  .lyr-pair-spacer {
+    display: none;
+  }
+
+  .lyr-delivery-block {
+    max-width: none;
+  }
+}
+
+/* Step 3 — Zeplin https://zpl.io/AOGjQyB (+ app KM overage / options) */
+.lyr-step3 {
+  max-width: 48.125rem; /* 770px */
+}
+
+.lyr-step3 .lyr-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.lyr-step3 .lyr-field {
+  gap: 0.7rem;
+}
+
+.lyr-step3 .lyr-pair {
+  margin-bottom: 1.6875rem;
+}
+
+.lyr-step3 .lyr-input,
+.lyr-step3 .lyr-select {
+  height: 3.0625rem; /* 49px */
+  min-height: 3.0625rem;
+  padding: 0 1.25rem;
+  font-size: 1rem;
+  font-weight: 400;
+  box-sizing: border-box;
+}
+
+.lyr-step3 .lyr-input::placeholder {
+  color: #ababab;
+  font-weight: 600;
+  opacity: 1;
+}
+
+.lyr-step3 .lyr-select {
+  appearance: none;
+  background-color: #f9f9f9;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1.5L5 4.5L9 1.5' stroke='%233aafa9' stroke-opacity='0.5' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1.1rem center;
+  background-size: 0.625rem 0.375rem;
+  padding-right: 2.5rem;
+  cursor: pointer;
+  color: #17252a;
+}
+
+.lyr-step3 .lyr-select.is-placeholder {
+  color: #ababab;
+  font-weight: 600;
+}
+
+.lyr-step3 .lyr-select option {
+  color: #17252a;
+  font-weight: 600;
+}
+
+.lyr-pair-spacer {
+  display: block;
+}
+
+.lyr-delivery-block {
+  max-width: 23.125rem; /* one Zeplin column ~370px */
+  margin-bottom: 0.5rem;
+}
+
+.lyr-delivery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 1.875rem; /* align with 30px switch */
+  margin-bottom: 0.85rem;
+}
+
+.lyr-delivery-price .lyr-field-hint,
+.lyr-field-hint {
+  margin: 0.45rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8e8e8e;
+}
+
+.lyr-step3 .lyr-divider {
+  margin: 1.75rem 0 1.75rem;
+}
+
+/* Step 4 — Zeplin https://zpl.io/Gnz7dlW */
+.lyr-step4 {
+  max-width: 48.125rem; /* 770px */
+}
+
+.lyr-step4 .lyr-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.lyr-step4 .lyr-pair--extras {
+  margin-bottom: 1.5rem;
+  align-items: start;
+}
+
+.lyr-extra-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.lyr-extra-card--solo {
+  max-width: 23.125rem; /* one Zeplin column */
+}
+
+.lyr-extra-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 1.875rem; /* 30px switch */
+}
+
+.lyr-step4 .lyr-input {
+  height: 3.0625rem; /* 49px */
+  min-height: 3.0625rem;
+  padding: 0 1.25rem;
+  font-size: 1rem;
+  font-weight: 400;
+  box-sizing: border-box;
+}
+
+.lyr-step4 .lyr-input::placeholder {
+  color: #ababab;
+  font-weight: 600;
+  opacity: 1;
+}
+
+@media (max-width: 720px) {
+  .lyr-extra-card--solo {
+    max-width: none;
+  }
+}
+
+/* Step 5 — Zeplin https://zpl.io/jplj90W */
+.lyr-step5 {
+  max-width: 48.125rem; /* 770px */
+}
+
+.lyr-photos-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.lyr-photos-title-row .lyr-section-title {
+  margin: 0;
+}
+
+.lyr-step5 .lyr-see-examples {
+  font-size: 1.125rem; /* 18px Zeplin */
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.lyr-photo-slot {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 370 / 197;
+  border: 2px solid #a3d2d0; /* Zeplin — not #a3a3a3 */
+  border-radius: 0.875rem; /* 14px */
+  background: #f8ffff; /* rgb(248,255,255) Zeplin — not #f9f9f9 */
+  overflow: hidden;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+/* Must follow .lyr-photo-slot so cover isn’t overridden */
+.lyr-photo-slot.lyr-photo-slot--cover {
+  aspect-ratio: 770 / 410;
+  margin-bottom: 1.75rem;
+}
+
+.lyr-photo-hint {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ababab;
+  margin: -0.5rem 0 1rem;
+}
+
+/* Photos are draggable once filled, so signal the grab affordance. */
+.lyr-photo-slot[draggable='true'] {
+  cursor: grab;
+}
+
+.lyr-photo-slot[draggable='true']:active {
+  cursor: grabbing;
+}
+
+.lyr-photo-slot.is-dragging {
+  opacity: 0.45;
+}
+
+.lyr-photo-slot.is-drop-target {
+  border-color: #3aafa9;
+  box-shadow: 0 0 0 3px rgba(58, 175, 169, 0.25);
+}
+
+/* Native image drag would otherwise hijack the slot's own drag. */
+.lyr-photo-slot-img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.lyr-photo-cover-badge {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.35rem 1.25rem 0.45rem;
+  border-radius: 0 0 0.8rem 0.8rem;
+  background: #4cb6b1;
+  color: #f7f7f7;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.lyr-photo-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem 1.875rem;
+}
+
+.lyr-photo-slot-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.lyr-photo-slot-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.lyr-photo-slot-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.lyr-photo-slot-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.lyr-photo-placeholder {
+  max-width: 65%;
+  max-height: 55%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  opacity: 0.95;
+}
+
+.lyr-photo-slot--cover .lyr-photo-placeholder {
+  max-width: 55%;
+  max-height: 60%;
+}
+
+.lyr-photo-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.lyr-photo-slot-remove {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  z-index: 3;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 4px rgba(23, 37, 42, 0.2);
+}
+
+.lyr-photo-slot-remove .close-x-img {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.lyr-photo-slot--add {
+  border: 2px dashed #a3d2d0;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lyr-photo-add-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.lyr-photo-add-plus {
+  font-family: 'Nunito', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 400;
+  line-height: 1;
+  color: #4cb6b1;
+}
+
+.lyr-photo-add-caption {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.lyr-photo-add-max {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ababab;
+  margin-top: 0.15rem;
+}
+
+@media (max-width: 720px) {
+  .lyr-photo-slots {
+    grid-template-columns: 1fr;
+  }
+
+  .lyr-photos-title-row {
+    flex-wrap: wrap;
+  }
 }
 
 .lyr-subsection {
@@ -76,12 +974,84 @@
   gap: 0.4rem;
 }
 
+.lyr-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .lyr-label {
   font-family: 'Nunito', sans-serif;
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   color: #17252a;
+}
+
+/* VIN ? tooltip — Zeplin https://zpl.io/zwYkXoA (default) / https://zpl.io/258nD40 (hover) */
+.lyr-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.lyr-tooltip-btn {
+  width: 1rem; /* 16px */
+  height: 1rem;
+  border: 1.5px solid #4cb6b1;
+  border-radius: 50%;
+  background: transparent;
+  color: #4cb6b1;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.5625rem; /* 9px */
+  font-weight: 900;
+  letter-spacing: 0.14px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.lyr-tooltip:hover .lyr-tooltip-btn,
+.lyr-tooltip.is-open .lyr-tooltip-btn,
+.lyr-tooltip-btn:focus-visible {
+  background: #4cb6b1;
+  color: #fff;
+  outline: none;
+}
+
+.lyr-tooltip-bubble {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  bottom: calc(100% + 0.65rem);
+  transform: translateX(-50%);
+  width: min(23rem, 70vw); /* ~368px */
+  box-sizing: border-box;
+  padding: 1.2rem 1.55rem;
+  background: #4cb6b1;
+  border-radius: 0.625rem; /* 10px */
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  line-height: 1.25rem; /* 20px */
+  text-transform: none;
+  box-shadow: 0 8px 24px rgba(23, 37, 42, 0.18);
+}
+
+.lyr-tooltip-caret {
+  position: absolute;
+  left: 50%;
+  bottom: -0.35rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  background: #4cb6b1;
+  transform: translateX(-50%) rotate(45deg);
 }
 
 .lyr-input,
@@ -148,6 +1118,8 @@
   opacity: 0;
   width: 0;
   height: 0;
+  position: absolute;
+  margin: 0;
 }
 
 .lyr-switch-slider {
@@ -155,8 +1127,9 @@
   inset: 0;
   cursor: pointer;
   background: #d0d0d0;
-  border-radius: 1rem;
-  transition: 0.2s;
+  border-radius: 999px;
+  transition: background 0.2s;
+  pointer-events: none;
 }
 
 .lyr-switch-slider::before {
@@ -168,7 +1141,8 @@
   bottom: 0.15rem;
   background: #fff;
   border-radius: 50%;
-  transition: 0.2s;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .lyr-switch input:checked + .lyr-switch-slider {
@@ -216,6 +1190,148 @@
   flex-direction: column;
   align-items: center;
   gap: 0.85rem;
+}
+
+/* Finish flow modals — Zeplin https://zpl.io/DpDGwZw + https://zpl.io/dRA4G05 */
+.lyr-modal-backdrop.lyr-modal-backdrop--finish {
+  background: rgba(0, 0, 0, 0.677);
+}
+
+.lyr-modal.lyr-modal--finish {
+  /* 628px card; horizontal inset 28px (570px copy) */
+  max-width: 39.25rem;
+  width: 100%;
+  padding: 4.75rem 1.75rem 5.1875rem; /* top 76 / sides 28 / bottom ~83 */
+  border-radius: 1.0625rem; /* 17px */
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  box-sizing: border-box;
+}
+
+.lyr-modal.lyr-modal--host-standards {
+  min-height: 43.3125rem; /* 693px */
+}
+
+.lyr-modal.lyr-modal--ready {
+  min-height: 36rem; /* 576px */
+  padding-bottom: 5.375rem; /* ~86px under button */
+}
+
+.lyr-modal.lyr-modal--finish .lyr-modal-close--finish {
+  top: 2rem; /* 32px Zeplin */
+  right: 2rem; /* ~31–33px from edge */
+  width: 1.9375rem; /* 31px hit area */
+  height: 1.9375rem;
+  padding: 0;
+}
+
+.lyr-modal.lyr-modal--finish .lyr-modal-close--finish .close-x-img {
+  width: 1.3125rem; /* 21px Zeplin X */
+  height: 1.3125rem;
+}
+
+.lyr-modal.lyr-modal--finish .lyr-modal-title {
+  font-size: 1.5rem; /* 24px */
+  font-weight: 600;
+  color: #17252a;
+  margin: 0 0 0.875rem; /* 14px → award at y=122 */
+  line-height: 2rem; /* 32px */
+}
+
+.lyr-modal.lyr-modal--finish .lyr-modal-image {
+  width: 13.375rem; /* 214px */
+  height: 13.375rem;
+  object-fit: contain;
+  /* award y=122→336; copy y=317 — outer ring overlaps copy box */
+  margin: 0 0 -1.1875rem;
+  flex-shrink: 0;
+}
+
+.lyr-modal.lyr-modal--finish .lyr-modal-copy {
+  font-size: 1rem; /* 16px */
+  font-weight: 600;
+  color: #ababab;
+  line-height: 1.5625rem; /* 25px Zeplin */
+  letter-spacing: -0.1px;
+  text-align: center;
+  margin: 0 0 0.75rem;
+  max-width: 35.625rem; /* 570px */
+  width: 100%;
+}
+
+/* Ready: congrats (y=317) → terms (y=382) = 65px between tops */
+.lyr-modal.lyr-modal--ready .lyr-modal-copy {
+  margin-bottom: 0;
+}
+
+.lyr-modal.lyr-modal--ready .lyr-modal-copy--terms {
+  margin-top: 0.65rem;
+  margin-bottom: 0.7rem; /* → button y=450 */
+}
+
+.lyr-modal.lyr-modal--finish .lyr-modal-list {
+  list-style: none;
+  margin: 0 0 1.125rem; /* ~18px → button y=570 */
+  padding: 0;
+  max-width: 31.25rem; /* 500px Zeplin bullets */
+  width: 100%;
+  text-align: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ababab;
+  line-height: 1.5625rem; /* 25px */
+  letter-spacing: -0.1px;
+}
+
+.lyr-modal.lyr-modal--host-standards .lyr-modal-copy {
+  /* intro ends ~y=407 where first bullet starts */
+  margin-bottom: 0.35rem;
+}
+
+.lyr-modal.lyr-modal--finish .lyr-modal-list li {
+  margin: 0 0 0.35rem; /* Zeplin tops 407 → 442 ≈ 35px for 2-line items */
+}
+
+.lyr-modal.lyr-modal--finish .lyr-modal-list li:last-child {
+  margin-bottom: 0;
+}
+
+.lyr-modal.lyr-modal--finish .lyr-modal-link {
+  color: #4cb6b1;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.lyr-next.lyr-next--finish-modal {
+  flex: 0 0 auto;
+  width: 10.625rem; /* 170px */
+  height: 2.5rem; /* 40px */
+  min-height: 2.5rem;
+  margin-top: 0;
+  padding: 0;
+  border-radius: 1.25rem; /* 20px */
+  font-size: 0.875rem; /* 14px */
+  font-weight: 700;
+  letter-spacing: 0.22px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
+}
+
+@media (max-width: 640px) {
+  .lyr-modal.lyr-modal--finish {
+    padding: 3.5rem 1.25rem 2.5rem;
+    min-height: 0;
+  }
+
+  .lyr-modal.lyr-modal--finish .lyr-modal-image {
+    width: 10rem;
+    height: 10rem;
+    margin-bottom: -0.5rem;
+  }
 }
 
 .lyr-modal-title {
@@ -330,11 +1446,18 @@
   height: 1.5rem;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lyr-photo-remove .close-x-img {
+  width: 0.6rem;
+  height: 0.6rem;
 }
 
 .lyr-features {
@@ -361,9 +1484,166 @@
   background: #def2f1;
 }
 
+/* Step 6 — Zeplin https://zpl.io/p0oyXAj (+ app check-in/out) */
+.lyr-step6 {
+  max-width: 48.125rem; /* 770px */
+}
+
+.lyr-step6 .lyr-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.lyr-step6 .lyr-field {
+  gap: 0.7rem;
+  margin-bottom: 0.35rem;
+}
+
+.lyr-step6 .lyr-textarea {
+  min-height: 8.75rem; /* 140px Zeplin */
+  height: auto;
+  padding: 0.85rem 1.25rem;
+  font-size: 1rem; /* 16px Zeplin placeholder */
+  font-weight: 600;
+  line-height: 1.4;
+  border: 1px solid #a3a3a3;
+  border-radius: 5px;
+  background: #f9f9f9; /* same fill as other LYR inputs */
+  background-image: none;
+  color: #17252a;
+  resize: vertical;
+  box-sizing: border-box;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.lyr-step6 .lyr-textarea::placeholder {
+  color: #ababab; /* rgb(171,171,171) Zeplin */
+  font-weight: 600;
+  opacity: 1;
+}
+
+.lyr-char-count {
+  margin: 0 0 1.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #9b9b9b;
+  text-align: right;
+}
+
+.lyr-features-heading {
+  margin: 0.25rem 0 0.85rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: #17252a;
+}
+
+.lyr-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 6.0625rem); /* 97px cards */
+  justify-content: space-between;
+  gap: 1.25rem 0;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.lyr-feature-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  width: 6.0625rem; /* 97px Zeplin */
+  height: 6.0625rem;
+  padding: 0.65rem 0.3rem 0.4rem;
+  margin: 0;
+  border: 0.3px solid #61beba;
+  border-radius: 0.8125rem; /* 13px */
+  background: #ffffff;
+  /* Zeplin: teal blob under card @ ~30% + blur — match listing / legacy */
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
+  cursor: pointer;
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+/* Selected — match app DescribeYourRideScreen (teal border + tint + label) */
+.lyr-feature-card.is-selected {
+  border-color: #4cb6b1;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(76, 182, 177, 0.65);
+}
+
+.lyr-feature-card.is-selected::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid #4cb6b1;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.lyr-feature-icon {
+  width: 4.4375rem; /* 71px Zeplin icon group */
+  height: 3.125rem; /* 50px */
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.lyr-feature-card-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.5625rem; /* 9px Zeplin */
+  font-weight: 600;
+  color: #060606;
+  text-align: center;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: 0.14px; /* Zeplin 0.14 */
+  transition: color 0.15s ease;
+}
+
+.lyr-feature-card.is-selected .lyr-feature-card-label {
+  color: #4cb6b1;
+}
+
+.lyr-step6 .lyr-divider {
+  margin: 1.5rem 0 1.75rem;
+  border: none;
+  border-top: 2px solid #def2f1; /* Zeplin Path 23 Copy 3 after features */
+  height: 0;
+}
+
+@media (max-width: 720px) {
+  .lyr-feature-grid {
+    grid-template-columns: repeat(3, 1fr);
+    justify-content: stretch;
+    gap: 0.85rem;
+  }
+
+  .lyr-feature-card {
+    width: 100%;
+    max-width: none;
+    height: auto;
+    aspect-ratio: 1;
+  }
+}
+
 .lyr-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end; /* Zeplin QMWm7DR — Back sits left of Next on the right */
   align-items: center;
   gap: 1rem;
   margin-top: 2rem;
@@ -371,16 +1651,126 @@
   border-top: 1px solid #def2f1;
 }
 
+/* Edit ride — Zeplin https://zpl.io/a3BWw1A : Save left, step arrows + N/6 right */
+.lyr-footer--edit {
+  justify-content: space-between;
+  width: 100%;
+  max-width: 48.125rem; /* match step content */
+}
+
+.lyr-next--edit-save {
+  flex: 0 0 auto;
+  width: 10.625rem; /* 170px */
+  height: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 1.25rem;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.22px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
+}
+
+.lyr-next--edit-save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.lyr-footer-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.lyr-stepper-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #4cb6b1;
+}
+
+.lyr-stepper-arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.lyr-footer-step-count {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.125rem; /* 18px Zeplin */
+  font-weight: 600;
+  color: #17252a;
+  min-width: 3.5rem;
+  text-align: right;
+}
+
+.lyr-input--readonly,
+.lyr-input:disabled.lyr-input--readonly {
+  color: #545454;
+  cursor: default;
+  opacity: 1;
+}
+
+.lyr-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 2.875rem; /* ~46px between Back group and Next (Zeplin) */
+}
+
+.lyr-footer .lyr-next {
+  flex: 0 0 auto;
+  width: 10.625rem; /* 170px Zeplin */
+  height: 2.5rem; /* 40px */
+  min-height: 2.5rem;
+  padding: 0;
+  border-radius: 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.22px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
+}
+
 .lyr-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem; /* 8px — Zeplin chevron → text */
   border: none;
   background: none;
   color: #4cb6b1;
   font-family: 'Nunito', sans-serif;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.875rem; /* 14px */
+  letter-spacing: 0.22px;
+  line-height: 1.2;
   cursor: pointer;
   text-decoration: none;
   padding: 0;
+  height: 2.5rem; /* align with Next button */
+}
+
+.lyr-back-chevron {
+  display: block;
+  flex-shrink: 0;
+}
+
+.lyr-back-chevron--forward {
+  margin-left: 0.35rem;
+}
+
+.lyr-footer-step {
+  align-self: center;
 }
 
 .lyr-next {
@@ -413,11 +1803,26 @@
 }
 
 .lyr-modal {
+  position: relative;
   background: #fff;
   border-radius: 0.75rem;
   padding: 1.5rem;
   max-width: 26rem;
   width: 100%;
+}
+
+.lyr-modal-close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.85rem;
+  border: none;
+  background: none;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .lyr-modal h2 {
@@ -441,49 +1846,717 @@
   align-items: center;
 }
 
+.your-rides-tabs {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.your-rides-tab {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(0.95rem, 1vw, 1.05rem);
+  font-weight: 700;
+  color: #ababab;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.35rem 0;
+  cursor: pointer;
+}
+
+.your-rides-tab--active {
+  color: #17252a;
+  border-bottom-color: #4cb6b1;
+}
+
 .your-rides-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: 1.25rem;
-  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2vw 0;
 }
 
 .your-rides-card {
-  border-radius: 1rem;
+  width: 48%;
+  border-radius: 1vw;
   box-shadow: 0 5px 11px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  text-decoration: none;
-  color: inherit;
   background: #fff;
+  box-sizing: border-box;
+}
+
+.your-rides-photo-wrap {
+  position: relative;
 }
 
 .your-rides-photo {
   width: 100%;
-  height: 9rem;
+  height: 10vw;
+  min-height: 10rem;
   object-fit: cover;
   display: block;
+  border-radius: 0.5vw 0.5vw 0 0;
 }
 
 .your-rides-photo--empty {
   background: #f2f2f2;
 }
 
+.your-rides-trash {
+  position: absolute;
+  top: 1.1rem;
+  left: 1.1rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.your-rides-trash:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.your-rides-trash img {
+  width: 1.05rem;
+  height: auto;
+  display: block;
+}
+
+.your-rides-fav {
+  top: 1rem;
+  right: 1.1rem;
+  left: auto;
+}
+
+.your-rides-meta-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.your-rides-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 37, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.your-rides-confirm {
+  position: relative;
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 1.75rem 1.5rem 1.5rem;
+  max-width: 24rem;
+  width: 100%;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+}
+
+.your-rides-confirm h2 {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #17252a;
+  margin: 0 0 0.75rem;
+}
+
+.your-rides-confirm p {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #545454;
+  line-height: 1.45;
+  margin: 0 0 1.5rem;
+}
+
+.your-rides-confirm-close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.85rem;
+  border: none;
+  background: none;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.your-rides-confirm-close:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.your-rides-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.your-rides-confirm-cancel,
+.your-rides-confirm-delete {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 2rem;
+  min-height: 2.4rem;
+  padding: 0 1.25rem;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.your-rides-confirm-cancel {
+  background: #fff;
+  border: 2px solid #def2f1;
+  color: #17252a;
+}
+
+.your-rides-confirm-delete {
+  background: #f34949;
+  border: 2px solid #f34949;
+  color: #fff;
+}
+
+.your-rides-confirm-cancel:disabled,
+.your-rides-confirm-delete:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .your-rides-meta {
-  padding: 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.55rem;
+  padding: 1vw;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.your-rides-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.your-rides-row--bottom {
+  justify-content: flex-start;
+}
+
+.your-rides-title-type {
+  display: flex;
+  align-items: center;
+  gap: 1vw;
+  min-width: 0;
 }
 
 .your-rides-name {
   font-family: 'Nunito', sans-serif;
+  font-size: clamp(0.95rem, 1vw, 1.1rem);
+  font-weight: 700;
+  color: #17252a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.your-rides-type {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(0.75rem, 0.8vw, 0.9rem);
+  font-weight: 700;
+  color: #d1d3d4;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.your-rides-price {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(0.95rem, 1vw, 1.1rem);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.your-rides-amount {
+  color: #388d89;
+}
+
+.your-rides-cad {
+  color: #ffbb2e;
+}
+
+.your-rides-stars {
+  color: #ffb214;
+  letter-spacing: 0.05em;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.your-rides-stars-empty {
+  color: #e5e5e5;
+}
+
+.your-rides-trips {
+  margin-left: 1vw;
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(0.85rem, 0.9vw, 1rem);
   font-weight: 700;
   color: #17252a;
 }
 
-.your-rides-status {
+.your-rides-actions {
+  box-sizing: border-box;
+  padding: 2vw 1.25vw;
+  min-height: 5.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  background: #fff;
+}
+
+.your-rides-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 8vw;
+  min-width: 7.5rem;
+  height: 2.3rem;
+  padding: 0 0.5vw;
+  border-radius: 25px;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.your-rides-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.your-rides-btn--outline {
+  background: rgba(255, 178, 20, 0.1);
+  border: 2px solid #ffb214;
+  color: #ffb214;
+}
+
+.your-rides-btn--filled {
+  background: #4cb6b1;
+  border: 2px solid #4cb6b1;
+  color: #fff;
+}
+
+.your-rides-btn-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.your-rides-empty {
+  padding: 2.5rem 0 1rem;
+}
+
+.your-rides-empty-msg {
+  margin: 0 0 1.5rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.15rem, 1.5vw, 1.5rem);
+  font-weight: 400;
+  color: #17252a;
+  line-height: 1.35;
+  max-width: 40rem;
+}
+
+.your-rides-empty-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12.4rem;
+  height: 2.5rem;
+  padding: 0 1.5rem;
+  border-radius: 1.25rem;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
+}
+
+@media (max-width: 900px) {
+  .your-rides-card {
+    width: 100%;
+  }
+
+  .your-rides-photo {
+    height: 12rem;
+  }
+
+  .your-rides-btn {
+    width: auto;
+    flex: 1;
+  }
+
+  .your-rides-actions {
+    padding: 1.25rem;
+  }
+}
+
+/* Get Paid gate — app GetPaidLandingScreen */
+.get-paid-gate-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 28rem;
+  padding: 2rem 1rem 3rem;
+  box-sizing: border-box;
+}
+
+.get-paid-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 22rem;
+  margin: auto 0;
+  padding: 1rem 0 2rem;
+}
+
+.get-paid-gate-icon {
+  width: 11rem;
+  height: auto;
+  margin-bottom: 2rem;
+}
+
+.get-paid-gate-title {
+  position: relative;
+  margin: 0 0 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.375rem;
   font-weight: 600;
+  color: #0e262b;
+  line-height: 1.3;
+}
+
+.get-paid-gate-ready {
+  position: relative;
+  z-index: 1;
+}
+
+.get-paid-gate-ready::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 55%;
+  width: 100%;
+  height: 0.65rem;
+  background: rgba(255, 177, 49, 0.3);
+  border-radius: 0.3rem;
+  z-index: -1;
+}
+
+.get-paid-gate-copy {
+  margin: 0 0 2rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.2px;
   color: #ababab;
+}
+
+.get-paid-gate-error {
+  margin: 0 0 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f9493a;
+}
+
+.get-paid-gate-cta {
+  width: 15rem;
+  height: 3.125rem;
+  border: none;
+  border-radius: 1.5625rem;
+  background: #4cb6b1;
+  color: #f7f7f7;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+}
+
+.get-paid-gate-cta:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.get-paid-gate-cta:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+
+/* Get Paid form — app GetPaidStep1–3 collapsed onto one page */
+.get-paid-form {
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Nunito', sans-serif;
+}
+
+.get-paid-form-title {
+  position: relative;
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0e262b;
+  text-align: center;
+}
+
+.get-paid-form-lead {
+  margin: 0 0 2rem;
+  max-width: 30rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #8e8e8e;
+  text-align: center;
+}
+
+.get-paid-section {
+  width: 100%;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+  margin-bottom: 1.5rem;
+}
+
+.get-paid-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.get-paid-section-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0e262b;
+}
+
+.get-paid-section-lead {
+  margin: 0 0 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8e8e8e;
+}
+
+.get-paid-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1rem;
+}
+
+.get-paid-row .get-paid-field {
+  flex: 1 1 12rem;
+}
+
+.get-paid-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.85rem;
+}
+
+.get-paid-label {
+  margin-bottom: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #505050;
+}
+
+.get-paid-input {
+  width: 100%;
+  min-height: 3.0625rem;
+  box-sizing: border-box;
+  padding: 0 0.75rem;
+  border: 1px solid #a3a3a3;
+  border-radius: 0.3125rem;
+  background: rgba(249, 249, 249, 0.34);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #222;
+}
+
+.get-paid-input:focus {
+  outline: none;
+  border-color: #4cb6b1;
+  box-shadow: 0 0 0 3px rgba(76, 182, 177, 0.15);
+}
+
+.get-paid-input--error {
+  border-color: #e98080;
+}
+
+/* Matches the branded selects in the listing wizard */
+.get-paid-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1.5L5 4.5L9 1.5' stroke='%233aafa9' stroke-opacity='0.5' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1.1rem center;
+  background-size: 0.625rem 0.375rem;
+  padding-right: 2.5rem;
+  cursor: pointer;
+  font-weight: 400;
+  color: #17252a;
+}
+
+.get-paid-select.is-placeholder {
+  color: #ababab;
+  font-weight: 600;
+}
+
+.get-paid-select option {
+  color: #17252a;
+  font-weight: 600;
+}
+
+/* Google address search reskinned to match the surrounding inputs */
+.get-paid-places {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 3.0625rem;
+  padding: 0 0.75rem;
+  border: 1px solid #a3a3a3;
+  border-radius: 0.3125rem;
+  background: rgba(249, 249, 249, 0.34);
+}
+
+.get-paid-places:focus-within {
+  border-color: #4cb6b1;
+  box-shadow: 0 0 0 3px rgba(76, 182, 177, 0.15);
+}
+
+.get-paid-places--error {
+  border-color: #e98080;
+}
+
+.get-paid-places .places-input {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #222;
+}
+
+.get-paid-places .places-hint {
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+}
+
+.get-paid-textarea {
+  min-height: 6.5rem;
+  padding: 0.75rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.get-paid-field-error {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e98080;
+}
+
+.get-paid-form-error {
+  width: 100%;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  box-sizing: border-box;
+  border-radius: 0.5rem;
+  background: rgba(249, 73, 58, 0.08);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f9493a;
+}
+
+.get-paid-legal {
+  width: 100%;
+  margin: 0 0 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #a9a9a9;
+}
+
+.get-paid-legal a {
+  color: #4cb6b1;
+  text-decoration: none;
+}
+
+@media (max-width: 40rem) {
+  .get-paid-row .get-paid-field {
+    flex-basis: 100%;
+  }
+}
+
+.get-paid-verify {
+  max-width: 26rem;
+  margin: 3rem auto;
+  text-align: center;
+  padding: 1rem;
+}
+
+.get-paid-verify h2 {
+  margin: 0 0 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0e262b;
+}
+
+.get-paid-verify p {
+  margin: 0 0 1.25rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #ababab;
+}
+
+.get-paid-verify-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12rem;
+  height: 3rem;
+  padding: 0 1.5rem;
+  border-radius: 1.5rem;
+  background: #4cb6b1;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
 }

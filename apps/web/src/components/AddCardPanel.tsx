@@ -9,6 +9,7 @@ import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import {
   createSetupIntent,
   isStripeClientSecret,
+  reportPaymentMethodAdded,
   setDefaultPaymentMethod,
 } from '../api/payments';
 import { ApiError } from '../api/http';
@@ -61,6 +62,7 @@ function AddCardFormInner({ onSaved, onCancel }: AddCardFormProps) {
       const id = typeof pmId === 'string' ? pmId : pmId?.id;
       if (!id) throw new Error('No payment method returned from Stripe');
 
+      await reportPaymentMethodAdded(id);
       await setDefaultPaymentMethod(id);
       onSaved(id);
     } catch (err) {

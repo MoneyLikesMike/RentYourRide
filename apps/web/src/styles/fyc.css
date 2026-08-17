@@ -12,17 +12,19 @@
   width: 100%;
 }
 
+/* Zeplin Find Your Car_filter_v2 (1800 artboard):
+   Start@145/251, End@444/252, Sort@745, Price@945, More@1145 — gaps 48 / 49 / 30 */
 .fyc-sort-bar {
   position: relative;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-end;
-  justify-content: center;
-  gap: 1rem 1.5rem;
-  margin: 1rem 0 1.5rem;
+  justify-content: flex-start;
+  gap: 2.67vw; /* ~48px @ 1800 */
+  margin: 0 0 1.5rem;
   box-sizing: border-box;
   box-shadow: 0 8px 12px rgba(0, 0, 0, 0.05);
-  padding: 1rem clamp(1rem, 4vw, 3rem) 1.5rem;
+  padding: 1.25rem 8.055vw 1.75rem; /* 145/1800 — align with logo */
   width: 100%;
   background: #fff;
   z-index: 5;
@@ -33,13 +35,36 @@
   flex-direction: column;
   align-items: flex-start;
   border-bottom: 2px solid #def2f1;
-  min-width: 9rem;
-  padding-bottom: 0.25rem;
+  min-width: 0;
+  padding-bottom: 0.35rem;
 }
 
-.fyc-sort-field.location {
-  min-width: min(18rem, 100%);
-  flex: 1 1 14rem;
+.fyc-sort-field--dates {
+  width: min(15.6875rem, 13.94vw); /* 251px @ ≤1800 */
+  flex-shrink: 0;
+}
+
+.fyc-header-where {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border-bottom: 2px solid #def2f1;
+  min-width: min(16rem, 100%);
+  padding-bottom: 0.2rem;
+}
+
+.fyc-header-where .option-caption {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.fyc-header-where .places-input {
+  margin: 0.25rem 0 0;
+  font-size: 1rem;
+  width: 100%;
+  color: #ababab;
 }
 
 .fyc-sort-field .option-caption {
@@ -47,21 +72,26 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: #17252a;
-}
-
-.fyc-sort-field .places-input {
-  margin: 0.35rem 0 0;
-  font-size: 1rem;
-  color: #ababab;
+  margin-bottom: 0.15rem;
 }
 
 .fyc-dt-row {
   display: flex;
-  gap: 0.35rem;
+  gap: 0.85rem;
   width: 100%;
+  align-items: center;
 }
 
-.fyc-dt-row input {
+.fyc-dt-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
+}
+
+.fyc-dt-control input {
   border: none;
   outline: none;
   background: transparent;
@@ -69,37 +99,128 @@
   font-size: 0.95rem;
   font-weight: 600;
   color: #17252a;
-  padding: 0.35rem 0;
+  padding: 0.35rem 1.1rem 0.35rem 0;
   min-width: 0;
-  width: 50%;
+  width: 100%;
+  cursor: pointer;
+}
+
+.fyc-dt-control input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.fyc-dt-chevron,
+.fyc-chip-chevron {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid rgba(58, 175, 169, 0.55);
+  border-bottom: 2px solid rgba(58, 175, 169, 0.55);
+  transform: rotate(45deg);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.fyc-dt-chevron {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  margin-top: -0.35rem;
+}
+
+.fyc-chip-chevron {
+  margin-left: 0.55rem;
+  margin-top: -0.2rem;
+}
+
+.fyc-chip-chevron--up {
+  margin-top: 0.15rem;
+  transform: rotate(225deg);
 }
 
 .fyc-filter-btns {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: 1.67vw; /* 30px @ 1800 */
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  padding-bottom: 0.15rem;
 }
 
+.fyc-sort-wrap {
+  position: relative;
+}
+
+.fyc-popover.sort {
+  right: auto;
+  left: 0;
+  top: calc(100% + 0.4rem);
+  width: auto;
+  min-width: 12.5rem;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.fyc-sort-option {
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #17252a;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+
+.fyc-sort-option:hover,
+.fyc-sort-option.selected {
+  background: rgba(76, 182, 177, 0.12);
+  color: #4cb6b1;
+}
+
+/* Zeplin Group 33: 170×49, radius 5, #f9f9f9 + 1px #a3a3a3, Nunito SemiBold 12 */
 .fyc-chip {
-  border: 1px solid #a3a3a370;
-  padding: 0.55rem 0.9rem;
-  border-radius: 0.25rem;
-  background: #fff;
+  box-sizing: border-box;
+  width: min(10.625rem, 9.44vw); /* 170px @ ≤1800 */
+  height: min(3.0625rem, max(2.75rem, 2.72vw));
+  padding: 0 1.25rem;
+  border: 1px solid #a3a3a3;
+  border-radius: 5px;
+  background: #f9f9f9;
   color: #17252a;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.35rem;
+  white-space: nowrap;
 }
 
+/* Closed: 2px teal outline. Open (this screen): filled #4cb6b1 + white label */
 .fyc-chip.more {
-  border-color: #4cb6b1;
+  border: 2px solid #4cb6b1;
+  background: transparent;
   color: #4cb6b1;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.fyc-chip.more .fyc-chip-chevron {
+  border-color: rgba(76, 182, 177, 0.85);
 }
 
 .fyc-chip.active {
@@ -108,16 +229,8 @@
   color: #fff;
 }
 
-.fyc-search-btn {
-  border: solid 3px #ffb131;
-  background-color: #fffbf4;
-  color: #17252a;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  border-radius: 2rem;
-  padding: 0.55rem 1.25rem;
-  cursor: pointer;
+.fyc-chip.active .fyc-chip-chevron {
+  border-color: rgba(255, 255, 255, 0.9);
 }
 
 .fyc-popover {
@@ -134,8 +247,386 @@
   width: min(28rem, calc(100% - 2rem));
 }
 
+/* Zeplin Group 20 Copy: 830×659, radius 17, 2px teal — grows when grids open */
 .fyc-popover.filters {
-  width: min(36rem, calc(100% - 2rem));
+  width: min(51.875rem, calc(100% - 2rem));
+  max-height: min(70.625rem, calc(100vh - 8rem));
+  padding: 1.5rem 1.875rem 1.35rem;
+  border-radius: 17px;
+  top: calc(100% + 0.15rem);
+  right: 8.055vw;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.fyc-filters-caret {
+  position: absolute;
+  top: -0.55rem;
+  right: 3.5rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  background: #fff;
+  border-right: 2px solid #4cb6b1;
+  border-bottom: 2px solid #4cb6b1;
+  transform: rotate(-135deg);
+}
+
+.fyc-filters-close {
+  position: absolute;
+  top: 1.35rem;
+  right: 1.75rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.fyc-filters-close span {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 3px;
+  border-radius: 4px;
+  background: #17252a;
+}
+
+.fyc-filters-close span:first-child {
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.fyc-filters-close span:last-child {
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+.fyc-filters-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 1.875rem;
+  margin-top: 1.75rem;
+}
+
+.fyc-filters-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  min-width: 0;
+}
+
+.fyc-filter-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.875rem;
+}
+
+.fyc-filter-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.fyc-filter-caption {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #17252a;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.fyc-filter-select {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 3.0625rem;
+  padding: 0 1rem;
+  border: 1px solid #a3a3a3;
+  border-radius: 5px;
+  background: #f9f9f9;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #8d8d8d;
+  cursor: pointer;
+  text-align: left;
+}
+
+.fyc-filter-select .fyc-chip-chevron {
+  border-color: rgba(58, 175, 169, 0.55);
+}
+
+/* Zeplin expanded select: tiles live inside the panel, not a floating menu */
+.fyc-filter-panel {
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  background: #fdfdfd;
+  overflow: visible;
+}
+
+.fyc-filter-field--panel.is-open .fyc-filter-panel {
+  border-color: #a3a3a3;
+  background: #f9f9f9;
+}
+
+.fyc-filter-select--panel {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  height: 3.0625rem;
+}
+
+.fyc-icon-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 6.0625rem);
+  gap: 0.875rem 0.9rem;
+  justify-content: center;
+  padding: 0.35rem 0.85rem 1.35rem;
+  overflow: visible;
+}
+
+.fyc-icon-tile {
+  position: relative;
+  box-sizing: border-box;
+  width: 6.0625rem;
+  height: 6.0625rem;
+  padding: 0.55rem 0.35rem 0.45rem;
+  border: 0.3px solid #61beba;
+  border-radius: 13px;
+  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(97, 190, 186, 0.28);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  cursor: pointer;
+  font: inherit;
+  color: #17252a;
+}
+
+.fyc-icon-tile img {
+  width: 4.3rem;
+  height: 2.8rem;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.fyc-icon-tile span {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  color: #17252a;
+  text-transform: none;
+}
+
+.fyc-icon-tile.selected {
+  background: #def2f1;
+  border-color: #4cb6b1;
+  box-shadow: 0 3px 12px rgba(76, 182, 177, 0.35);
+}
+
+.fyc-filter-dropdown {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  max-height: 14rem;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  box-shadow: 0 8px 20px rgba(8, 12, 12, 0.12);
+  padding: 0.35rem;
+}
+
+.fyc-filter-dropdown.tiles {
+  display: none;
+}
+
+.fyc-filter-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.55rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #17252a;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+
+.fyc-filter-option:hover,
+.fyc-filter-option.selected {
+  background: rgba(76, 182, 177, 0.12);
+  color: #4cb6b1;
+}
+
+.fyc-color-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #17252a;
+  font-weight: 400;
+}
+
+.fyc-color-swatch {
+  width: 2.0625rem;
+  height: 2.0625rem;
+  border-radius: 5px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Zeplin filter_full_v2: 370×2 gray track, teal fill, 23px white / 3px teal thumb */
+.fyc-km-field {
+  gap: 0.85rem;
+  padding-top: 0.5rem;
+}
+
+.fyc-km-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.fyc-km-value {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #17252a;
+  font-variant-numeric: tabular-nums;
+}
+
+.fyc-km-slider {
+  position: relative;
+  width: 100%;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  touch-action: none;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+
+.fyc-km-slider:focus-visible {
+  outline: 2px solid rgba(76, 182, 177, 0.45);
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+.fyc-km-track {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(151, 151, 151, 0.24);
+  overflow: hidden;
+}
+
+.fyc-km-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #4cb6b1;
+  width: 0;
+  will-change: width;
+}
+
+.fyc-km-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 23px;
+  height: 23px;
+  margin-top: -11.5px;
+  margin-left: -11.5px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #4cb6b1;
+  box-sizing: border-box;
+  pointer-events: none;
+  will-change: left;
+}
+
+.fyc-filters-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.fyc-filters-toggles {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  flex-wrap: wrap;
+}
+
+.fyc-switch {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.55rem !important;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem !important;
+  font-weight: 600;
+  color: #17252a;
+  cursor: pointer;
+}
+
+.fyc-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.fyc-switch-ui {
+  position: relative;
+  width: 3rem;
+  height: 1.875rem;
+  border-radius: 15px;
+  background: #dcdcdc;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.fyc-switch-ui::after {
+  content: '';
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.fyc-switch input:checked + .fyc-switch-ui {
+  background: #4cb6b1;
+}
+
+.fyc-switch input:checked + .fyc-switch-ui::after {
+  transform: translateX(1.1rem);
 }
 
 .fyc-popover-row {
@@ -162,62 +653,45 @@
   accent-color: #4cb6b1;
 }
 
-.fyc-apply {
-  margin-top: 1rem;
+.fyc-filters-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-left: auto;
+}
+
+.fyc-reset {
   border: none;
-  border-radius: 0.35rem;
+  background: transparent;
+  padding: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #17252a;
+  cursor: pointer;
+}
+
+.fyc-apply {
+  margin-top: 0;
+  border: none;
+  border-radius: 20px;
   background: #4cb6b1;
   color: #fff;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 700;
-  text-transform: uppercase;
-  padding: 0.65rem 1.25rem;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 0;
+  width: 10.5625rem;
+  height: 2.5rem;
   cursor: pointer;
-  float: right;
-}
-
-.fyc-filter-caption {
-  margin: 0 0 0.75rem;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #17252a;
-  text-transform: uppercase;
-}
-
-.fyc-type-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
+  float: none;
+  flex-shrink: 0;
 }
 
 .fyc-type-tile {
-  border: solid 1px #61beba;
-  border-radius: 0.75rem;
-  background: #fff;
-  padding: 0.75rem 0.85rem;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #8d8d8d;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.fyc-type-tile.selected {
-  background: #def2f1;
-  color: #17252a;
-  box-shadow: inset 0 0 0 2px #4cb6b1;
-}
-
-.fyc-toggle-row {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center;
-  gap: 0.5rem !important;
-  margin-top: 1rem;
-  font-size: 0.8rem !important;
+  display: none;
 }
 
 .fyc-banner-error {
@@ -232,8 +706,8 @@
   display: flex;
   align-items: stretch;
   justify-content: space-between;
-  height: min(80vh, 52rem);
-  margin-bottom: 2rem;
+  height: 100vh;
+  margin-bottom: 4.5rem;
   padding-left: clamp(1rem, 8vw, 10rem);
   box-sizing: border-box;
   gap: 1rem;
@@ -245,6 +719,14 @@
   box-sizing: border-box;
   overflow-y: auto;
   padding-right: 0.5rem;
+}
+
+.fyc-results-heading {
+  margin: 0 0 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #17252a;
 }
 
 .fyc-loading-message {
@@ -274,7 +756,6 @@
   margin-bottom: 1.5rem;
   overflow: hidden;
   background: #fff;
-  text-decoration: none;
   color: inherit;
   display: block;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -283,6 +764,16 @@
 .fyc-car-wrapper:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.1);
+}
+
+.fyc-car-img-wrap {
+  position: relative;
+}
+
+.fyc-car-img-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
 }
 
 .fyc-car-img {
@@ -298,12 +789,40 @@
   min-height: 7rem;
 }
 
+.fyc-fav {
+  position: absolute;
+  top: 1rem;
+  right: 1.1rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.fyc-fav:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.fyc-fav-icon {
+  display: block;
+}
+
 .fyc-car-description {
   display: flex;
   flex-direction: column;
   background: #fff;
   box-sizing: border-box;
   padding: 0.85rem 1rem 1rem;
+  text-decoration: none;
+  color: inherit;
 }
 
 .fyc-title-type-price {
@@ -379,6 +898,7 @@
 }
 
 .fyc-map-wrapper {
+  position: relative;
   width: 50%;
   height: 100%;
   min-height: 20rem;
@@ -387,11 +907,77 @@
   background: #def2f1;
 }
 
+/* Same soft edges as the listing detail map. The bottom stops short of opaque
+   so Google's attribution stays legible. */
+.fyc-map-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4.5rem;
+  pointer-events: none;
+}
+
+.fyc-map-fade--top {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.75) 45%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.fyc-map-fade--bottom {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(255, 255, 255, 0.6) 45%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
 .fyc-map-frame {
   width: 100%;
   height: 100%;
   border: 0;
   display: block;
+}
+
+.fyc-map-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Price pill anchored above its point on the map. */
+.fyc-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  padding: 0.4rem 0.7rem;
+  border: 1.5px solid #def2f1;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 40, 46, 0.22);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #17252a;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    transform 0.12s ease;
+}
+
+.fyc-pin:hover,
+.fyc-pin:focus-visible {
+  background: #19ac9d;
+  border-color: #19ac9d;
+  color: #fff;
+  transform: translate(-50%, -100%) scale(1.06);
+  z-index: 1;
 }
 
 .fyc-map-placeholder {
@@ -416,6 +1002,30 @@
 }
 
 @media (max-width: 960px) {
+  .fyc-sort-bar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    padding: 1rem 8vw 1.25rem;
+    gap: 1rem;
+  }
+
+  .fyc-sort-field--dates {
+    width: calc(50% - 0.5rem);
+    min-width: 10rem;
+  }
+
+  .fyc-filter-btns {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .fyc-chip {
+    width: auto;
+    min-width: 9.5rem;
+    flex: 1;
+  }
+
   .fyc-content-wrapper {
     flex-direction: column;
     height: auto;
@@ -442,5 +1052,32 @@
     right: 1rem;
     left: 1rem;
     width: auto;
+  }
+
+  .fyc-popover.filters {
+    right: 1rem;
+  }
+
+  .fyc-filters-cols,
+  .fyc-filter-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .fyc-filters-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fyc-filters-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .fyc-apply {
+    width: 100%;
+  }
+
+  .fyc-icon-tile-grid {
+    grid-template-columns: repeat(2, 6.0625rem);
   }
 }

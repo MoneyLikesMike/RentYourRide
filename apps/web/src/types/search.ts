@@ -16,4 +16,6 @@ export type SearchNavState = {
   location: SearchLocation;
   dates: SearchTripDates;
   vehicleType?: string[];
+  /** Home's "More advanced search" lands with the filter panel already open. */
+  openFilters?: boolean;
 };

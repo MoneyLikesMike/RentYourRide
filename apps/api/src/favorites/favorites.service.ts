@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FavoriteEntity } from '../entities/favorite.entity';
 import { ListingEntity } from '../entities/listing.entity';
+import { withApproximateLocation } from '../listings/approximate-location';
 
 @Injectable()
 export class FavoritesService {
@@ -21,7 +22,7 @@ export class FavoritesService {
     });
     return rows
       .filter((r) => r.listing?.published && r.listing?.active)
-      .map((r) => r.listing.toDetailDto());
+      .map((r) => withApproximateLocation(r.listing.toDetailDto()));
   }
 
   async add(userId: string, listingId: string) {

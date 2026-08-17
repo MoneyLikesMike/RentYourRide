@@ -1,13 +1,18 @@
-/* Listing detail — legacy Car screen tokens */
+/* Car overview — Zeplin https://zpl.io/vnB1kkJ + legacy Car screen */
 
 .car-page {
   min-height: 100vh;
   background: #fff;
+  display: flex;
+  flex-direction: column;
 }
 
 .car-screen-wrapper {
   box-sizing: border-box;
-  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 8vw, 12rem);
+  width: 100%;
+  max-width: none;
+  padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 17.5vw, 17.5vw);
+  flex: 1;
 }
 
 .caption-button-row {
@@ -20,13 +25,16 @@
 
 .car-page-caption {
   font-family: 'Nunito', sans-serif;
-  font-size: clamp(1.5rem, 2vw, 2rem);
+  font-size: clamp(1.5rem, 1.67vw, 1.875rem); /* 30px @ 1800 */
   font-weight: 700;
   color: #17252a;
   margin: 0;
 }
 
 .go-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   border: none;
   background: none;
   outline: none;
@@ -34,16 +42,22 @@
   text-decoration: none;
   color: #4cb6b1;
   font-family: 'Nunito', sans-serif;
-  font-size: clamp(0.95rem, 1.2vw, 1.15rem);
+  font-size: clamp(0.95rem, 1vw, 1.125rem); /* 18px */
   font-weight: 700;
   padding: 0;
 }
 
+.go-back .back-img {
+  width: 1rem;
+  height: auto;
+  display: block;
+}
+
 .car-border {
   width: 100%;
-  height: 1px;
+  height: 2px;
   background: #def2f1;
-  margin: 1rem 0 1.5rem;
+  margin: 1rem 0 1.15rem;
 }
 
 .car-status {
@@ -56,24 +70,59 @@
   color: #f9493a;
 }
 
+/* Breadcrumb */
+.car-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  margin: 0 0 1.75rem;
+}
+
+.car-route-link,
+.car-route-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #17252a;
+  text-decoration: none;
+}
+
+.car-route-link:hover {
+  color: #4cb6b1;
+}
+
+.car-route-chevron {
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 2px solid #3aafa9;
+  border-bottom: 2px solid #3aafa9;
+  transform: rotate(-45deg);
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
 .car-details-wrapper {
   display: flex;
   width: 100%;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
   justify-content: space-between;
-  gap: 2rem;
+  gap: clamp(1.5rem, 2.5vw, 2.75rem);
   align-items: flex-start;
 }
 
 .left-details-column {
-  width: min(60%, 40rem);
-  flex: 1.4;
+  width: 66%;
+  max-width: 48.125rem;
+  flex: 1.65;
   min-width: 0;
 }
 
 .right-details-column {
-  width: min(38%, 22rem);
-  flex: 0.9;
+  width: 32%;
+  max-width: 23.125rem;
+  flex: 0.85;
   min-width: 16rem;
 }
 
@@ -81,28 +130,205 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  margin: 0 0 1.75rem;
+  margin: 0 0 2rem;
 }
 
 .main-photo {
   width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 770 / 405;
   object-fit: cover;
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   display: block;
-  background: #def2f1;
+  background: #d8d8d8;
 }
 
 .main-photo--empty {
   min-height: 14rem;
 }
 
+.main-photo-button {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  border-radius: 0.75rem;
+}
+
+.main-photo-zoom {
+  position: absolute;
+  right: 0.85rem;
+  bottom: 0.85rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(23, 37, 42, 0.55);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.main-photo-zoom svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.main-photo-button:hover .main-photo-zoom,
+.main-photo-button:focus-visible .main-photo-zoom {
+  opacity: 1;
+}
+
+/* Full-screen gallery */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: clamp(1rem, 4vw, 3rem);
+  box-sizing: border-box;
+  background: rgba(10, 22, 25, 0.92);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+}
+
+.lightbox-close:hover,
+.lightbox-nav:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.lightbox-close svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.lightbox-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  display: block;
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+}
+
+.lightbox-nav svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.lightbox-nav--prev {
+  left: 0;
+}
+
+.lightbox-nav--next {
+  right: 0;
+}
+
+.lightbox-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 100%;
+}
+
+.lightbox-count {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.lightbox-thumbs {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.lightbox-thumb {
+  flex: 0 0 auto;
+  width: 5rem;
+  height: 3.25rem;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 0.4rem;
+  overflow: hidden;
+  background: none;
+  cursor: pointer;
+  opacity: 0.45;
+}
+
+.lightbox-thumb.active,
+.lightbox-thumb:hover {
+  opacity: 1;
+}
+
+.lightbox-thumb.active {
+  border-color: #3aafa9;
+}
+
+.lightbox-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .other-photos {
   width: 100%;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
 }
 
 .car-photo {
@@ -110,11 +336,11 @@
   padding: 0;
   background: none;
   cursor: pointer;
-  width: clamp(4.5rem, 6vw, 6rem);
-  height: clamp(2.75rem, 3.5vw, 3.5rem);
-  border-radius: 0.5rem;
+  width: 6.25rem;
+  height: 3.625rem;
+  border-radius: 0.4rem;
   overflow: hidden;
-  opacity: 0.35;
+  opacity: 0.2;
 }
 
 .car-photo.active,
@@ -132,245 +358,419 @@
 .title-stars {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.75rem;
-  margin: 0.35rem 0;
+  align-items: center;
+  gap: 0.75rem 1.15rem;
+  margin: 0 0 0.55rem;
 }
 
 .car-title {
   font-family: 'Nunito', sans-serif;
-  font-size: clamp(1.25rem, 1.5vw, 1.6rem);
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 400;
   color: #17252a;
   margin: 0;
 }
 
-.car-trips {
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #4cb6b1;
+.car-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
 }
 
-.car-meta-chips {
+.car-star {
+  display: block;
+  flex-shrink: 0;
+  fill: none;
+  stroke: #ffb214;
+  stroke-width: 1.2;
+}
+
+.car-star--on {
+  fill: #ffb214;
+  stroke: #ffb214;
+}
+
+.car-trips {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.car-feature-summary {
+  margin: 0 0 0.55rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ababab;
+}
+
+.car-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 1.25rem;
+}
+
+.car-meta-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
   font-weight: 600;
   color: #545454;
-  margin: 0 0 1rem;
+}
+
+.car-meta-dot {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: #def2f1;
+  flex-shrink: 0;
 }
 
 .car-description {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #545454;
-  line-height: 1.5;
-  margin: 0 0 1.5rem;
+  line-height: 1.55;
+  margin: 0 0 2.5rem;
+  white-space: pre-wrap;
+}
+
+/* Features — Zeplin: white card + teal underlay lip, icons on white */
+.car-features {
+  margin-top: 0.5rem;
 }
 
 .car-features-header {
   font-family: 'Nunito', sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 400;
   color: #17252a;
-  margin: 0 0 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  margin: 0 0 1rem;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .car-features-grid {
   list-style: none;
   margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-  gap: 0.65rem;
+  padding: 0 0 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.95rem;
 }
 
 .car-feature-tile {
-  border: 1px solid #61beba;
-  border-radius: 0.5rem;
-  background: #fff;
-  padding: 0.75rem 0.5rem;
+  position: relative;
+  box-sizing: border-box;
+  width: 6.0625rem;
+  height: 6.0625rem;
+  padding: 0.55rem 0.35rem 0.45rem;
+  border: 0.3px solid #61beba;
+  border-radius: 13px;
+  background: #ffffff;
+  /* Soft teal glow — white face must stay opaque (icons are teal/orange) */
+  box-shadow: 0 3px 10px rgba(97, 190, 186, 0.28);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
   text-align: center;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.5625rem;
+  font-weight: 600;
   color: #17252a;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
+  list-style: none;
 }
 
-.host-block {
-  margin-bottom: 1.25rem;
+.car-feature-tile img {
+  width: 4.3rem;
+  height: 2.8rem;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
-.host-label {
+/* Host */
+.host-heading {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #ababab;
-  margin: 0 0 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: #17252a;
+  margin: 0 0 0.85rem;
 }
 
 .host-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
 }
 
 .host-avatar {
-  width: 3rem;
-  height: 3rem;
+  width: 4.375rem; /* 70px */
+  height: 4.375rem;
   border-radius: 50%;
   object-fit: cover;
-  background: #def2f1;
+  background: #d8d8d8;
+  flex-shrink: 0;
 }
 
 .host-avatar--empty {
   flex-shrink: 0;
 }
 
+.host-information {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
 .host-name {
-  margin: 0;
   font-family: 'Nunito', sans-serif;
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1.125rem;
+  font-weight: 600;
   color: #17252a;
 }
 
-.host-city {
-  margin: 0.15rem 0 0;
+.host-location {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #17252a;
+  letter-spacing: 0.02em;
+}
+
+.host-joined {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #ababab;
 }
 
+/* Zeplin: Nunito SemiBold 16 / line 25 / #ababab under host */
+.host-bio {
+  margin: 1rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ababab;
+  line-height: 1.5625; /* 25px */
+  text-align: justify;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.host-bio--open {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.host-more {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #4cb6b1;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.car-aside-border {
+  width: 100%;
+  height: 1px;
+  background: #ebebeb;
+  margin: 1.15rem 0 1.25rem;
+}
+
+/* Price — Zeplin Rectangle 17: 370×55, 2px #4cb6b1 */
 .price-box {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin-bottom: 1.25rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #def2f1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 3.4375rem;
+  padding: 0.65rem 1rem;
+  margin-bottom: 1.5rem;
+  border: 2px solid #4cb6b1;
+  border-radius: 0.5rem;
 }
 
 .price-amount {
   font-family: 'Nunito', sans-serif;
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 1.625rem; /* 26px */
+  font-weight: 600;
   color: #4cb6b1;
 }
 
 .price-per {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #ababab;
+  white-space: pre-line;
 }
 
-.instant-badge,
-.request-badge {
-  margin-left: auto;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #4cb6b1;
-}
-
-.request-badge {
-  color: #ffb214;
-}
-
+/* Trip fields — underline style like Zeplin */
 .trip-field {
-  margin-bottom: 1rem;
+  margin-bottom: 1.35rem;
+  border-bottom: 2px solid #def2f1;
+  padding-bottom: 0.55rem;
 }
 
 .trip-label {
   display: block;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: #17252a;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.25rem;
 }
 
 .trip-inputs {
   display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
+  width: 100%;
 }
 
-.trip-inputs input {
+.trip-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   flex: 1;
   min-width: 0;
-  border: 1px solid #def2f1;
-  border-radius: 0.4rem;
-  padding: 0.55rem 0.6rem;
+  cursor: pointer;
+}
+
+.trip-control input {
+  border: none;
+  outline: none;
+  background: transparent;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
+  font-size: 1.125rem; /* 18px Zeplin */
   font-weight: 600;
   color: #17252a;
-  background: #f9f9f9;
+  padding: 0.2rem 1.25rem 0.2rem 0;
+  width: 100%;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.trip-control input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+/* Zeplin Path 2 / drop — teal chevron, same as FYC date fields */
+.car-trip-chevron {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid rgba(58, 175, 169, 0.55);
+  border-bottom: 2px solid rgba(58, 175, 169, 0.55);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.trip-control .car-trip-chevron {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  margin-top: -0.35rem;
+}
+
+.pickup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
 }
 
 .pickup-text {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
+  font-size: 1.125rem; /* 18px */
   font-weight: 600;
-  color: #545454;
-  line-height: 1.4;
+  color: #ababab; /* Zeplin grey value */
+  line-height: 1.35;
+}
+
+.pickup-row .car-trip-chevron {
+  margin-top: -0.2rem;
 }
 
 .stats-list {
-  margin: 1.25rem 0;
+  margin: 1.5rem 0 1.25rem;
   padding: 0;
-  border-top: 1px solid #97979733;
 }
 
 .stats-list > div {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 1rem;
-  padding: 0.65rem 0;
-  border-bottom: 1px solid #97979733;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid rgba(151, 151, 151, 0.45);
 }
 
 .stats-list dt {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.75rem; /* 12px */
   font-weight: 600;
-  color: #8d8d8d;
+  color: #17252a;
+  text-transform: uppercase; /* Zeplin/legacy car stats */
 }
 
 .stats-list dd {
   margin: 0;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #17252a;
+  font-size: 0.8125rem; /* 13px */
+  font-weight: 400;
+  color: #595959;
   text-align: right;
 }
 
+/* Zeplin Group 5: 370×51, pill radius 25.5, teal fill + glow */
 .checkout-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.9rem 1rem;
-  border-radius: 2rem;
-  border: 2px solid #4cb6b1;
+  margin-top: 0.35rem;
+  height: 3.1875rem; /* 51px */
+  padding: 0 1rem;
+  border-radius: 1.59375rem; /* 25.5px */
+  border: none;
   background: #4cb6b1;
   color: #fff;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 1.0625rem; /* 17px */
+  font-weight: 600;
+  text-align: center;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.016rem;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
   cursor: pointer;
 }
 
@@ -378,24 +778,65 @@
   filter: brightness(0.96);
 }
 
-/* Clickable FYC cards */
-.fyc-card-link {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-  height: 100%;
+/* Approximate pickup area. Bleeds past the wrapper padding so the map spans the
+   full viewport width, with the fades tracking the same edges. */
+.listing-location {
+  position: relative;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  margin-inline: calc(-1 * clamp(1rem, 17.5vw, 17.5vw));
 }
 
-.fyc-card {
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
+.listing-location-map {
+  width: 100%;
+  height: 34rem;
+  background: #def2f1;
 }
 
-.fyc-card:hover {
-  box-shadow: 0 10px 28px rgba(23, 37, 42, 0.1);
-  transform: translateY(-2px);
+/* Softens both edges so the map dissolves into the page instead of starting and
+   stopping abruptly. The bottom stops short of opaque to keep Google's
+   attribution legible. */
+.listing-location-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4.5rem;
+  pointer-events: none;
 }
 
-@media (max-width: 900px) {
+.listing-location-fade--top {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.75) 45%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.listing-location-fade--bottom {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(255, 255, 255, 0.6) 45%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+@media (max-width: 960px) {
+  .car-screen-wrapper {
+    padding: 1.25rem 1rem 2.5rem;
+  }
+
+  .listing-location {
+    margin-inline: -1rem;
+  }
+
+  .listing-location-map {
+    height: 24rem;
+  }
+
   .car-details-wrapper {
     flex-direction: column;
   }
@@ -403,6 +844,22 @@
   .left-details-column,
   .right-details-column {
     width: 100%;
+    max-width: none;
     min-width: 0;
+  }
+
+  .car-photo {
+    width: 5rem;
+    height: 2.9rem;
+  }
+
+  .lightbox-nav {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .lightbox-thumb {
+    width: 4rem;
+    height: 2.6rem;
   }
 }

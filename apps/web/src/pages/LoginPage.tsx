@@ -2,10 +2,18 @@ import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/http';
 import { getAccessToken, getRefreshToken } from '../api/storage';
+import {
+  withAuthBackground,
+  type AuthLocationState,
+} from '../auth/authModal';
 import { useAuth } from '../auth/AuthContext';
 import { isAppleSignInConfigured } from '../auth/appleSignIn';
 import { isGoogleSignInConfigured } from '../auth/googleSignIn';
-import { validateEmail, validatePassword } from '../auth/validation';
+import {
+  validateEmail,
+  validateLoginPassword,
+} from '../auth/validation';
+import PageMeta from '../components/PageMeta';
 import { AppleLogo, GoogleLogo } from '../components/SocialLogos';
 
 function hasStoredSession(): boolean {
@@ -17,13 +25,10 @@ export default function LoginPage() {
     useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const loginReturn = (location.state as {
-    from?: string;
-    listingDetail?: unknown;
-    checkout?: unknown;
-  } | null) ?? {};
+  const loginReturn = (location.state as AuthLocationState | null) ?? {};
   const from = loginReturn.from ?? '/';
   const returnState = loginReturn.checkout ?? loginReturn.listingDetail;
+  const background = loginReturn.backgroundLocation;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,13 +48,24 @@ export default function LoginPage() {
     });
   };
 
+  const closeLogin = () => {
+    if (background) {
+      navigate(
+        `${background.pathname}${background.search}${background.hash}`,
+        { replace: true, state: background.state },
+      );
+      return;
+    }
+    if (loginReturn.from) {
+      navigate(from, { replace: true, state: returnState ?? undefined });
+      return;
+    }
+    navigate('/', { replace: true });
+  };
+
   if (isAuthenticated) {
     return (
-      <Navigate
-        to={from}
-        replace
-        state={returnState ?? undefined}
-      />
+      <Navigate to={from} replace state={returnState ?? undefined} />
     );
   }
 
@@ -59,7 +75,7 @@ export default function LoginPage() {
 
     const errors: Record<string, string> = {};
     const emailErr = validateEmail(email.trim());
-    const passwordErr = validatePassword(password);
+    const passwordErr = validateLoginPassword(password);
     if (emailErr) errors.email = emailErr;
     if (passwordErr) errors.password = passwordErr;
     setFieldErrors(errors);
@@ -133,8 +149,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-page">
-      <form className="auth-card" onSubmit={onSubmit} noValidate>
+    <div className="auth-page auth-page--modal">
+      <PageMeta title="Log in | Rent Your Ride" noindex />
+      <form className="auth-card auth-card--login" onSubmit={onSubmit} noValidate>
+        <button
+          type="button"
+          className="auth-close"
+          onClick={closeLogin}
+          aria-label="Close"
+        >
+          <img src="/close.png" alt="" />
+        </button>
+
         <h1 className="auth-caption">Log in to continue</h1>
 
         <div className="auth-field">
@@ -168,7 +194,7 @@ export default function LoginPage() {
             onClick={() => setSecure((s) => !s)}
             aria-label={secure ? 'Show password' : 'Hide password'}
           >
-            {secure ? 'Show' : 'Hide'}
+            {secure ? <EyeSlashIcon /> : <EyeIcon />}
           </button>
           {fieldErrors.password ? (
             <span className="auth-error">{fieldErrors.password}</span>
@@ -178,7 +204,7 @@ export default function LoginPage() {
         <div className="auth-options">
           <label className="auth-remember">
             <input type="checkbox" />
-            Remember me
+            Remember Me
           </label>
           <Link className="auth-link-btn" to="/forgot-password">
             Forgot Password
@@ -190,7 +216,7 @@ export default function LoginPage() {
         ) : null}
 
         <button className="auth-cta" type="submit" disabled={busy}>
-          {loading ? 'Logging in…' : 'Log in'}
+          {loading ? 'Logging in…' : 'LOG IN'}
         </button>
 
         <p className="auth-divider-text">or continue with</p>
@@ -202,7 +228,7 @@ export default function LoginPage() {
           disabled={busy}
         >
           <AppleLogo />
-          <span>{appleLoading ? 'Continuing…' : 'Login with Apple'}</span>
+          <span>{appleLoading ? 'Continuing…' : 'Log in with Apple'}</span>
         </button>
         <button
           type="button"
@@ -211,16 +237,46 @@ export default function LoginPage() {
           disabled={busy}
         >
           <GoogleLogo />
-          <span>{googleLoading ? 'Continuing…' : 'Login with Google'}</span>
+          <span>{googleLoading ? 'Continuing…' : 'Log in with Google'}</span>
         </button>
 
         <p className="auth-footer">
           Don’t have an account?
-          <Link className="auth-link-btn" to="/signup">
+          <Link
+            className="auth-link-btn"
+            to="/signup"
+            state={withAuthBackground(location)}
+          >
             Create an account
           </Link>
         </p>
       </form>
     </div>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden fill="none">
+      <path
+        d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.75" />
+    </svg>
+  );
+}
+
+function EyeSlashIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden fill="none">
+      <path
+        d="M3 3l18 18M10.5 10.6a2.9 2.9 0 0 0 4 4M7.1 7.3C5.1 8.5 3.6 10.3 2.5 12c0 0 3.5 6.5 9.5 6.5 1.6 0 3-.3 4.3-.9M16.8 15.5c1.5-1 2.7-2.4 3.7-3.5 0 0-3.5-6.5-9.5-6.5-1 0-1.9.1-2.8.4"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

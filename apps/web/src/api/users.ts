@@ -28,6 +28,9 @@ export type MeUser = {
   referralCode?: string | null;
   creditsBalance?: number;
   notificationSettings?: Partial<NotificationSettings>;
+  createdAt?: string | null;
+  googleConnected?: boolean;
+  appleConnected?: boolean;
 };
 
 export type PatchMeInput = {
@@ -65,16 +68,29 @@ export async function uploadAvatar(file: File): Promise<MeUser> {
   });
 }
 
-export async function startEmailVerification(): Promise<{ ok?: boolean }> {
+export async function startEmailVerification(): Promise<{
+  ok?: boolean;
+  alreadyVerified?: boolean;
+  devCode?: string;
+}> {
   return apiFetch('v1/auth/start-email-verification', {
     method: 'POST',
     json: {},
   });
 }
 
+export async function finishEmailVerification(
+  code: string,
+): Promise<{ ok?: boolean; alreadyVerified?: boolean }> {
+  return apiFetch('v1/auth/finish-email-verification', {
+    method: 'POST',
+    json: { code },
+  });
+}
+
 export async function startPhoneVerification(
   phoneNumber: string,
-): Promise<{ ok?: boolean }> {
+): Promise<{ ok?: boolean; phone?: string; smsSent?: boolean; devCode?: string }> {
   return apiFetch('v1/auth/start-phone-verification', {
     method: 'POST',
     json: { phoneNumber },
@@ -87,6 +103,21 @@ export async function finishPhoneVerification(
   return apiFetch('v1/auth/finish-phone-verification', {
     method: 'POST',
     json: { code },
+  });
+}
+
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  return apiFetch<NotificationSettings>('v1/users/me/notification-settings', {
+    method: 'GET',
+  });
+}
+
+export async function patchNotificationSettings(
+  settings: Partial<NotificationSettings>,
+): Promise<NotificationSettings> {
+  return apiFetch<NotificationSettings>('v1/users/me/notification-settings', {
+    method: 'PATCH',
+    json: { settings },
   });
 }
 

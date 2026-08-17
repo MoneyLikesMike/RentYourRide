@@ -90,6 +90,7 @@ function EditProfileForm({
         <div className="edit-photo-row">
           <div className="edit-avatar-wrap">
             <img src={displayAvatar} alt="" className="edit-avatar" />
+            <span className="edit-avatar-fog" aria-hidden />
             <button
               type="button"
               className="edit-avatar-trash"
@@ -107,6 +108,30 @@ function EditProfileForm({
             </button>
           </div>
           <div className="edit-photo-meta">
+            <div className="edit-thumbs">
+              {previewUrl ? (
+                <>
+                  <img
+                    src={previewUrl}
+                    alt=""
+                    className="edit-thumb edit-thumb--active"
+                  />
+                  {me.avatarUrl && !clearAvatar ? (
+                    <img
+                      src={resolveAvatarUrl(me.avatarUrl)}
+                      alt=""
+                      className="edit-thumb"
+                    />
+                  ) : null}
+                </>
+              ) : me.avatarUrl && !clearAvatar ? (
+                <img
+                  src={resolveAvatarUrl(me.avatarUrl)}
+                  alt=""
+                  className="edit-thumb edit-thumb--active"
+                />
+              ) : null}
+            </div>
             <p className="edit-photo-help">
               A profile photo that shows your face can help other hosts and
               guests get to know you
@@ -161,7 +186,7 @@ function EditProfileForm({
 
 export default function EditProfilePage() {
   return (
-    <ProfileLayout>
+    <ProfileLayout title="Edit profile">
       {(me, reload) => <EditProfileForm me={me} reload={reload} />}
     </ProfileLayout>
   );

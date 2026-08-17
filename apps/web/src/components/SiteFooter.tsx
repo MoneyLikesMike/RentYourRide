@@ -1,48 +1,68 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { withAuthBackground } from '../auth/authModal';
 import { useAuth } from '../auth/AuthContext';
+import { goToHomeTop } from '../utils/goToHomeTop';
+import { CONTACT_MAILTO } from './SiteHeader';
+import { AppStoreBadge, GooglePlayBadge } from './StoreBadges';
 
-const GET_STARTED_LINKS = [
-  { title: 'Contact Us', path: '/contact-us' },
-  { title: 'Rent a car', path: '/find-your-car' },
-  { title: 'List a car', path: '/profile/list-your-ride' },
+const APP_STORE_URL =
+  'https://apps.apple.com/us/app/rent-your-ride/id1495074000';
+const PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.rentyourrideca';
+
+const HOME_TOP = '__home_top__';
+
+const FOOTER_COLUMNS = [
+  {
+    caption: 'Get started',
+    links: [
+      { title: 'Rent a Ride', path: HOME_TOP },
+      { title: 'List a Ride', path: '/profile/list-your-ride' },
+    ],
+  },
+  {
+    caption: 'Company',
+    links: [{ title: 'About', path: '/about' }],
+  },
+  {
+    caption: 'Learn more',
+    links: [
+      { title: 'Learn', path: '/learn' },
+      { title: 'News', path: '/news' },
+      { title: 'How It Works', path: '/how-it-works' },
+      { title: 'FAQ', path: '/faq' },
+      { title: 'Insurance', path: '/insurance' },
+      { title: 'Policies', path: '/terms-conditions' },
+    ],
+  },
+  {
+    caption: 'Support',
+    links: [{ title: 'Contact Us', path: '/contact' }],
+  },
 ] as const;
 
-const LEARN_MORE_LINKS = [
-  { title: 'About', path: '/about' },
-  { title: 'Terms & Conditions', path: '/terms-conditions' },
-  { title: 'Privacy Policy', path: '/privacy-policy' },
-  { title: 'Insurance', path: '/insurance' },
-] as const;
+const AUTH_GATED = new Set(['/profile/list-your-ride']);
 
 export default function SiteFooter() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
-  const isHome =
-    location.pathname === '/' || location.pathname === '/home';
-  const backgroundImage = isHome
-    ? '/footer/homeFooter.png'
-    : '/footer/footer.png';
+  const backgroundImage = '/footer/footer.png';
 
   const go = (path: string) => {
+    if (path === HOME_TOP) {
+      goToHomeTop(navigate, location.pathname);
+      return;
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (
-      !isAuthenticated &&
-      (path === '/find-your-car' || path === '/profile/list-your-ride')
-    ) {
-      navigate('/login', { state: { from: path } });
+    if (!isAuthenticated && AUTH_GATED.has(path)) {
+      navigate('/login', {
+        state: withAuthBackground(location, { from: path }),
+      });
       return;
     }
     navigate(path);
-  };
-
-  const openHowItWorks = () => {
-    if (isHome) {
-      window.dispatchEvent(new CustomEvent('ryr:how-it-works'));
-      return;
-    }
-    navigate('/', { state: { openHowItWorks: true } });
   };
 
   return (
@@ -52,48 +72,47 @@ export default function SiteFooter() {
         <div className="site-footer-left">
           <div className="site-footer-brand">
             <Link to="/">
-              <img src="/logo.png" alt="RentYourRide" className="site-footer-logo" />
+              <img src="/logo.png" alt="Rent Your Ride" className="site-footer-logo" />
             </Link>
             <span className="site-footer-company">
               © 2026 RentYourRide Ltd. - All Rights Reserved
             </span>
+            <div className="site-footer-stores">
+              <a
+                href={APP_STORE_URL}
+                className="site-footer-store-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <AppStoreBadge className="site-footer-store-badge" />
+              </a>
+              <a
+                href={PLAY_STORE_URL}
+                className="site-footer-store-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <GooglePlayBadge className="site-footer-store-badge" />
+              </a>
+            </div>
           </div>
 
           <div className="site-footer-nav">
-            <div className="site-footer-links">
-              <span className="site-footer-links-caption">Get started</span>
-              {GET_STARTED_LINKS.map((item) => (
-                <button
-                  key={item.path}
-                  type="button"
-                  className="site-footer-link"
-                  onClick={() => go(item.path)}
-                >
-                  {item.title}
-                </button>
-              ))}
-              <button
-                type="button"
-                className="site-footer-link"
-                onClick={openHowItWorks}
-              >
-                How it works?
-              </button>
-            </div>
-
-            <div className="site-footer-links">
-              <span className="site-footer-links-caption">Learn more</span>
-              {LEARN_MORE_LINKS.map((item) => (
-                <button
-                  key={item.path}
-                  type="button"
-                  className="site-footer-link"
-                  onClick={() => go(item.path)}
-                >
-                  {item.title}
-                </button>
-              ))}
-            </div>
+            {FOOTER_COLUMNS.map((column) => (
+              <div key={column.caption} className="site-footer-links">
+                <span className="site-footer-links-caption">{column.caption}</span>
+                {column.links.map((item) => (
+                  <button
+                    key={`${column.caption}-${item.title}`}
+                    type="button"
+                    className="site-footer-link"
+                    onClick={() => go(item.path)}
+                  >
+                    {item.title}
+                  </button>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -139,6 +158,30 @@ export default function SiteFooter() {
               aria-label="TikTok"
             >
               <img src="/footer/tiktok.svg" alt="" className="site-footer-social" />
+            </a>
+            <a
+              className="site-footer-share-btn"
+              href="https://www.youtube.com/@rentyourride"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="YouTube"
+            >
+              <img
+                src="/footer/youtube.svg"
+                alt=""
+                className="site-footer-social youtube"
+              />
+            </a>
+            <a
+              className="site-footer-share-btn"
+              href={CONTACT_MAILTO}
+              aria-label="Email"
+            >
+              <img
+                src="/footer/email.svg"
+                alt=""
+                className="site-footer-social email"
+              />
             </a>
           </div>
         </div>

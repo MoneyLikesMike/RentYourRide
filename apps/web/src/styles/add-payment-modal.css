@@ -1,9 +1,9 @@
-/* Add payment method popup — legacy AddPaymentMethod */
+/* Add payment method — Zeplin https://zpl.io/wy0LXD1 */
 
 .add-pay-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(23, 37, 42, 0.45);
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12,59 +12,107 @@
 }
 
 .add-pay-modal {
+  position: relative;
   background: #fff;
-  border-radius: 0.75rem;
-  width: min(100%, 26rem);
+  border-radius: 1.0625rem; /* 17px */
+  width: min(100%, 26.875rem); /* 430px */
   max-height: calc(100vh - 2rem);
   overflow: auto;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
+}
+
+.add-pay-close {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  background: none;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.add-pay-close img {
+  width: 0.95rem;
+  height: 0.95rem;
+  object-fit: contain;
 }
 
 .add-pay-modal-form {
-  padding: 1.5rem 1.5rem 1.25rem;
+  padding: 4.75rem 1.875rem 2.5rem; /* title ~y76, sides 30px */
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0;
+  box-sizing: border-box;
 }
 
 .add-pay-modal-title {
   font-family: 'Nunito', sans-serif;
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.5rem; /* 24px */
+  font-weight: 600;
   color: #17252a;
-  margin: 0 0 0.25rem;
+  margin: 0 0 2.375rem; /* tabs at ~y146 */
   text-align: center;
+  line-height: 1.35;
 }
 
+/* Tabs: Card @ x30, Paypal @ x103; teal bar 38×5; grey rule #ebebeb */
 .add-pay-tabs {
   display: flex;
-  gap: 0.5rem;
-  border-bottom: 1px solid #def2f1;
-  margin-bottom: 0.25rem;
+  justify-content: flex-start;
+  align-items: flex-end;
+  gap: 2.375rem; /* 38px between tab labels */
+  margin: 0 0 2rem; /* fields start ~y217 */
+  padding: 0 0 0.7rem;
+  border-bottom: 1px solid #ebebeb;
 }
 
 .add-pay-tab {
-  flex: 1;
+  position: relative;
   border: none;
   background: none;
-  padding: 0.65rem 0.5rem;
+  padding: 0;
+  margin: 0;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 1rem; /* 16px */
+  font-weight: 600;
+  line-height: 1.375;
   color: #ababab;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
 }
 
 .add-pay-tab.is-active {
+  font-weight: 700;
   color: #4cb6b1;
-  border-bottom-color: #4cb6b1;
+}
+
+.add-pay-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.7rem;
+  height: 0.3125rem; /* 5px */
+  background: #4cb6b1;
+}
+
+.add-pay-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* field groups: 76 + 24 gap = 100 → ~24px between 76px blocks */
 }
 
 .add-pay-field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.7rem; /* label 16px + gap ≈ input at y27 */
   position: relative;
 }
 
@@ -75,23 +123,80 @@
 
 .add-pay-label {
   font-family: 'Nunito', sans-serif;
-  font-size: 0.7rem;
+  font-size: 0.75rem; /* 12px */
   font-weight: 600;
-  text-transform: uppercase;
   color: #17252a;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.35;
 }
 
 .add-pay-input,
 .add-pay-stripe {
-  border-radius: 0.26rem;
+  border-radius: 5px;
   border: solid 1px #a3a3a3;
   background: #f9f9f9;
-  padding: 0.7rem 0.85rem;
+  padding: 0 1.25rem; /* placeholder x:20 */
   box-sizing: border-box;
   width: 100%;
+  height: 3.0625rem; /* 49px */
+  min-height: 3.0625rem;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
+  font-size: 16px; /* Zeplin Nunito SemiBold 16 */
+  font-weight: 600;
+  letter-spacing: 0;
   color: #17252a;
+  line-height: 22px;
+}
+
+/* Zeplin placeholder: Nunito SemiBold 16 / #ababab */
+.add-pay-input::placeholder {
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 22px;
+  color: #ababab;
+  opacity: 1;
+}
+
+.add-pay-input::-webkit-input-placeholder {
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 22px;
+  color: #ababab;
+  opacity: 1;
+}
+
+.add-pay-input::-moz-placeholder {
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 22px;
+  color: #ababab;
+  opacity: 1;
+}
+
+.add-pay-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%234cb6b1' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1.25rem center;
+  background-size: 0.65rem auto;
+  padding-right: 2.5rem;
+  cursor: pointer;
+}
+
+.add-pay-stripe {
+  display: flex;
+  align-items: center;
+}
+
+.add-pay-stripe .StripeElement {
+  width: 100%;
 }
 
 .add-pay-input.is-error,
@@ -101,7 +206,7 @@
 
 .add-pay-row {
   display: flex;
-  gap: 0.75rem;
+  gap: 1.875rem; /* 30px between 170px halves */
 }
 
 .add-pay-error-text {
@@ -109,7 +214,7 @@
   font-size: 0.8rem;
   font-weight: 600;
   color: #f9493a;
-  margin: 0;
+  margin: 0.35rem 0 0;
 }
 
 .add-pay-paypal-stub {
@@ -117,40 +222,243 @@
   font-weight: 600;
   color: #ababab;
   text-align: center;
-  padding: 2rem 0;
+  padding: 2.5rem 0.5rem;
   margin: 0;
+  min-height: 10rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* Cancel = teal text only; Save = 169×40 pill — Zeplin Group 5 Copy 313×40 @ x:87 */
 .add-pay-actions {
   display: flex;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 19.5625rem; /* 313px */
+  margin: 2.75rem 0 0 3.5625rem; /* +57px → x:87 in 430 modal (fields @ x:30) */
+  padding: 0;
+  min-height: 2.5rem; /* 40px */
+  gap: 0;
 }
 
 .add-pay-btn {
-  flex: 1;
-  border-radius: 0.35rem;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.875rem; /* 14px */
   font-weight: 700;
+  letter-spacing: 0.22px;
   text-transform: uppercase;
-  padding: 0.75rem 0.5rem;
   cursor: pointer;
+  padding: 0;
+  margin: 0;
 }
 
 .add-pay-btn--ghost {
-  border: 2px solid #4cb6b1;
-  background: #fff;
+  border: none;
+  background: none;
   color: #4cb6b1;
+  flex: 0 0 auto;
+  height: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .add-pay-btn--filled {
+  flex: 0 0 auto;
+  width: 10.5625rem; /* 169px */
+  height: 2.5rem; /* 40px */
+  min-height: 2.5rem;
   border: none;
+  border-radius: 1.25rem; /* 20px */
   background: #4cb6b1;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
   color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.add-pay-btn:disabled {
+/* Edit payment method — Zeplin https://zpl.io/RmNr7dE */
+
+.edit-pay-form {
+  padding-top: 4.75rem;
+}
+
+.edit-pay-form .add-pay-modal-title {
+  margin-bottom: 1.75rem;
+}
+
+.add-pay-input--readonly {
+  color: #ababab;
+  cursor: default;
+}
+
+.edit-pay-default-hint {
+  margin: 1rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
+.add-pay-default {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  cursor: pointer;
+}
+
+.add-pay-default-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #17252a;
+}
+
+.add-pay-default-switch {
+  position: relative;
+  display: inline-block;
+  width: 3rem;
+  height: 1.875rem;
+  flex-shrink: 0;
+}
+
+.add-pay-default-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.add-pay-default-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #d0d0d0;
+  border-radius: 0.9375rem;
+  transition: 0.2s;
+}
+
+.add-pay-default-slider::before {
+  position: absolute;
+  content: '';
+  height: 1.625rem;
+  width: 1.625rem;
+  left: 0.125rem;
+  bottom: 0.125rem;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: 0.2s;
+}
+
+.add-pay-default-switch input:checked + .add-pay-default-slider {
+  background: #4cb6b1;
+}
+
+.add-pay-default-switch input:checked + .add-pay-default-slider::before {
+  transform: translateX(1.125rem);
+}
+
+.add-pay-default-switch input:disabled + .add-pay-default-slider {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.edit-pay-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 21.875rem; /* 350px — Zeplin Group 5 Copy */
+  margin: 2.75rem 0 0 1.25rem; /* +20px → x:50 in 430 modal */
+  padding: 0;
+  min-height: 2.5rem; /* 40px */
+}
+
+/* Delete card — mango X + label, left-aligned with Save vertically centered */
+.edit-pay-delete {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.4375rem; /* ~7px: icon x:3→16, text x:23 */
+  border: none;
+  background: none;
+  margin: 0;
+  padding: 0;
+  height: 2.5rem;
+  min-height: 2.5rem;
+  line-height: 1;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 700;
+  letter-spacing: 0.22px;
+  color: #ffb214;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.edit-pay-delete-x {
+  position: relative;
+  display: block;
+  width: 0.8125rem; /* 13px */
+  height: 0.8125rem;
+  flex-shrink: 0;
+}
+
+.edit-pay-delete-x::before,
+.edit-pay-delete-x::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.75rem; /* 12px */
+  height: 2px;
+  border-radius: 4px;
+  background: #ffb214;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.edit-pay-delete-x::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* Save — same teal pill as Add payment */
+.edit-pay-save {
+  flex: 0 0 auto;
+  width: 10.5625rem; /* 169px */
+  height: 2.5rem; /* 40px */
+  min-height: 2.5rem;
+  border: none;
+  border-radius: 1.25rem; /* 20px */
+  background: #4cb6b1;
+  box-shadow: 0 4px 12px rgba(76, 182, 177, 0.5);
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.22px;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-pay-delete:disabled,
+.edit-pay-save:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }

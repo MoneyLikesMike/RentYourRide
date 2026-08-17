@@ -179,6 +179,7 @@ npm run eas:submit:ios
 |--|-----|------------|
 | API | `https://bedev.rentyourride.ca` | `https://backend.rentyourride.ca` |
 | Admin | `https://admindev.rentyourride.ca` | `https://admin.rentyourride.ca` |
+| Website | `https://fedev.rentyourride.ca` | `https://app.rentyourride.ca` |
 | AWS profile | `dev` | `ryr-prod` |
 | Secrets | `ryr-dev-secrets` | `ryr-prod-secrets` |
 | S3 deploy bucket | `dev-ryrbs` | `prod-ryrbs` |
@@ -203,6 +204,8 @@ npm run eas:submit:ios
 | `npm run api:deploy:prod` | Deploy Nest API to prod EC2 |
 | `bash apps/api/scripts/setup-prod-alb.sh` | ALB `/v1/*` routing on `backend.rentyourride.ca` |
 | `npm run admin:deploy:prod` | Build + S3 sync admin to `admin.rentyourride.ca` |
+| `npm run web:deploy:testing` | Build + deploy website to `fedev.rentyourride.ca` (bedev API) |
+| `npm run web:deploy:production` | Build + deploy website to `app.rentyourride.ca` (prod API + live Stripe) |
 
 ---
 

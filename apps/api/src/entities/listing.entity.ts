@@ -137,6 +137,8 @@ export class ListingEntity {
       hostRating: Number(this.hostRating),
       guestReviews: this.guestReviews ?? [],
       hostPhotoUri: h?.avatarUrl ?? undefined,
+      hostJoinedYear: h?.createdAt ? h.createdAt.getFullYear() : undefined,
+      hostBio: h?.aboutBio?.trim() || '',
       hostEmail: h?.email,
       hostPhone: h?.phone ?? undefined,
       licensePlate: this.licensePlate ?? undefined,
