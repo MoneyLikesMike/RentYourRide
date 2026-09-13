@@ -10,10 +10,10 @@ App version on TF for this feature: check `app.json` (`3.0.7` / build **40** in 
    or continue with photos → **Photo management**.
 2. **Edit flow:** Edit your ride → **Photos & video** → action sheet → **Add video**.
 3. **Picker:** Photo library only (`expo-image-picker`, `mediaTypes: ['videos']`, `videoMaxDuration: 60`). No in-app record.
-4. **Limits (client):** up to **3** videos + **10** photos; reject with alert if **> 60s** or **> 60 MB** (`constants/listingMedia.js`).
+4. **Limits (client):** up to **1** video + **10** photos; reject with alert if **> 60s** or **> 60 MB** (`constants/listingMedia.js`).
 5. **Order:** new videos are **pinned first** in the media array (not buried after photos). Cards still prefer an **image** cover (`listingCoverUri`).
 6. **Upload:** Continue/save → `syncListingPhotos` → `POST /v1/host/listings/:id/photos` with `mediaType=video`. Listing row is created/saved first; a failed later upload surfaces a clear error and stops the loop (prior successful appends may already be on the listing — see punch list).
-7. **API reject:** MIME allowlist + **60 MB** video cap + max **3** videos; oversized file deleted from disk before response.
+7. **API reject:** MIME allowlist + **60 MB** video cap + max **1** video; oversized file deleted from disk before response.
 
 ## Guest playback (iOS TF)
 

@@ -1,6 +1,6 @@
 /** Marketplace-style listing clip limits (mobile + API should stay aligned). */
 export const MAX_LISTING_PHOTOS = 10;
-export const MAX_LISTING_VIDEOS = 3;
+export const MAX_LISTING_VIDEOS = 1;
 /** Hard cap — keeps Pinpoint/S3/disk bills predictable. */
 export const MAX_LISTING_VIDEO_BYTES = 60 * 1024 * 1024;
 export const MAX_LISTING_VIDEO_DURATION_MS = 60 * 1000;

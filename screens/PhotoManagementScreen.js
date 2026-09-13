@@ -298,7 +298,8 @@ const PhotoManagementScreen = ({ navigation, route }) => {
         <View key="max-photos-text" style={styles.gridItemTextCell}>
           <View style={styles.maxPhotosTextInGrid}>
             <Text style={styles.maxPhotosText}>
-              UP TO {MAX_PHOTOS} PHOTOS + {MAX_VIDEOS} VIDEOS
+              UP TO {MAX_PHOTOS} PHOTOS + {MAX_VIDEOS}{' '}
+              {MAX_VIDEOS === 1 ? 'VIDEO' : 'VIDEOS'}
             </Text>
           </View>
         </View>

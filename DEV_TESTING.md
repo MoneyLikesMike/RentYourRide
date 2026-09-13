@@ -247,7 +247,7 @@ All designed screens in the mobile app (`screens/`). Route names match React Nav
 | Describe your ride | `DescribeYourRideScreen.js` |
 | Show off your ride | `ShowOffYourRideScreen.js` | Photos + **Add video** (≤60s library pick) |
 | Photo shoot | `PhotoShootScreen.js` |
-| Photo management | `PhotoManagementScreen.js` | Up to 10 photos + 3 videos; see `docs/LISTING_VIDEO_TF.md` |
+| Photo management | `PhotoManagementScreen.js` | Up to 10 photos + 1 video; see `docs/LISTING_VIDEO_TF.md` |
 | Listing photo gallery | `ListingPhotoGalleryScreen.js` | Guest playback for photos/videos |
 | Host standards | `HostStandardsScreen.js` |
 | Ready to start earning | `ReadyToStartEarningScreen.js` |

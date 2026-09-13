@@ -23,7 +23,7 @@ import { ConfigService } from '@nestjs/config';
 import { UserEntity } from '../entities/user.entity';
 
 /** Keep in sync with mobile `constants/listingMedia.js`. */
-const MAX_LISTING_VIDEOS = 3;
+const MAX_LISTING_VIDEOS = 1;
 const MAX_LISTING_VIDEO_BYTES = 60 * 1024 * 1024;
 const VIDEO_MIME_ALLOW = new Set([
   'video/mp4',
@@ -195,7 +195,9 @@ export class HostListingsController {
       if (videoCount >= MAX_LISTING_VIDEOS) {
         unlinkQuiet(file.path);
         throw new BadRequestException(
-          `You can add up to ${MAX_LISTING_VIDEOS} videos per listing.`,
+          MAX_LISTING_VIDEOS === 1
+            ? 'You can add only 1 video per listing.'
+            : `You can add up to ${MAX_LISTING_VIDEOS} videos per listing.`,
         );
       }
     }
