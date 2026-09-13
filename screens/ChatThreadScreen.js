@@ -19,9 +19,11 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  ActionSheetIOS,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useAuth } from '../context/AuthContext';
@@ -29,12 +31,17 @@ import { useMessaging } from '../context/MessagingContext';
 import * as messagingApi from '../services/messagingApi';
 import { isRemoteBookingId } from '../utils/bookingId';
 import { mapMessagingError } from '../utils/openBookingChat';
+import {
+  chatMediaLockMessage,
+  isChatMediaUnlocked,
+} from '../utils/chatCapabilities';
+import { navigateToUserProfile } from '../utils/navigateRootStack';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 
-const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = uiScale;
-
 const POLL_INTERVAL_MS = 6000;
+const MAX_BUBBLE_IMAGE = Math.min(220 * scale, SCREEN_WIDTH * 0.62);
 
 function BackIcon() {
   return (
@@ -71,6 +78,20 @@ function SendIcon({ disabled }) {
   );
 }
 
+function AttachIcon({ locked }) {
+  const color = locked ? 'rgba(14,38,43,0.28)' : COLORS.GREENY_BLUE_TWO;
+  return (
+    <Svg width={24 * scale} height={24 * scale} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 5v14M5 12h14"
+        stroke={color}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 function formatTime(ts) {
   const d = new Date(ts);
   const hours = d.getHours();
@@ -92,6 +113,15 @@ function dayLabel(ts) {
   if (sameDay(d, today)) return 'Today';
   if (sameDay(d, yesterday)) return 'Yesterday';
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function messageImageUrl(msg) {
+  const metaUrl = msg?.metadata?.imageUrl;
+  if (typeof metaUrl === 'string' && metaUrl) return resolveMediaUrl(metaUrl);
+  if (msg?.type === 'image' && msg?.text && /^https?:\/\//i.test(msg.text)) {
+    return resolveMediaUrl(msg.text);
+  }
+  return null;
 }
 
 /** Insert day separators as pseudo-messages between real messages. */
@@ -131,6 +161,20 @@ export default function ChatThreadScreen({ navigation, route }) {
   const pollTimerRef = useRef(null);
   const messageCountRef = useRef(0);
   const shouldStickToBottomRef = useRef(true);
+
+  const bookingStatus = conversation?.bookingSnapshot?.status;
+  const mediaUnlocked =
+    conversation?.mediaUnlocked === true || isChatMediaUnlocked(bookingStatus);
+  const counterpartLastReadAt = conversation?.counterpartLastReadAt ?? null;
+
+  const lastMineMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m.type === 'system' || m.type === 'day-separator') continue;
+      if (m.senderUserId === user?.id) return m.id;
+    }
+    return null;
+  }, [messages, user?.id]);
 
   const bootstrap = useCallback(async () => {
     setLoading(true);
@@ -172,17 +216,21 @@ export default function ChatThreadScreen({ navigation, route }) {
     bootstrap();
   }, [bootstrap]);
 
-  // Poll for new messages while thread is open
+  // Poll for new messages + booking unlock / read receipts while thread is open
   useEffect(() => {
     if (!conversationId) return undefined;
     pollTimerRef.current = setInterval(async () => {
       try {
-        const page = await messagingApi.listMessages(conversationId, { take: 50 });
+        const [page, conv] = await Promise.all([
+          messagingApi.listMessages(conversationId, { take: 50 }),
+          messagingApi.getConversation(conversationId).catch(() => null),
+        ]);
+        if (conv) setConversation(conv);
         setMessages((prev) => {
           const prevIds = new Set(prev.map((m) => m.id));
           const merged = [...prev];
           let changed = false;
-          for (const m of page.messages) {
+          for (const m of page.messages || []) {
             if (!prevIds.has(m.id)) {
               merged.push(m);
               changed = true;
@@ -224,11 +272,22 @@ export default function ChatThreadScreen({ navigation, route }) {
     }
   }, [conversationId, hasMore, messages]);
 
+  const openCounterpartProfile = useCallback(() => {
+    const c = conversation?.counterpart;
+    if (!c?.id) return;
+    navigateToUserProfile(navigation, {
+      profileUser: {
+        userId: c.id,
+        displayName: c.fullName,
+        photoUri: c.avatarUrl,
+      },
+    });
+  }, [conversation?.counterpart, navigation]);
+
   const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text || sending || !conversationId) return;
     setSending(true);
-    // Optimistic append
     const tempId = `temp_${Date.now()}`;
     const optimistic = {
       id: tempId,
@@ -259,6 +318,109 @@ export default function ChatThreadScreen({ navigation, route }) {
     }
   }, [draft, sending, conversationId, user?.id, applySentMessage, refresh]);
 
+  const uploadPhoto = useCallback(
+    async (asset) => {
+      if (!conversationId || !asset?.uri) return;
+      setSending(true);
+      const tempId = `temp_img_${Date.now()}`;
+      const optimistic = {
+        id: tempId,
+        conversationId,
+        senderUserId: user?.id ?? null,
+        type: 'image',
+        text: 'Photo',
+        metadata: { imageUrl: asset.uri },
+        createdAt: Date.now(),
+        pending: true,
+      };
+      setMessages((prev) => [...prev, optimistic]);
+      messageCountRef.current += 1;
+      shouldStickToBottomRef.current = true;
+      try {
+        const saved = await messagingApi.sendPhotoMessage(conversationId, {
+          uri: asset.uri,
+          name: `chat-${Date.now()}.jpg`,
+          type: asset.mimeType || 'image/jpeg',
+        });
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...saved, pending: false } : m)),
+        );
+        applySentMessage(conversationId, saved);
+        refresh();
+        const conv = await messagingApi.getConversation(conversationId).catch(() => null);
+        if (conv) setConversation(conv);
+      } catch (e) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        Alert.alert('Could not send photo', e?.message || 'Try again.');
+      } finally {
+        setSending(false);
+      }
+    },
+    [conversationId, user?.id, applySentMessage, refresh],
+  );
+
+  const pickPhoto = useCallback(async () => {
+    if (!mediaUnlocked) {
+      Alert.alert('Photos locked', chatMediaLockMessage(bookingStatus));
+      return;
+    }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Photo library access is required to send a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      allowsMultipleSelection: false,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    await uploadPhoto(result.assets[0]);
+  }, [mediaUnlocked, bookingStatus, uploadPhoto]);
+
+  const takePhoto = useCallback(async () => {
+    if (!mediaUnlocked) {
+      Alert.alert('Photos locked', chatMediaLockMessage(bookingStatus));
+      return;
+    }
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera access is required to take a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    await uploadPhoto(result.assets[0]);
+  }, [mediaUnlocked, bookingStatus, uploadPhoto]);
+
+  const showAttachOptions = useCallback(() => {
+    if (!mediaUnlocked) {
+      Alert.alert('Photos locked', chatMediaLockMessage(bookingStatus));
+      return;
+    }
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Photo library', 'Take photo'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) void pickPhoto();
+          if (buttonIndex === 2) void takePhoto();
+        },
+      );
+      return;
+    }
+    Alert.alert('Send a photo', undefined, [
+      { text: 'Photo library', onPress: () => void pickPhoto() },
+      { text: 'Take photo', onPress: () => void takePhoto() },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [mediaUnlocked, bookingStatus, pickPhoto, takePhoto]);
+
   const decorated = useMemo(() => withDaySeparators(messages), [messages]);
 
   const renderItem = useCallback(
@@ -280,26 +442,40 @@ export default function ChatThreadScreen({ navigation, route }) {
         );
       }
       const isMine = item.senderUserId === user?.id;
+      const imageUrl = item.type === 'image' ? messageImageUrl(item) : null;
+      const showRead =
+        isMine &&
+        !item.pending &&
+        item.id === lastMineMessageId &&
+        counterpartLastReadAt != null &&
+        item.createdAt <= counterpartLastReadAt;
+
       return (
         <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
           <View
             style={[
               styles.bubble,
               isMine ? styles.bubbleMine : styles.bubbleTheirs,
+              imageUrl ? styles.bubbleImageWrap : null,
               item.pending && styles.bubblePending,
             ]}
           >
-            <Text style={isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.text}</Text>
-            <Text
-              style={isMine ? styles.bubbleTimeMine : styles.bubbleTimeTheirs}
-            >
+            {imageUrl ? (
+              <Image source={{ uri: imageUrl }} style={styles.bubbleImage} resizeMode="cover" />
+            ) : (
+              <Text style={isMine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>
+                {item.text}
+              </Text>
+            )}
+            <Text style={isMine ? styles.bubbleTimeMine : styles.bubbleTimeTheirs}>
               {item.pending ? 'sending…' : formatTime(item.createdAt)}
             </Text>
           </View>
+          {showRead ? <Text style={styles.readReceipt}>Read</Text> : null}
         </View>
       );
     },
-    [user?.id],
+    [user?.id, lastMineMessageId, counterpartLastReadAt],
   );
 
   const listing = conversation?.bookingSnapshot;
@@ -319,7 +495,12 @@ export default function ChatThreadScreen({ navigation, route }) {
         >
           <BackIcon />
         </TouchableOpacity>
-        <View style={styles.headerBody}>
+        <TouchableOpacity
+          style={styles.headerBody}
+          onPress={openCounterpartProfile}
+          activeOpacity={0.85}
+          disabled={!conversation?.counterpart?.id}
+        >
           <Text style={styles.headerTitle} numberOfLines={1}>
             {counterpartName}
           </Text>
@@ -328,13 +509,32 @@ export default function ChatThreadScreen({ navigation, route }) {
               {listing.listingTitle}
             </Text>
           ) : null}
-        </View>
-        {conversation?.counterpart?.avatarUrl ? (
-          <Image source={{ uri: conversation.counterpart.avatarUrl }} style={styles.headerAvatar} />
-        ) : (
-          <View style={styles.headerAvatarSpacer} />
-        )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={openCounterpartProfile}
+          disabled={!conversation?.counterpart?.id}
+          activeOpacity={0.85}
+        >
+          {conversation?.counterpart?.avatarUrl ? (
+            <Image
+              source={{ uri: resolveMediaUrl(conversation.counterpart.avatarUrl) }}
+              style={styles.headerAvatar}
+            />
+          ) : (
+            <View style={[styles.headerAvatar, styles.headerAvatarFallback]}>
+              <Text style={styles.headerAvatarInitial}>
+                {(counterpartName || '?').trim().charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
+
+      {!loading && !error && !mediaUnlocked ? (
+        <View style={styles.lockBanner}>
+          <Text style={styles.lockBannerText}>{chatMediaLockMessage(bookingStatus)}</Text>
+        </View>
+      ) : null}
 
       {loading ? (
         <View style={styles.loaderWrap}>
@@ -355,9 +555,6 @@ export default function ChatThreadScreen({ navigation, route }) {
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           onEndReachedThreshold={0.05}
-          onScrollBeginDrag={() => {
-            /* iOS chat convention: scroll up loads older */
-          }}
           onEndReached={loadOlder}
           onContentSizeChange={() => {
             if (!shouldStickToBottomRef.current) return;
@@ -375,6 +572,15 @@ export default function ChatThreadScreen({ navigation, route }) {
       )}
 
       <View style={[styles.composer, { paddingBottom: 8 + insets.bottom }]}>
+        <TouchableOpacity
+          style={styles.attachBtn}
+          onPress={showAttachOptions}
+          disabled={sending}
+          activeOpacity={0.85}
+          accessibilityLabel={mediaUnlocked ? 'Attach photo' : 'Photos locked until trip is accepted'}
+        >
+          <AttachIcon locked={!mediaUnlocked} />
+        </TouchableOpacity>
         <TextInput
           style={styles.input}
           value={draft}
@@ -391,7 +597,11 @@ export default function ChatThreadScreen({ navigation, route }) {
           disabled={!draft.trim() || sending}
           activeOpacity={0.85}
         >
-          {sending ? <ActivityIndicator color="#fff" size="small" /> : <SendIcon disabled={!draft.trim()} />}
+          {sending && !draft.trim() ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <SendIcon disabled={!draft.trim()} />
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -435,8 +645,28 @@ const styles = StyleSheet.create({
     borderRadius: 18 * scale,
     marginLeft: 8,
   },
-  headerAvatarSpacer: {
-    width: 36 * scale,
+  headerAvatarFallback: {
+    backgroundColor: 'rgba(76,182,177,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarInitial: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 14 * scale,
+    color: COLORS.GREENY_BLUE_TWO,
+  },
+  lockBanner: {
+    backgroundColor: 'rgba(255,177,49,0.14)',
+    paddingHorizontal: 14 * scale,
+    paddingVertical: 8 * scale,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+  lockBannerText: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 12 * scale,
+    color: 'rgb(120,80,20)',
+    textAlign: 'center',
   },
   loaderWrap: {
     flex: 1,
@@ -523,6 +753,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10 * scale,
     borderRadius: 18 * scale,
   },
+  bubbleImageWrap: {
+    paddingHorizontal: 4 * scale,
+    paddingTop: 4 * scale,
+    paddingBottom: 8 * scale,
+    overflow: 'hidden',
+  },
   bubbleMine: {
     backgroundColor: COLORS.GREENY_BLUE_TWO,
     borderBottomRightRadius: 4 * scale,
@@ -533,6 +769,12 @@ const styles = StyleSheet.create({
   },
   bubblePending: {
     opacity: 0.65,
+  },
+  bubbleImage: {
+    width: MAX_BUBBLE_IMAGE,
+    height: MAX_BUBBLE_IMAGE * 0.75,
+    borderRadius: 14 * scale,
+    backgroundColor: 'rgba(0,0,0,0.08)',
   },
   bubbleTextMine: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
@@ -560,6 +802,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     alignSelf: 'flex-end',
   },
+  readReceipt: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 11 * scale,
+    color: 'rgba(14,38,43,0.45)',
+    marginTop: 2,
+    marginRight: 4,
+  },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -568,6 +817,14 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(0,0,0,0.08)',
     backgroundColor: '#fff',
+  },
+  attachBtn: {
+    width: 40 * scale,
+    height: 40 * scale,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+    marginBottom: 2,
   },
   input: {
     flex: 1,

@@ -13,6 +13,7 @@ import {
   listMessages,
   markConversationRead,
   sendMessage,
+  sendPhotoMessage,
   type ChatMessage,
   type Conversation,
 } from '../api/messaging';
@@ -20,6 +21,10 @@ import { useAuth } from '../auth/AuthContext';
 import { useMessagingUnread } from '../auth/MessagingUnreadContext';
 import PageMeta from '../components/PageMeta';
 import SiteHeader from '../components/SiteHeader';
+import {
+  chatMediaLockMessage,
+  isChatMediaUnlocked,
+} from '../utils/chatCapabilities';
 
 const POLL_MS = 8000;
 
@@ -152,7 +157,24 @@ export default function MessagesPage() {
     [conversations, selectedId],
   );
 
+  const mediaUnlocked =
+    selected?.mediaUnlocked === true ||
+    isChatMediaUnlocked(selected?.bookingSnapshot?.status);
+
+  const lastMineMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m.type === 'system') continue;
+      if (m.senderUserId === currentUserId) return m.id;
+    }
+    return null;
+  }, [messages, currentUserId]);
+
+  const counterpartLastReadAt = selected?.counterpartLastReadAt ?? null;
+
   const threadItems = useMemo(() => withDaySeparators(messages), [messages]);
+
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const refreshList = useCallback(async () => {
     const rows = await listConversations();
@@ -271,6 +293,32 @@ export default function MessagesPage() {
     }
   };
 
+  const onPickPhoto = async (file: File | null | undefined) => {
+    if (!file || !selectedId || sending) return;
+    if (!mediaUnlocked) {
+      setError(chatMediaLockMessage(selected?.bookingSnapshot?.status));
+      return;
+    }
+    setSending(true);
+    setError(null);
+    try {
+      const sent = await sendPhotoMessage(selectedId, file);
+      setMessages((prev) => [...prev, sent]);
+      await refreshList();
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Could not send photo',
+      );
+    } finally {
+      setSending(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <Navigate
@@ -309,6 +357,10 @@ export default function MessagesPage() {
                 const preview =
                   c.lastMessage?.type === 'system'
                     ? c.lastMessage.text
+                    : c.lastMessage?.type === 'image'
+                      ? c.lastMessage.senderUserId === currentUserId
+                        ? 'You: Photo'
+                        : 'Photo'
                     : c.lastMessage
                       ? c.lastMessage.senderUserId === currentUserId
                         ? `You: ${c.lastMessage.text}`
@@ -362,6 +414,30 @@ export default function MessagesPage() {
             </div>
           ) : (
             <>
+              <div className="messages-thread-header">
+                <div className="messages-thread-header-main">
+                  <Avatar
+                    name={selected?.counterpart.fullName || 'User'}
+                    url={selected?.counterpart.avatarUrl}
+                    size={40}
+                  />
+                  <div>
+                    <p className="messages-thread-counterpart">
+                      {selected?.counterpart.fullName || 'User'}
+                    </p>
+                    {selected?.bookingSnapshot?.listingTitle ? (
+                      <p className="messages-thread-listing">
+                        {selected.bookingSnapshot.listingTitle}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                {!mediaUnlocked ? (
+                  <p className="messages-lock-banner">
+                    {chatMediaLockMessage(selected?.bookingSnapshot?.status)}
+                  </p>
+                ) : null}
+              </div>
               <div className="messages-thread-scroll" ref={threadScrollRef}>
                 {loadingThread && messages.length === 0 ? (
                   <p className="messages-muted">Loading messages…</p>
@@ -388,6 +464,11 @@ export default function MessagesPage() {
                       !!currentUserId &&
                       msg.senderUserId === currentUserId;
                     const isSystem = msg.type === 'system';
+                    const imageUrl =
+                      msg.type === 'image' &&
+                      typeof msg.metadata?.imageUrl === 'string'
+                        ? String(msg.metadata.imageUrl)
+                        : null;
                     const name = isSystem
                       ? 'RentYourRide'
                       : isMine
@@ -396,6 +477,11 @@ export default function MessagesPage() {
                     const avatarUrl = isMine
                       ? user?.avatarUrl
                       : selected?.counterpart.avatarUrl;
+                    const showRead =
+                      isMine &&
+                      msg.id === lastMineMessageId &&
+                      counterpartLastReadAt != null &&
+                      msg.createdAt <= counterpartLastReadAt;
                     return (
                       <article
                         key={msg.id}
@@ -416,7 +502,18 @@ export default function MessagesPage() {
                               {formatMessageTime(msg.createdAt)}
                             </time>
                           </header>
-                          <p className="messages-bubble-text">{msg.text}</p>
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt="Shared photo"
+                              className="messages-bubble-photo"
+                            />
+                          ) : (
+                            <p className="messages-bubble-text">{msg.text}</p>
+                          )}
+                          {showRead ? (
+                            <span className="messages-read-receipt">Read</span>
+                          ) : null}
                         </div>
                       </article>
                     );
@@ -425,6 +522,38 @@ export default function MessagesPage() {
               </div>
 
               <form className="messages-composer" onSubmit={onSend}>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  className="messages-photo-input"
+                  disabled={sending || !mediaUnlocked}
+                  aria-label="Attach photo"
+                  onChange={(e) => {
+                    void onPickPhoto(e.target.files?.[0]);
+                  }}
+                />
+                <button
+                  type="button"
+                  className={`messages-attach${mediaUnlocked ? '' : ' is-locked'}`}
+                  disabled={sending}
+                  title={
+                    mediaUnlocked
+                      ? 'Send a photo'
+                      : chatMediaLockMessage(selected?.bookingSnapshot?.status)
+                  }
+                  onClick={() => {
+                    if (!mediaUnlocked) {
+                      setError(
+                        chatMediaLockMessage(selected?.bookingSnapshot?.status),
+                      );
+                      return;
+                    }
+                    photoInputRef.current?.click();
+                  }}
+                >
+                  +
+                </button>
                 <input
                   className="messages-composer-input"
                   value={draft}
