@@ -14,8 +14,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import { Svg, Path } from 'react-native-svg';
+import { Video, ResizeMode } from 'expo-av';
 import { MAP_PROVIDER } from '../utils/mapProvider';
 import { COLORS } from '../constants/colors';
+import { listingPhotoUri, isListingVideo } from '../utils/listingPhotos';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
 import { useFavorites } from '../context/FavoritesContext';
@@ -257,7 +259,36 @@ export default function VehicleDetailScreen({ navigation, route }) {
                       },
                     ]}
                   >
-                    <Image source={{ uri: item.uri }} style={styles.carouselImage} resizeMode="cover" />
+                    <TouchableOpacity
+                      activeOpacity={0.95}
+                      onPress={() =>
+                        navigation.navigate('ListingPhotoGalleryScreen', {
+                          photos,
+                          title,
+                          initialIndex: index,
+                        })
+                      }
+                      style={{ flex: 1 }}
+                    >
+                      {isListingVideo(item) ? (
+                        <View style={styles.carouselImage}>
+                          <Video
+                            source={{ uri: listingPhotoUri(item) || item.uri }}
+                            style={{ width: '100%', height: '100%' }}
+                            resizeMode={ResizeMode.COVER}
+                            shouldPlay={false}
+                            isMuted
+                            useNativeControls={false}
+                          />
+                        </View>
+                      ) : (
+                        <Image
+                          source={{ uri: listingPhotoUri(item) || item.uri }}
+                          style={styles.carouselImage}
+                          resizeMode="cover"
+                        />
+                      )}
+                    </TouchableOpacity>
                   </View>
                 );
               }}

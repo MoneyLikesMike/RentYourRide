@@ -67,7 +67,7 @@ export async function hostDeleteListing(id) {
   return apiFetch(`/v1/host/listings/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-/** @param {{ uri: string, name?: string, type?: string }} file */
+/** @param {{ uri: string, name?: string, type?: string, mediaType?: string }} file */
 export async function hostUploadListingPhoto(id, file) {
   const form = new FormData();
   form.append('file', {
@@ -75,6 +75,9 @@ export async function hostUploadListingPhoto(id, file) {
     name: file.name || 'photo.jpg',
     type: file.type || 'image/jpeg',
   });
+  if (file.mediaType) {
+    form.append('mediaType', file.mediaType);
+  }
   return apiFetch(`/v1/host/listings/${encodeURIComponent(id)}/photos`, {
     method: 'POST',
     formData: form,

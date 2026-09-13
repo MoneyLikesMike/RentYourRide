@@ -325,10 +325,19 @@ export class ListingsService {
     }
   }
 
-  async appendPhoto(hostUserId: string, listingId: string, uri: string) {
+  async appendPhoto(
+    hostUserId: string,
+    listingId: string,
+    uri: string,
+    meta?: { type?: 'image' | 'video' },
+  ) {
     const listing = await this.findForHost(hostUserId, listingId);
     const photos = [...(listing.photos || [])];
-    photos.push({ uri });
+    const entry: { uri: string; type?: string } = { uri };
+    if (meta?.type === 'video' || meta?.type === 'image') {
+      entry.type = meta.type;
+    }
+    photos.push(entry);
     listing.photos = photos;
     await this.repo.save(listing);
     return listing;

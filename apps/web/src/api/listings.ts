@@ -1,6 +1,17 @@
 import { apiFetch } from './http';
 
-export type ListingPhoto = { uri?: string; url?: string };
+export type ListingPhoto = {
+  uri?: string;
+  url?: string;
+  type?: 'image' | 'video' | string;
+  thumbnailUri?: string;
+};
+
+export type ListingMediaItem = {
+  url: string;
+  type: 'image' | 'video';
+  thumbnailUrl?: string | null;
+};
 
 export type ListingSummary = {
   id: string;
@@ -17,6 +28,11 @@ export type ListingSummary = {
   instantBooking?: boolean;
   latitude?: number;
   longitude?: number;
+  carFeatures?: string[];
+  vehicleData?: Record<string, unknown>;
+  guestReviews?: GuestListingReview[];
+  weeklyDiscount?: string;
+  monthlyDiscount?: string;
 };
 
 export type ListingExtras = {
@@ -75,6 +91,10 @@ export type ListingDetail = ListingSummary & {
     [key: string]: unknown;
   };
   blockedRanges?: Array<{ start: string; end: string }>;
+  /** Mobile-shaped blocked ranges (ms) from Nest toPublicDetailDto. */
+  calendarData?: {
+    blockedRanges?: Array<{ start: number; end: number }>;
+  } | null;
 };
 
 export async function searchListings(params: {
@@ -119,10 +139,42 @@ export function listingPhotoUrl(
   return photo.uri || photo.url || null;
 }
 
-export function listingPhotoUrls(listing: Pick<ListingSummary, 'photos'>): string[] {
+export function isListingVideo(photo: ListingPhoto | string | null | undefined): boolean {
+  if (!photo) return false;
+  if (typeof photo === 'object' && photo.type === 'video') return true;
+  const uri =
+    typeof photo === 'string' ? photo : photo.uri || photo.url || '';
+  if (!uri) return false;
+  return /\.(mp4|mov|m4v|webm)(\?|$)/i.test(uri) || uri.includes('/video');
+}
+
+export function listingMediaItems(
+  listing: Pick<ListingSummary, 'photos'>,
+): ListingMediaItem[] {
   return (listing.photos ?? [])
-    .map((p) => p.uri || p.url || '')
-    .filter(Boolean);
+    .map((p) => {
+      const url = p.uri || p.url || '';
+      if (!url) return null;
+      return {
+        url,
+        type: isListingVideo(p) ? ('video' as const) : ('image' as const),
+        thumbnailUrl: p.thumbnailUri || null,
+      };
+    })
+    .filter((x): x is ListingMediaItem => !!x);
+}
+
+/** Prefer first image for cards so video URLs are not used as static `<img>` sources. */
+export function listingCoverUrl(
+  listing: Pick<ListingSummary, 'photos'>,
+): string | null {
+  const items = listingMediaItems(listing);
+  const image = items.find((m) => m.type === 'image');
+  return image?.url || items[0]?.url || null;
+}
+
+export function listingPhotoUrls(listing: Pick<ListingSummary, 'photos'>): string[] {
+  return listingMediaItems(listing).map((m) => m.url);
 }
 
 export const CAR_FEATURE_LABELS: Record<string, string> = {

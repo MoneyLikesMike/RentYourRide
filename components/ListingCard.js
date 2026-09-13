@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'rea
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { listingCoverUri } from '../utils/listingPhotos';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
@@ -58,8 +59,8 @@ export default function ListingCard({
       delayPressIn={forSwipeRow ? 120 : heartInteractive ? 0 : 70}
     >
       <View style={styles.cardImageWrap}>
-        {listing.photos && listing.photos[0]?.uri ? (
-          <Image source={{ uri: listing.photos[0].uri }} style={styles.cardImage} resizeMode="cover" />
+        {listingCoverUri(listing?.photos) ? (
+          <Image source={{ uri: listingCoverUri(listing.photos) }} style={styles.cardImage} resizeMode="cover" />
         ) : (
           <View style={styles.cardImagePlaceholder}>
             <Text style={styles.cardPlaceholderText}>No photo</Text>

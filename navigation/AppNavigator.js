@@ -73,6 +73,7 @@ import GetPaidStack from './GetPaidStack';
 import EmptyVehicleSearchScreen from '../screens/EmptyVehicleSearchScreen';
 import SearchResultsScreen from '../screens/SearchResultsScreen';
 import VehicleDetailScreen from '../screens/VehicleDetailScreen';
+import ListingPhotoGalleryScreen from '../screens/ListingPhotoGalleryScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import BookingCheckoutScreen from '../screens/BookingCheckoutScreen';
 import BookingRequestConfirmationScreen from '../screens/BookingRequestConfirmationScreen';
@@ -99,6 +100,11 @@ function HomeStack() {
       <HomeStackNav.Screen name="HomeScreen" component={HomeScreen} />
       <HomeStackNav.Screen name="SearchResultsScreen" component={SearchResultsScreen} />
       <HomeStackNav.Screen name="VehicleDetailScreen" component={VehicleDetailScreen} />
+      <HomeStackNav.Screen
+        name="ListingPhotoGalleryScreen"
+        component={ListingPhotoGalleryScreen}
+        options={{ presentation: 'fullScreenModal', animation: 'fade' }}
+      />
       <HomeStackNav.Screen name="BookingCheckoutScreen" component={BookingCheckoutScreen} />
       <HomeStackNav.Screen name="BookingRequestConfirmationScreen" component={BookingRequestConfirmationScreen} />
       <HomeStackNav.Screen name="EmptyVehicleSearchScreen" component={EmptyVehicleSearchScreen} />
