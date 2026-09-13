@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -15,15 +16,20 @@ import {
   PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useFavorites } from '../context/FavoritesContext';
 import { useListings } from '../context/ListingsContext';
 import ListingCard from '../components/ListingCard';
+import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocompleteField';
+import { resolveCurrentLocationQueryWithAlert } from '../utils/currentLocation';
+import { formatLocationLabel, resolveSearchCity, isMarketplaceListing } from '../utils/searchLocation';
+import { searchListings } from '../services/listingsApi';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 // Min height for Filters scroll content so the whole sheet area is scrollable
 const REFINE_SCROLL_CONTENT_MIN_HEIGHT = screenHeight * 0.55;
 // Car feature card size (same formula as DescribeYourRideScreen: 3 cols, padding 20*scale each side, 2 gaps 12*scale)
@@ -82,12 +88,14 @@ const COLOR_OPTIONS = [
 export default function SearchResultsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { city = '', listings: initialRouteListings = [], country } = route.params || {};
-  const { getListingsByCity, listings: catalogListings } = useListings();
+  const { getListingsByCity, mergeRemoteListings } = useListings();
   const [selectedCity, setSelectedCity] = useState(city);
   const [currentListings, setCurrentListings] = useState(() => {
+    if (Array.isArray(initialRouteListings) && initialRouteListings.length > 0) {
+      return initialRouteListings.filter(isMarketplaceListing);
+    }
     const key = (city || '').trim();
-    if (key) return getListingsByCity(key);
-    return initialRouteListings.filter((l) => l.active !== false);
+    return key ? getListingsByCity(key).filter(isMarketplaceListing) : [];
   });
   const useMiles = country === 'US' || country === 'USA' || country === 'United States';
   const [dateRange, setDateRange] = useState(DEFAULT_DATE_RANGE);
@@ -98,7 +106,6 @@ export default function SearchResultsScreen({ navigation, route }) {
   const panelSlide = useRef(new Animated.Value(-SEARCH_PANEL_HEIGHT)).current;
   const [editingCity, setEditingCity] = useState(false);
   const [whereInput, setWhereInput] = useState(selectedCity ?? '');
-  const [citySuggestions, setCitySuggestions] = useState([]);
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const [instantEnabled, setInstantEnabled] = useState(false);
   const [priceMin, setPriceMin] = useState(0);
@@ -132,8 +139,6 @@ export default function SearchResultsScreen({ navigation, route }) {
       return next;
     });
   };
-
-  const CITY_SUGGESTIONS_MOCK = ['Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Edmonton', 'Winnipeg'];
 
   const currentMinPrice = Math.round(priceMin * PRICE_MAX_VALUE);
   const currentMaxPrice = Math.round(priceMax * PRICE_MAX_VALUE);
@@ -224,26 +229,62 @@ export default function SearchResultsScreen({ navigation, route }) {
     setSelectedCity(city);
   }, [city]);
 
-  // Always derive from catalog so deactivations (and other updates) drop out of search immediately.
+  // Prefer fresh route/search API results — never replace with stale AsyncStorage catalog alone.
+  const refreshSearch = useCallback(
+    async (cityKey, routeListings) => {
+      const key = (cityKey || '').trim();
+      if (!key) return;
+      if (Array.isArray(routeListings) && routeListings.length > 0) {
+        setCurrentListings(routeListings.filter(isMarketplaceListing));
+      }
+      try {
+        const remote = await searchListings({ city: key });
+        if (Array.isArray(remote)) {
+          mergeRemoteListings(remote);
+          setCurrentListings(remote.filter(isMarketplaceListing));
+          return;
+        }
+      } catch (_) {
+        /* offline */
+      }
+      if (!Array.isArray(routeListings) || routeListings.length === 0) {
+        setCurrentListings(getListingsByCity(key).filter(isMarketplaceListing));
+      }
+    },
+    [getListingsByCity, mergeRemoteListings],
+  );
+
   useEffect(() => {
-    const key = (selectedCity || '').trim();
-    if (!key) return;
-    setCurrentListings(getListingsByCity(key));
-  }, [selectedCity, catalogListings, getListingsByCity]);
+    refreshSearch(selectedCity, initialRouteListings);
+  }, [selectedCity, initialRouteListings, refreshSearch]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshSearch(selectedCity, route.params?.listings);
+    }, [selectedCity, route.params?.listings, refreshSearch]),
+  );
 
   const openWhereEdit = () => {
     setWhereInput(selectedCity ?? '');
-    setCitySuggestions([]);
     setEditingCity(true);
   };
 
   const handleCityNext = () => {
     const raw = (whereInput ?? '').trim();
-    // Basic parsing: take the part before the first comma as city input.
-    const nextCity = raw.includes(',') ? raw.split(',')[0].trim() : (raw || selectedCity);
+    const nextCity = raw.includes(',') ? raw.split(',')[0].trim() : raw || selectedCity;
     setSelectedCity(nextCity);
     closeSearchPanel();
     setEditingCity(false);
+  };
+
+  const handleUseCurrentLocation = async () => {
+    const loc = await resolveCurrentLocationQueryWithAlert();
+    if (!loc) return;
+    const { city, query } = resolveSearchCity({ city: loc.city, query: loc.query });
+    setWhereInput(query || loc.query);
+    setSelectedCity(city || formatLocationLabel(loc.query));
+    setEditingCity(false);
+    closeSearchPanel();
   };
 
   // When returning from booking calendar
@@ -302,47 +343,28 @@ export default function SearchResultsScreen({ navigation, route }) {
               </Svg>
             </TouchableOpacity>
 
-            <ScrollView style={styles.searchPanelScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.searchPanelScroll}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="always"
+              keyboardDismissMode="on-drag"
+              nestedScrollEnabled
+            >
               <View style={styles.searchPanelSection}>
                 <Text style={styles.searchPanelLabel}>WHERE</Text>
                 {editingCity ? (
-                  <View>
-                    <View style={styles.searchPanelRow}>
-                      <TextInput
-                        style={[styles.inlineCityInput, { flex: 1, marginTop: 8, marginRight: 12 }]}
-                        value={whereInput}
-                        onChangeText={(t) => {
-                          setWhereInput(t);
-                          if (t.trim().length > 0) {
-                            const filtered = CITY_SUGGESTIONS_MOCK.filter((c) =>
-                              c.toLowerCase().includes(t.toLowerCase())
-                            );
-                            setCitySuggestions(filtered);
-                          } else {
-                            setCitySuggestions([]);
-                          }
-                        }}
-                        placeholder="City, airport, address, or hotel"
-                        placeholderTextColor="#8E8E8E"
-                        autoFocus
-                      />
-                    </View>
-                    {citySuggestions.length > 0 ? (
-                      <View style={styles.inlineSuggestionsWrap}>
-                        {citySuggestions.map((s) => (
-                          <TouchableOpacity
-                            key={s}
-                            style={styles.inlineSuggestionItem}
-                            onPress={() => {
-                              setWhereInput(s);
-                              setCitySuggestions([]);
-                            }}
-                          >
-                            <Text style={styles.inlineSuggestionText}>{s}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    ) : null}
+                  <View style={styles.whereEditBlock}>
+                    <GooglePlacesAutocompleteField
+                      placeholder="City, airport, address, or hotel"
+                      onPlaceSelected={({ selection }) => {
+                        setWhereInput(selection.query);
+                        setSelectedCity(selection.city || selection.query.split(',')[0].trim());
+                        setEditingCity(false);
+                        closeSearchPanel();
+                      }}
+                      containerStyle={{ marginTop: 8 }}
+                      inputStyle={styles.inlineCityInput}
+                    />
                     <TouchableOpacity onPress={handleCityNext} activeOpacity={0.85} style={styles.inlineCityNextBtn}>
                       <Text style={styles.inlineCityNextBtnText}>Save</Text>
                     </TouchableOpacity>
@@ -359,10 +381,14 @@ export default function SearchResultsScreen({ navigation, route }) {
               <View style={styles.searchPanelDivider} />
               <View style={styles.searchPanelSection}>
                 <Text style={styles.searchPanelLabel}>LOCATION</Text>
-                <View style={styles.searchPanelRowRight}>
+                <TouchableOpacity
+                  style={styles.searchPanelRowRight}
+                  onPress={handleUseCurrentLocation}
+                  activeOpacity={0.85}
+                >
                   <Image source={require('../assets/icons/currentLocationPin.png')} style={styles.searchPanelPin} resizeMode="contain" />
                   <Text style={styles.searchPanelCurrentLocation}>Current Location</Text>
-                </View>
+                </TouchableOpacity>
               </View>
               <View style={styles.searchPanelDivider} />
               <View style={styles.searchPanelSection}>
@@ -893,7 +919,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   searchPanelBackBtn: {
     position: 'absolute',
@@ -909,6 +935,11 @@ const styles = StyleSheet.create({
   },
   searchPanelSection: {
     paddingVertical: 14,
+  },
+  whereEditBlock: {
+    zIndex: 2000,
+    elevation: 2000,
+    overflow: 'visible',
   },
   searchPanelLabel: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,

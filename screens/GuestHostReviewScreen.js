@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -15,13 +16,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { useListings } from '../context/ListingsContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 import { averageRatingFromReviews } from '../utils/guestListingReview';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const BADGES = [
   { key: 'service', icon: require('../assets/icons/excellence.png'), label: 'Excellent\nService' },
@@ -51,7 +53,8 @@ function StarRow({ value, onChange }) {
 export default function GuestHostReviewScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId } = route.params || {};
-  const { getBookingById, updateGuestBooking } = useGuestBookings();
+  const { getBookingById } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
   const { listings, updateListing } = useListings();
   const { firstName, lastName, photoUri: profilePhotoUri, joinedYear: profileJoinedYear } = useUserProfile();
 
@@ -112,7 +115,7 @@ export default function GuestHostReviewScreen({ navigation, route }) {
     goHomeGuestRentals();
   }, [goHomeGuestRentals]);
 
-  const onSubmit = useCallback(() => {
+  const onSubmit = useCallback(async () => {
     if (!booking?.id) return;
     const listingId = ls.id != null && ls.id !== '' ? String(ls.id) : null;
     const guestDisplay = (
@@ -149,14 +152,21 @@ export default function GuestHostReviewScreen({ navigation, route }) {
       }
     }
 
-    updateGuestBooking(booking.id, {
-      guestHostReviewRating: rating,
-      guestHostReviewBadgeKeys: Array.from(selectedBadges),
-      guestHostReviewPublic: publicReview.trim(),
-      guestHostReviewPrivateNote: privateNote.trim(),
-      guestHostReviewSubmittedAt: Date.now(),
-    });
-    goHomeGuestRentals();
+    const ok = await applyBookingUpdate(
+      booking.id,
+      {
+        guestHostReviewRating: rating,
+        guestHostReviewBadgeKeys: Array.from(selectedBadges),
+        guestHostReviewPublic: publicReview.trim(),
+        guestHostReviewPrivateNote: privateNote.trim(),
+        guestHostReviewSubmittedAt: Date.now(),
+        reviewRole: 'guest',
+        rating,
+        reviewText: publicReview.trim(),
+      },
+      { errorTitle: 'Could not submit review' },
+    );
+    if (ok) goHomeGuestRentals();
   }, [
     booking?.id,
     booking.guestName,
@@ -172,7 +182,7 @@ export default function GuestHostReviewScreen({ navigation, route }) {
     selectedBadges,
     publicReview,
     privateNote,
-    updateGuestBooking,
+    applyBookingUpdate,
     updateListing,
     goHomeGuestRentals,
   ]);

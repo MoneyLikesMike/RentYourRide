@@ -1,34 +1,168 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import Svg, { Path } from 'react-native-svg';
+import GuestBookingCard from '../components/GuestBookingCard';
+import { useAuth } from '../context/AuthContext';
+import { useUserProfile } from '../context/UserProfileContext';
+import { useListings } from '../context/ListingsContext';
+import { useGuestBookings } from '../context/GuestBookingsContext';
+import * as bookingsApi from '../services/bookingsApi';
+import { filterBookingsForGuest, filterBookingsForHost } from '../utils/hostBookingFilter';
+import { isHistoryForPerspective } from '../utils/bookingCompletion';
 
 const BASE_WIDTH = 375;
 const scale = 1;
 
+function mapBookingRow(b) {
+  const life = b.lifecycle && typeof b.lifecycle === 'object' ? b.lifecycle : {};
+  return {
+    ...b,
+    ...life,
+    createdAt:
+      typeof b.createdAt === 'number'
+        ? b.createdAt
+        : new Date(b.createdAt || Date.now()).getTime(),
+  };
+}
+
+function mergeHistory(rows) {
+  const map = new Map();
+  for (const b of rows) {
+    if (!b?.id) continue;
+    map.set(String(b.id), b);
+  }
+  return [...map.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
 export default function RentalHistoryScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const { isAuthenticated, isReady, user } = useAuth();
+  const { firstName, lastName } = useUserProfile();
+  const { listings } = useListings();
+  const { activeRentals } = useGuestBookings();
   const [activeTab, setActiveTab] = useState(() =>
-    route.params?.initialTab === 'host' ? 'host' : 'guest'
+    route.params?.initialTab === 'host' ? 'host' : 'guest',
   );
+  const [guestHistory, setGuestHistory] = useState([]);
+  const [hostHistory, setHostHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const t = route.params?.initialTab;
     if (t === 'host' || t === 'guest') setActiveTab(t);
   }, [route.params?.initialTab]);
+
+  const loadHistory = useCallback(async () => {
+    if (!isAuthenticated || !isReady) {
+      setGuestHistory([]);
+      setHostHistory([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      // Fully completed + any open bookings (so one-sided checkout can appear in history).
+      const [guestCompleted, hostCompleted, guestOpen, hostOpen] = await Promise.all([
+        bookingsApi.listBookings('guest', 'completed'),
+        bookingsApi.listBookings('host', 'completed'),
+        bookingsApi.listBookings('guest'),
+        bookingsApi.listBookings('host'),
+      ]);
+
+      const guestMapped = mergeHistory(
+        [...(guestCompleted || []), ...(guestOpen || []), ...(activeRentals || [])].map(
+          mapBookingRow,
+        ),
+      );
+      const hostMapped = mergeHistory(
+        [...(hostCompleted || []), ...(hostOpen || []), ...(activeRentals || [])].map(
+          mapBookingRow,
+        ),
+      );
+
+      setGuestHistory(
+        filterBookingsForGuest(guestMapped, user?.id).filter((b) =>
+          isHistoryForPerspective(b, false),
+        ),
+      );
+      setHostHistory(
+        filterBookingsForHost(hostMapped, listings, firstName, lastName, user?.id).filter(
+          (b) => isHistoryForPerspective(b, true),
+        ),
+      );
+    } catch (_) {
+      setGuestHistory([]);
+      setHostHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, isReady, user?.id, listings, firstName, lastName, activeRentals]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadHistory();
+    }, [loadHistory]),
+  );
+
   const tabWidths = { guest: 50 * scale, host: 43 * scale };
+  const items = activeTab === 'guest' ? guestHistory : hostHistory;
+
+  const emptyGuest = (
+    <View style={styles.emptyStateContainer}>
+      <Image source={require('../assets/icons/EmptyRoad.png')} style={styles.emptyIcon} />
+      <Text style={styles.emptyHeader}>You have no rental history</Text>
+      <Text style={styles.emptyParagraph}>Find the perfect vehicle for you.</Text>
+      <View style={{ height: 60 }} />
+      <TouchableOpacity
+        style={[styles.rentButton, { marginTop: -120 }]}
+        onPress={() => navigation.navigate('HomeScreen')}
+      >
+        <Text style={styles.rentButtonText}>Rent a ride</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const emptyHost = (
+    <View style={styles.emptyStateContainer}>
+      <Image source={require('../assets/icons/EmptyRoad.png')} style={styles.emptyIcon} />
+      <Text style={styles.emptyHeaderHost}>You have no rental history</Text>
+      <Text style={styles.emptyParagraphHost}>
+        Don't worry, you'll have rental history soon! If you haven't become a host yet, list your ride
+        and start earning!
+      </Text>
+      <View style={{ height: 60 }} />
+      <TouchableOpacity
+        style={[styles.rentButton, { marginTop: -80 }]}
+        onPress={() => navigation.navigate('GetPaidStack')}
+      >
+        <Text style={styles.rentButtonText}>List a ride</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      {/* Header with back button */}
       <View style={styles.headerContainer}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          {/* Inline SVG Back Arrow */}
           <Svg width={23 * scale} height={23 * scale} viewBox="0 0 48 48" fill="none">
-            <Path d="M31 8L17 24L31 40" stroke={COLORS.MANGO_TWO} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path
+              d="M31 8L17 24L31 40"
+              stroke={COLORS.MANGO_TWO}
+              strokeWidth={4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </Svg>
         </TouchableOpacity>
         <View style={styles.headerTextFlexWrapper}>
@@ -36,44 +170,54 @@ export default function RentalHistoryScreen() {
         </View>
         <View style={styles.headerRightSpacer} />
       </View>
-      {/* Tab Toggle */}
+
       <View style={styles.toggleRow}>
         <TouchableOpacity onPress={() => setActiveTab('guest')} style={styles.toggleBtn}>
-          <Text style={[styles.tabText, activeTab === 'guest' ? styles.tabTextActive : styles.tabTextInactive]}>GUEST</Text>
+          <Text
+            style={[styles.tabText, activeTab === 'guest' ? styles.tabTextActive : styles.tabTextInactive]}
+          >
+            GUEST
+          </Text>
           {activeTab === 'guest' && (
             <View style={[styles.toggleUnderline, { width: tabWidths.guest }]} />
           )}
         </TouchableOpacity>
         <View style={{ width: 60 * scale }} />
         <TouchableOpacity onPress={() => setActiveTab('host')} style={styles.toggleBtn}>
-          <Text style={[styles.tabText, activeTab === 'host' ? styles.tabTextActive : styles.tabTextInactive]}>HOST</Text>
+          <Text
+            style={[styles.tabText, activeTab === 'host' ? styles.tabTextActive : styles.tabTextInactive]}
+          >
+            HOST
+          </Text>
           {activeTab === 'host' && (
             <View style={[styles.toggleUnderline, { width: tabWidths.host }]} />
           )}
         </TouchableOpacity>
       </View>
-      {/* Content Area */}
+
       <View style={styles.contentArea}>
-        {activeTab === 'guest' ? (
-          <View style={styles.emptyStateContainer}>
-            <Image source={require('../assets/icons/EmptyRoad.png')} style={styles.emptyIcon} />
-            <Text style={styles.emptyHeader}>You have no rental history</Text>
-            <Text style={styles.emptyParagraph}>Find the perfect vehicle for you.</Text>
-            <View style={{ height: 60 }} />
-            <TouchableOpacity style={[styles.rentButton, { marginTop: -120 }]} onPress={() => navigation.navigate('HomeScreen')}>
-              <Text style={styles.rentButtonText}>Rent a ride</Text>
-            </TouchableOpacity>
-          </View>
+        {loading ? (
+          <ActivityIndicator size="large" color={COLORS.GREENY_BLUE_TWO} />
+        ) : items.length === 0 ? (
+          activeTab === 'guest' ? emptyGuest : emptyHost
         ) : (
-          <View style={styles.emptyStateContainer}>
-            <Image source={require('../assets/icons/EmptyRoad.png')} style={styles.emptyIcon} />
-            <Text style={styles.emptyHeaderHost}>You have no rental history</Text>
-            <Text style={styles.emptyParagraphHost}>Don't worry, you'll have rental history soon! If you haven't become a host yet, list your ride and start earning!</Text>
-            <View style={{ height: 60 }} />
-            <TouchableOpacity style={[styles.rentButton, { marginTop: -80 }]} onPress={() => navigation.navigate('GetPaidStack')}>
-              <Text style={styles.rentButtonText}>List a ride</Text>
-            </TouchableOpacity>
-          </View>
+          <ScrollView
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {items.map((booking) => (
+              <GuestBookingCard
+                key={String(booking.id)}
+                booking={booking}
+                onPress={() =>
+                  navigation.navigate(
+                    activeTab === 'host' ? 'HostBookingDetailsScreen' : 'GuestBookingDetailsScreen',
+                    { bookingId: booking.id },
+                  )
+                }
+              />
+            ))}
+          </ScrollView>
         )}
       </View>
     </View>
@@ -99,11 +243,6 @@ const styles = StyleSheet.create({
     padding: 8 * scale,
     zIndex: 3,
   },
-  backIcon: {
-    width: 24 * scale,
-    height: 24 * scale,
-    tintColor: 'rgb(100,100,100)',
-  },
   heading: {
     fontFamily: FONTS.NUNITO_BOLD,
     fontSize: 15 * scale,
@@ -114,7 +253,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     alignSelf: 'center',
     fontWeight: 'bold',
-    textTransform: 'none',
   },
   toggleRow: {
     flexDirection: 'row',
@@ -149,8 +287,10 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
   },
   emptyStateContainer: {
     alignItems: 'center',
@@ -171,11 +311,8 @@ const styles = StyleSheet.create({
     color: 'rgb(14,38,43)',
     textAlign: 'center',
     width: 272,
-    height: 48,
     marginBottom: 16 * scale,
     lineHeight: 24,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
   },
   emptyParagraph: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
@@ -184,7 +321,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: -0.2,
     width: 239,
-    height: 72,
     marginBottom: 32 * scale,
   },
   rentButton: {
@@ -201,8 +337,6 @@ const styles = StyleSheet.create({
     color: 'rgb(247,247,247)',
     textAlign: 'center',
     letterSpacing: 0.2,
-    paddingHorizontal: 16 * scale,
-    paddingVertical: 0,
   },
   emptyHeaderHost: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
@@ -210,11 +344,8 @@ const styles = StyleSheet.create({
     color: 'rgb(14,38,43)',
     textAlign: 'center',
     width: 272,
-    height: 48,
     marginBottom: 16 * scale,
     lineHeight: 24,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
   },
   emptyParagraphHost: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
@@ -223,7 +354,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: -0.2,
     width: 299,
-    height: 72,
     marginBottom: 32 * scale,
   },
   headerTextFlexWrapper: {
@@ -236,4 +366,4 @@ const styles = StyleSheet.create({
   headerRightSpacer: {
     width: 39,
   },
-}); 
+});

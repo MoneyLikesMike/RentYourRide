@@ -1,15 +1,17 @@
 import React, { useMemo } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { useUserProfile } from '../context/UserProfileContext';
 import { formatCheckInTripEnd } from '../utils/guestBookingFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const COPY_WIDTH = 311 * scale;
 
@@ -17,6 +19,7 @@ export default function HostCheckoutScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId } = route.params || {};
   const { getBookingById } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
   const { firstName } = useUserProfile();
 
   const booking = useMemo(() => (bookingId ? getBookingById(bookingId) : null), [bookingId, getBookingById]);
@@ -34,7 +37,13 @@ export default function HostCheckoutScreen({ navigation, route }) {
   const pickupAddress = booking?.pickupAddress || ls.pickupAddress || '—';
   const dropoffAddress = booking?.dropoffAddress || pickupAddress;
 
-  const onLetsGo = () => {
+  const onLetsGo = async () => {
+    const ok = await applyBookingUpdate(
+      booking.id,
+      { hostCheckoutStartedAt: Date.now() },
+      { errorTitle: 'Could not start checkout' },
+    );
+    if (!ok) return;
     navigation.push('CheckInGuidelinesScreen', {
       bookingId: booking.id,
       role: 'host',

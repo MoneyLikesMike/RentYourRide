@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, Dimensions, Image } from 'react-native';
 import Modal from 'react-native-modal';
 import * as Clipboard from 'expo-clipboard';
@@ -9,7 +10,7 @@ import { FONTS } from '../constants/fonts';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const SHARE_SUBJECT = 'Rent Your Ride';
 

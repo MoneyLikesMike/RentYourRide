@@ -1,4 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
+import { uiScale } from '../utils/uiScale';
+import { useRoute } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -17,10 +19,9 @@ import ShareLinkModal from './ShareLinkModal';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
-const REFERRAL_LINK = 'https://rentyourride.com/invite';
-const SHARE_MESSAGE = `Join me on Rent Your Ride — find and list vehicles for your next trip. ${REFERRAL_LINK}`;
+const REFERRAL_BASE = 'https://rentyourride.com/invite';
 const CREDIT_DISPLAY = '$25';
 
 function ChevronRight() {
@@ -39,11 +40,22 @@ function ChevronRight() {
 
 export default function InviteFriendScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const route = useRoute();
+  const referralCode = route.params?.referralCode?.trim?.() || '';
+  const referralLink = useMemo(() => {
+    if (!referralCode) return REFERRAL_BASE;
+    return `${REFERRAL_BASE}?code=${encodeURIComponent(referralCode)}`;
+  }, [referralCode]);
+  const shareMessage = useMemo(
+    () =>
+      `Join me on Rent Your Ride — find and list vehicles for your next trip. ${referralLink}`,
+    [referralLink],
+  );
   const [shareModalVisible, setShareModalVisible] = useState(false);
 
   const onCopyLink = useCallback(async () => {
     try {
-      await Clipboard.setStringAsync(REFERRAL_LINK);
+      await Clipboard.setStringAsync(referralLink);
       Alert.alert('Link copied', 'Your referral link was copied to the clipboard.');
     } catch (_) {
       Alert.alert('Could not copy', 'Please try again.');
@@ -133,8 +145,8 @@ export default function InviteFriendScreen({ navigation }) {
       <ShareLinkModal
         visible={shareModalVisible}
         onClose={() => setShareModalVisible(false)}
-        referralLink={REFERRAL_LINK}
-        shareMessage={SHARE_MESSAGE}
+        referralLink={referralLink}
+        shareMessage={shareMessage}
       />
     </View>
   );

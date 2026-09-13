@@ -14,6 +14,19 @@ export function navigateToVehicleDetail(navigation, listing) {
   navigation.navigate('VehicleDetailScreen', { listing });
 }
 
+/** Open UserProfileScreen from any tab (e.g. Rental Manager booking details). */
+export function navigateToUserProfile(navigation, params) {
+  const tabNav = navigation.getParent?.();
+  if (tabNav?.navigate) {
+    tabNav.navigate('ProfileScreen', {
+      screen: 'UserProfileScreen',
+      params,
+    });
+    return;
+  }
+  navigation.navigate('UserProfileScreen', params);
+}
+
 /** Use from root modals/stacks (e.g. ListRideStack) where `getParent` is not the tab bar. */
 export function navigateToVehicleDetailFromRoot(navigation, listing) {
   const root = navigation.getParent?.();

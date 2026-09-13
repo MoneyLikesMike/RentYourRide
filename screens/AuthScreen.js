@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Animated } from 'react-native';
 import LoginScreen from './LoginScreen';
 import SignUpScreen from './SignUpScreen';
@@ -8,7 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function AuthScreen({ route }) {
   const navigation = useNavigation();
@@ -53,10 +54,16 @@ export default function AuthScreen({ route }) {
       </View>
       {/* Animated Content Area */}
       <View style={styles.animatedContainer}>
-        <Animated.View style={[styles.animatedScreen, { transform: [{ translateX: loginTranslate }] }]}> 
+        <Animated.View
+          pointerEvents={activeTab === 'login' ? 'auto' : 'none'}
+          style={[styles.animatedScreen, { transform: [{ translateX: loginTranslate }] }]}
+        >
           <LoginScreen isChildScreen onSwitchToSignUp={() => setActiveTab('signup')} onForgotPassword={() => navigation.navigate('ForgotPasswordScreen')} />
         </Animated.View>
-        <Animated.View style={[styles.animatedScreen, { transform: [{ translateX: signupTranslate }] }]}> 
+        <Animated.View
+          pointerEvents={activeTab === 'signup' ? 'auto' : 'none'}
+          style={[styles.animatedScreen, { transform: [{ translateX: signupTranslate }] }]}
+        >
           <SignUpScreen isChildScreen />
         </Animated.View>
       </View>

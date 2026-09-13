@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -20,9 +21,12 @@ import { SERVICE_FEE_DISCLOSURE_TEXT } from '../constants/serviceFeeDisclosure';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 import { computeHostServiceFee, getHostNetEarnings } from '../utils/hostBookingEarnings';
+import { listingFromBookingSnapshot } from '../utils/bookingListing';
+import { navigateToUserProfile, navigateToVehicleDetail } from '../utils/navigateRootStack';
+import { openBookingChat } from '../utils/openBookingChat';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const EXTRA_DISPLAY_ORDER = ['clean', 'kms', 'fuel', 'delivery'];
 
@@ -46,7 +50,8 @@ function getExtraIconSource(key) {
 export default function HostBookingDetailsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId } = route.params || {};
-  const { getBookingById, cancelGuestBooking, acceptGuestBooking, pendingRequests } = useGuestBookings();
+  const { getBookingById, cancelGuestBooking, acceptGuestBooking, declineGuestBooking, respondExtension, pendingRequests } =
+    useGuestBookings();
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
   const booking = useMemo(() => (bookingId ? getBookingById(bookingId) : null), [bookingId, getBookingById]);
@@ -55,6 +60,8 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
     () => !!(bookingId && pendingRequests.some((b) => b.id === bookingId)),
     [bookingId, pendingRequests]
   );
+
+  const isExtensionPending = booking?.status === 'extension_pending';
 
   if (!booking) {
     return (
@@ -104,6 +111,22 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
   const guestName = booking.guestName || 'Guest';
   const introMessage = (booking.introMessage || '').trim();
 
+  const openGuestProfile = () => {
+    navigateToUserProfile(navigation, {
+      profileUser: {
+        userId: booking.guestUserId || null,
+        displayName: guestName,
+        photoUri: booking.guestPhotoUri || null,
+      },
+    });
+  };
+
+  const openVehicleDetail = () => {
+    const listing = listingFromBookingSnapshot(booking);
+    if (!listing) return;
+    navigateToVehicleDetail(navigation, listing);
+  };
+
   const openCancellationPolicy = () => {
     Linking.openURL(CANCELLATION_POLICY_URL).catch(() => {});
   };
@@ -114,22 +137,41 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
       {
         text: 'Deny',
         style: 'destructive',
-        onPress: () => {
-          cancelGuestBooking(booking.id);
+        onPress: async () => {
+          await declineGuestBooking(booking.id);
           navigation.goBack();
         },
       },
     ]);
   };
 
-  const onAccept = () => {
-    acceptGuestBooking(booking.id);
+  const onAccept = async () => {
+    await acceptGuestBooking(booking.id);
     navigation.navigate('ActiveRentalsScreen', { initialTab: 'host' });
   };
 
-  const confirmCancelTrip = () => {
+  const onApproveExtension = async () => {
+    await respondExtension(booking.id, true);
+    navigation.goBack();
+  };
+
+  const onDenyExtension = () => {
+    Alert.alert('Decline extension', 'Turn down this trip extension?', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Decline',
+        style: 'destructive',
+        onPress: async () => {
+          await respondExtension(booking.id, false);
+          navigation.goBack();
+        },
+      },
+    ]);
+  };
+
+  const confirmCancelTrip = async () => {
     setCancelModalVisible(false);
-    cancelGuestBooking(booking.id);
+    await cancelGuestBooking(booking.id);
     navigation.goBack();
   };
 
@@ -149,15 +191,15 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 24 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.rowPair}>
+        <TouchableOpacity style={styles.rowPair} onPress={openGuestProfile} activeOpacity={0.7}>
           <Text style={styles.labelLeft}>GUEST</Text>
           <Text style={styles.valueRight}>{guestName}</Text>
-        </View>
+        </TouchableOpacity>
         <View style={styles.hairline} />
-        <View style={styles.rowPair}>
+        <TouchableOpacity style={styles.rowPair} onPress={openVehicleDetail} activeOpacity={0.7}>
           <Text style={styles.labelLeft}>VEHICLE</Text>
           <Text style={styles.valueRight}>{ls.title || '—'}</Text>
-        </View>
+        </TouchableOpacity>
         <View style={styles.hairline} />
 
         <View style={styles.twoCol}>
@@ -194,7 +236,7 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
           <TouchableOpacity
             style={styles.messageGuestBtn}
             activeOpacity={0.85}
-            onPress={() => navigation.navigate('ChatScreen')}
+            onPress={() => openBookingChat(navigation, bookingId)}
           >
             <Text style={styles.messageGuestBtnText}>Message guest</Text>
           </TouchableOpacity>
@@ -290,12 +332,21 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
               <Text style={styles.denyLink}>Deny request</Text>
             </TouchableOpacity>
           </>
+        ) : isExtensionPending ? (
+          <>
+            <TouchableOpacity style={styles.rentYourRideBtn} activeOpacity={0.85} onPress={onApproveExtension}>
+              <Text style={styles.rentYourRideBtnText}>APPROVE EXTENSION</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onDenyExtension} activeOpacity={0.7}>
+              <Text style={styles.denyLink}>Decline extension</Text>
+            </TouchableOpacity>
+          </>
         ) : (
           <>
             <TouchableOpacity
               style={styles.rentYourRideBtn}
               activeOpacity={0.85}
-              onPress={() => navigation.navigate('ChatScreen')}
+              onPress={() => openBookingChat(navigation, bookingId)}
             >
               <Text style={styles.rentYourRideBtnText}>MESSAGE GUEST</Text>
             </TouchableOpacity>

@@ -1,11 +1,12 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 export function ListingPriceText({ pricePerDay }) {
   const amount = `$${Number(pricePerDay) || 0}`;
@@ -54,7 +55,7 @@ export default function ListingCard({
       style={[styles.card, forSwipeRow ? styles.cardInSwipeRow : styles.cardDefaultRadius]}
       activeOpacity={0.9}
       onPress={onPress}
-      delayPressIn={heartInteractive ? 0 : 70}
+      delayPressIn={forSwipeRow ? 120 : heartInteractive ? 0 : 70}
     >
       <View style={styles.cardImageWrap}>
         {listing.photos && listing.photos[0]?.uri ? (

@@ -1,0 +1,34 @@
+.shadow-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  border-radius: 1.5vw;
+  height: 2.5vw;
+  box-shadow: 0 0 24px 0 rgba(0, 0, 0, 0.06);
+  font-size: .75vw;
+  padding: 0 1vw;
+  color: #ababab;
+}
+.nav-but {
+  &:hover {
+    color: #4cb6b1;
+  }
+}
+.pages-box {
+  position: relative;
+  cursor: pointer;
+  z-index: 2;
+  span {
+    user-select: none;
+  }
+  .active-number {
+    color: #17252a;
+  }
+  .number {
+    margin: 0 0.5vw;
+    &:hover {
+      color: #4cb6b1;
+    }
+  }
+}

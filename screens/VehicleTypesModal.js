@@ -1,8 +1,9 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, TouchableOpacity, Modal, Dimensions, ScrollView, StyleSheet, Image } from 'react-native';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const scale = screenWidth / 375; // Base width is 375
+const scale = uiScale;
 
 const VehicleTypesModal = ({ visible, onClose, onContinue }) => {
 

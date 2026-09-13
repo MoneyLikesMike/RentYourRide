@@ -1,0 +1,15 @@
+---
+description: RentYourRide iOS app + Nest API — environments, deploys, TestFlight/App Store discipline
+globs: screens/**/*,components/**/*,navigation/**/*,services/**/*,ios/**/*,apps/api/**/*,app.json,eas.json
+alwaysApply: false
+---
+
+# Mobile app rules
+
+- Follow the **ryr-mobile** skill (dedicated mobile agent for this repo).
+- Legacy parity: when behavior is unclear, check `../RentYourRideLegacy` first and match it unless the user asked for something better.
+- TestFlight builds → bedev API + `pk_test_…` Stripe; production builds → `https://backend.rentyourride.ca` + `pk_live_…`. Never mix environments in one build.
+- Production releases go to the existing App Store listing (`com.rentyourride.ios`, App ID 1495074000); bump the build number every upload and never touch store metadata.
+- Google Places/Geocoding always via the API proxy (`/v1/maps-proxy/api/*`), never direct from the app.
+- Never commit `.env`, `stripe.secret.local`, or `phone-sms.secret.local`.
+- `PRODUCTION.md` is the go-live runbook; `DEV_TESTING.md` is the simulator/smoke-test checklist. `TESTFLIGHT.md` is outdated.

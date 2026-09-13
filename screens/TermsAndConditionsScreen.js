@@ -1,11 +1,12 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Linking } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const HOST_GUIDELINES_URL = 'https://rentyourride.com/host-guidelines';
 const GUEST_GUIDELINES_URL = 'https://rentyourride.com/guest-guidelines';

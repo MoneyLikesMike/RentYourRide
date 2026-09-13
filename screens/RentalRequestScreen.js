@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image, ScrollView } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -9,24 +10,31 @@ import HostRentalRequestCard from '../components/HostRentalRequestCard';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useListings } from '../context/ListingsContext';
-import { filterBookingsForHost } from '../utils/hostBookingFilter';
+import { useAuth } from '../context/AuthContext';
+import { filterBookingsForGuest, filterBookingsForHost } from '../utils/hostBookingFilter';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function RentalRequestScreen() {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const { pendingRequests } = useGuestBookings();
   const { firstName, lastName } = useUserProfile();
   const { listings } = useListings();
   const [activeTab, setActiveTab] = useState('guest');
 
+  const guestOutboundPending = useMemo(
+    () => filterBookingsForGuest(pendingRequests, user?.id),
+    [pendingRequests, user?.id],
+  );
+
   const hostRentalRequests = useMemo(() => {
-    return filterBookingsForHost(pendingRequests, listings, firstName, lastName).filter(
+    return filterBookingsForHost(pendingRequests, listings, firstName, lastName, user?.id).filter(
       (b) => b.instantBooking !== true
     );
-  }, [pendingRequests, listings, firstName, lastName]);
+  }, [pendingRequests, listings, firstName, lastName, user?.id]);
 
   // Tab label/underline widths
   const tabWidths = { guest: 50 * scale, host: 43 * scale };
@@ -65,7 +73,7 @@ export default function RentalRequestScreen() {
       {/* Content Area */}
       <View style={styles.contentArea}>
         {activeTab === 'guest' ? (
-          pendingRequests.length === 0 ? (
+          guestOutboundPending.length === 0 ? (
             <View style={styles.emptyStateContainer}>
               <Image source={require('../assets/icons/EmptyRoad.png')} style={styles.emptyIcon} />
               <Text style={styles.emptyHeader}>You haven't sent any rental requests</Text>
@@ -81,7 +89,7 @@ export default function RentalRequestScreen() {
               contentContainerStyle={styles.guestListContent}
               showsVerticalScrollIndicator={false}
             >
-              {pendingRequests.map((b) => (
+              {guestOutboundPending.map((b) => (
                 <GuestBookingCard
                   key={b.id}
                   booking={b}

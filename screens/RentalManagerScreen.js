@@ -1,13 +1,14 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, ScrollView, Platform } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
-import { navigateRootStack } from '../utils/navigateRootStack';
+import { startListRideFlow } from '../utils/verificationGates';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 function buildIcons({ canStartListingWithoutGetPaid, hasListingOrPayoutInfo }) {
   return [
@@ -15,12 +16,7 @@ function buildIcons({ canStartListingWithoutGetPaid, hasListingOrPayoutInfo }) {
     label: 'List a new ride',
     icon: require('../assets/icons/list-a-new-ride.png'),
     onPress: (navigation) => {
-      // First listing: Get Paid first. Already listed once (or finished payout setup): start listing immediately.
-      if (!canStartListingWithoutGetPaid) {
-        navigateRootStack(navigation, 'GetPaidStack');
-      } else {
-        navigateRootStack(navigation, 'ListRideStack');
-      }
+      startListRideFlow(navigation, { canUseListingsHub: canStartListingWithoutGetPaid });
     },
   },
   {

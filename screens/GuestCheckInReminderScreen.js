@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback, useRef, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -16,10 +17,11 @@ import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 /** Pops guest check-in flow and returns to booking details (Sign → Agreement → Guidelines → Check-in → Details). */
 const CHECK_IN_FLOW_DEPTH = 5;
@@ -27,7 +29,8 @@ const CHECK_IN_FLOW_DEPTH = 5;
 export default function GuestCheckInReminderScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId } = route.params || {};
-  const { getBookingById, updateGuestBooking } = useGuestBookings();
+  const { getBookingById } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
   const startBtnScale = useRef(new Animated.Value(1)).current;
   const [startTripBusy, setStartTripBusy] = useState(false);
 
@@ -76,18 +79,26 @@ export default function GuestCheckInReminderScreen({ navigation, route }) {
         setStartTripBusy(false);
         return;
       }
-      updateGuestBooking(booking.id, { guestTripStartedAt: Date.now() });
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 1,
-          routes: [
-            { name: 'RentalManagerScreen' },
-            { name: 'ActiveRentalsScreen', params: { initialTab: 'guest' } },
-          ],
-        })
-      );
+      void (async () => {
+        const ok = await applyBookingUpdate(
+          booking.id,
+          { guestTripStartedAt: Date.now() },
+          { errorTitle: 'Could not start trip' },
+        );
+        setStartTripBusy(false);
+        if (!ok) return;
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 1,
+            routes: [
+              { name: 'RentalManagerScreen' },
+              { name: 'ActiveRentalsScreen', params: { initialTab: 'guest' } },
+            ],
+          }),
+        );
+      })();
     });
-  }, [booking?.id, startTripBusy, startBtnScale, updateGuestBooking, navigation]);
+  }, [booking?.id, startTripBusy, startBtnScale, applyBookingUpdate, navigation]);
 
   if (!booking) {
     return (
