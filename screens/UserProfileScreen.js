@@ -22,6 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import { navigateRootStack, navigateToVehicleDetail } from '../utils/navigateRootStack';
 import { startListRideFlow } from '../utils/verificationGates';
 import ListingCard, { ListingStarRating } from '../components/ListingCard';
+import { sanitizeHostBioForDisplay } from '../utils/hostBioDisplay';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -134,12 +135,14 @@ export default function UserProfileScreen({ navigation, route }) {
     : (profileUser?.displayName || 'Guest').trim() || 'Guest';
   const profilePhotoUri = isOwnProfile ? photoUri : profileUser?.photoUri || null;
   const profileJoinedYear = isOwnProfile ? joinedYear : profileUser?.joinedYear ?? null;
-  const aboutDisplay = isOwnProfile
-    ? aboutBio?.trim()
-      ? aboutBio.trim()
-      : ABOUT_PLACEHOLDER
-    : profileUser?.aboutBio?.trim() || ABOUT_PLACEHOLDER;
-  const aboutIsPlaceholder = isOwnProfile ? !aboutBio?.trim() : !profileUser?.aboutBio?.trim();
+  const rawAbout = isOwnProfile
+    ? aboutBio?.trim() || ''
+    : profileUser?.aboutBio?.trim() || '';
+  // When we show "Joined in {year}" from created_at, hide conflicting tenure
+  // sentences in the bio (display only — Edit Profile still loads raw about).
+  const sanitizedAbout = sanitizeHostBioForDisplay(rawAbout);
+  const aboutDisplay = sanitizedAbout || ABOUT_PLACEHOLDER;
+  const aboutIsPlaceholder = !sanitizedAbout;
 
   const openListing = useCallback(
     (listing) => {

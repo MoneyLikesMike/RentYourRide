@@ -19,6 +19,7 @@ import SiteFooter from '../components/SiteFooter';
 import SiteHeader from '../components/SiteHeader';
 import SearchTimePicker, { snapSearchTime } from '../components/SearchTimePicker';
 import type { SearchNavState, SearchTripDates } from '../types/search';
+import { sanitizeHostBioForDisplay } from '../utils/hostBioDisplay';
 
 export type ListingDetailNavState = {
   search?: SearchNavState;
@@ -220,7 +221,7 @@ export default function ListingDetailPage() {
   const vehicleType = listing?.vehicleType?.trim() || 'Cars';
   const kmOverage = listing?.extras?.kmOverageFee;
 
-  const hostBio = listing?.hostBio?.trim() || '';
+  const hostBio = sanitizeHostBioForDisplay(listing?.hostBio);
 
   const onCheckout = () => {
     const start = combineLocal(startDate, startTime);

@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { sanitizeHostBioForDisplay } from '../common/host-bio-display';
 import { UserEntity } from './user.entity';
 
 @Entity('listings')
@@ -138,7 +139,9 @@ export class ListingEntity {
       guestReviews: this.guestReviews ?? [],
       hostPhotoUri: h?.avatarUrl ?? undefined,
       hostJoinedYear: h?.createdAt ? h.createdAt.getFullYear() : undefined,
-      hostBio: h?.aboutBio?.trim() || '',
+      // Tenure stays on hostJoinedYear (created_at). Strip conflicting
+      // "On this app since …" sentences from the public bio projection only.
+      hostBio: sanitizeHostBioForDisplay(h?.aboutBio),
       hostEmail: h?.email,
       hostPhone: h?.phone ?? undefined,
       licensePlate: this.licensePlate ?? undefined,

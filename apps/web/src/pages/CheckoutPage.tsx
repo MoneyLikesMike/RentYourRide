@@ -32,6 +32,7 @@ import PlacesAutocomplete from '../components/PlacesAutocomplete';
 import PageMeta from '../components/PageMeta';
 import SiteHeader from '../components/SiteHeader';
 import type { SearchNavState, SearchTripDates } from '../types/search';
+import { sanitizeHostBioForDisplay } from '../utils/hostBioDisplay';
 
 export type CheckoutNavState = {
   search?: SearchNavState;
@@ -365,7 +366,7 @@ export default function CheckoutPage() {
     .filter(Boolean)
     .join(' ')
     .trim() || listing?.title || '';
-  const hostBio = listing?.hostBio?.trim() || '';
+  const hostBio = sanitizeHostBioForDisplay(listing?.hostBio);
 
   const onUseCurrentLocation = async () => {
     setLocating(true);
