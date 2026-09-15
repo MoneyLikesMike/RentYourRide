@@ -741,6 +741,26 @@
   margin: 2rem 0;
 }
 
+.fyc-empty-location {
+  width: 100%;
+  text-align: center;
+  padding: 0.5rem 1rem 1.5rem;
+}
+
+.fyc-empty-location .fyc-loading-message {
+  margin-bottom: 0.5rem;
+}
+
+.fyc-empty-location-hint {
+  margin: 0 auto;
+  max-width: 28rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #7a8a8c;
+}
+
 .fyc-car-grid {
   width: 100%;
   display: flex;

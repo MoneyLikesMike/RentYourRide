@@ -9,6 +9,7 @@ import SearchTimePicker, {
 } from '../components/SearchTimePicker';
 import PageMeta, { HOME_SEO } from '../components/PageMeta';
 import CommunityExperiences from '../components/CommunityExperiences';
+import HomeDiscoveryStrips from '../components/HomeDiscoveryStrips';
 import PhoneMockup from '../components/PhoneMockup';
 import SiteHeader from '../components/SiteHeader';
 import { AppStoreBadge, GooglePlayBadge } from '../components/StoreBadges';
@@ -309,6 +310,8 @@ export default function HomePage() {
         >
           More advanced search
         </button>
+
+        <HomeDiscoveryStrips />
 
         <img
           src="/home/home-background.png"

@@ -29,6 +29,12 @@ import SearchTimePicker, { snapSearchTime } from '../components/SearchTimePicker
 import SiteHeader from '../components/SiteHeader';
 import type { SearchNavState } from '../types/search';
 import { VEHICLE_COLOR_OPTIONS } from '../data/vehicleColors';
+import {
+  hasSearchOrigin,
+  haversineKm,
+  MAX_RESULT_DISTANCE_KM,
+  SEARCH_RADIUS_KM,
+} from '../utils/searchLocation';
 
 const VEHICLE_TYPE_OPTIONS = [
   { label: 'cars', value: 'Car', icon: '/fyc/vehicles/cars.png' },
@@ -398,9 +404,9 @@ export default function FindYourCarPage() {
   const [searchQuery, setSearchQuery] = useState(initialQuery);
 
   const [listings, setListings] = useState<ListingSummary[]>([]);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>(
-    'idle',
-  );
+  const [status, setStatus] = useState<
+    'idle' | 'loading' | 'ok' | 'error' | 'needs-location'
+  >('idle');
   const [error, setError] = useState<string | null>(null);
 
   const [priceOpen, setPriceOpen] = useState(false);
@@ -490,8 +496,18 @@ export default function FindYourCarPage() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    // With no city or query this browses every published listing, so the page
-    // still renders for a visitor (or crawler) arriving straight from Google.
+    const hasCity = Boolean(searchCity?.trim());
+    const hasCoords = hasSearchOrigin(place?.latitude, place?.longitude);
+
+    // Empty / weak Where? must never dump continental results. Require a city
+    // or map coordinates before calling search.
+    if (!hasCity && !hasCoords) {
+      setListings([]);
+      setStatus('needs-location');
+      setError(null);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       setStatus('loading');
@@ -499,13 +515,35 @@ export default function FindYourCarPage() {
       try {
         const rows = await searchListings({
           city: searchCity || undefined,
-          q: !searchCity && searchQuery ? searchQuery : undefined,
+          // Do not send free-text `q` without a city — that used to return
+          // nationwide title matches with multi-thousand-km cards.
           latitude: place?.latitude,
           longitude: place?.longitude,
-          radiusKm: 50,
+          radiusKm: SEARCH_RADIUS_KM,
         });
         if (cancelled) return;
-        setListings(Array.isArray(rows) ? rows : []);
+
+        const originLat = place?.latitude;
+        const originLng = place?.longitude;
+        const bounded =
+          hasSearchOrigin(originLat, originLng)
+            ? (Array.isArray(rows) ? rows : []).filter((listing) => {
+                const lat = Number(listing.latitude);
+                const lng = Number(listing.longitude);
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                  // Keep city-name matches that lack coordinates.
+                  return Boolean(searchCity?.trim());
+                }
+                return (
+                  haversineKm(originLat, originLng, lat, lng) <=
+                  MAX_RESULT_DISTANCE_KM
+                );
+              })
+            : Array.isArray(rows)
+              ? rows
+              : [];
+
+        setListings(bounded);
         setStatus('ok');
       } catch (err) {
         if (cancelled) return;
@@ -525,10 +563,8 @@ export default function FindYourCarPage() {
     };
   }, [
     searchCity,
-    searchQuery,
     place?.latitude,
     place?.longitude,
-    navigate,
   ]);
 
   const filtered = useMemo(() => {
@@ -710,6 +746,10 @@ export default function FindYourCarPage() {
         onChange={(text) => {
           setAddressText(text);
           setPlace(null);
+          if (!text.trim()) {
+            setSearchCity('');
+            setSearchQuery('');
+          }
         }}
         onPlaceSelected={(parsed) => {
           setPlace(parsed);
@@ -1232,10 +1272,23 @@ export default function FindYourCarPage() {
             {status === 'loading' ? (
               <p className="fyc-loading-message">Loading…</p>
             ) : null}
+            {status === 'needs-location' ? (
+              <div className="fyc-empty-location">
+                <p className="fyc-loading-message">
+                  Enter a city above to find rides near you.
+                </p>
+                <p className="fyc-empty-location-hint">
+                  Search works best with a city or neighbourhood — we won&apos;t
+                  show cars across the country.
+                </p>
+              </div>
+            ) : null}
             {status === 'ok' && filtered.length === 0 ? (
-              <p className="fyc-loading-message">
-                No rides found. Try another city or filter.
-              </p>
+              <div className="fyc-empty-location">
+                <p className="fyc-loading-message">
+                  No rides nearby. Try another city or widen your search.
+                </p>
+              </div>
             ) : null}
 
             <div className="fyc-car-grid">
