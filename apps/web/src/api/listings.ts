@@ -2,6 +2,15 @@ import { apiFetch } from './http';
 
 export type ListingPhoto = { uri?: string; url?: string };
 
+export type GuestListingReview = {
+  bookingId: string;
+  rating: number;
+  publicText: string;
+  guestName: string;
+  guestPhotoUri?: string | null;
+  submittedAt?: number;
+};
+
 export type ListingSummary = {
   id: string;
   city: string;
@@ -14,6 +23,7 @@ export type ListingSummary = {
   hostName?: string;
   hostTrips?: number;
   hostRating?: number;
+  guestReviews?: GuestListingReview[];
   instantBooking?: boolean;
   latitude?: number;
   longitude?: number;
@@ -28,15 +38,6 @@ export type ListingExtras = {
   longestTrip?: string;
   kmOverageFee?: number;
   [key: string]: unknown;
-};
-
-export type GuestListingReview = {
-  bookingId: string;
-  rating: number;
-  publicText: string;
-  guestName: string;
-  guestPhotoUri?: string | null;
-  submittedAt?: number;
 };
 
 export type ListingDetail = ListingSummary & {

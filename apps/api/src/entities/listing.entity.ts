@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { honestHostRating } from '../common/listing-rating';
 import { UserEntity } from './user.entity';
 
 @Entity('listings')
@@ -86,7 +87,7 @@ export class ListingEntity {
   @Column({ name: 'host_trips', type: 'int', default: 0 })
   hostTrips: number;
 
-  @Column({ name: 'host_rating', type: 'decimal', precision: 3, scale: 2, default: '5' })
+  @Column({ name: 'host_rating', type: 'decimal', precision: 3, scale: 2, default: '0' })
   hostRating: string;
 
   @Column({ name: 'guest_reviews', type: 'jsonb', nullable: true })
@@ -134,7 +135,8 @@ export class ListingEntity {
       availability: this.availability ?? [],
       hostName: hostFullName || 'Host',
       hostTrips: this.hostTrips,
-      hostRating: Number(this.hostRating),
+      // Never project the legacy DB default of 5 when there are no reviews.
+      hostRating: honestHostRating(this.guestReviews),
       guestReviews: this.guestReviews ?? [],
       hostPhotoUri: h?.avatarUrl ?? undefined,
       hostJoinedYear: h?.createdAt ? h.createdAt.getFullYear() : undefined,

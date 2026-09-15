@@ -397,6 +397,13 @@
   color: #17252a;
 }
 
+.car-new-host {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
 .car-feature-summary {
   margin: 0 0 0.55rem;
   font-family: 'Nunito', sans-serif;

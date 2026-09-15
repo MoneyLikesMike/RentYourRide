@@ -29,6 +29,12 @@ import SearchTimePicker, { snapSearchTime } from '../components/SearchTimePicker
 import SiteHeader from '../components/SiteHeader';
 import type { SearchNavState } from '../types/search';
 import { VEHICLE_COLOR_OPTIONS } from '../data/vehicleColors';
+import {
+  formatListingTripLabel,
+  formatNoReviewsLabel,
+  getListingDisplayRating,
+  listingHasGuestReviews,
+} from '../utils/listingRating';
 
 const VEHICLE_TYPE_OPTIONS = [
   { label: 'cars', value: 'Car', icon: '/fyc/vehicles/cars.png' },
@@ -552,7 +558,10 @@ export default function FindYourCarPage() {
     } else if (sortBy === 'trips') {
       sorted.sort((a, b) => (b.hostTrips ?? 0) - (a.hostTrips ?? 0));
     } else if (sortBy === 'rating') {
-      sorted.sort((a, b) => (b.hostRating ?? 0) - (a.hostRating ?? 0));
+      sorted.sort(
+        (a, b) =>
+          (getListingDisplayRating(b) ?? 0) - (getListingDisplayRating(a) ?? 0),
+      );
     }
     return sorted;
   }, [listings, appliedMin, appliedMax, selectedTypes, instantOnly, sortBy]);
@@ -1294,9 +1303,15 @@ export default function FindYourCarPage() {
                         </div>
                       </div>
                       <div className="fyc-stars-trips">
-                        <Stars rating={listing.hostRating ?? 0} />
+                        {listingHasGuestReviews(listing) ? (
+                          <Stars rating={getListingDisplayRating(listing) ?? 0} />
+                        ) : (
+                          <span className="fyc-new-host">
+                            {formatNoReviewsLabel(listing)}
+                          </span>
+                        )}
                         <span className="fyc-trips">
-                          {listing.hostTrips ?? 0} trips
+                          {formatListingTripLabel(listing)}
                         </span>
                       </div>
                     </Link>

@@ -23,6 +23,12 @@ import { getListing } from '../services/listingsApi';
 import { isRemoteListingId } from '../utils/listingId';
 import { ensureIdentityVerified } from '../utils/verificationGates';
 import { apiRangesToCalendarData } from '../utils/listingAvailability';
+import {
+  formatListingTripLabel,
+  formatNoReviewsLabel,
+  getListingDisplayRating,
+  listingHasGuestReviews,
+} from '../utils/listingRating';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
@@ -106,11 +112,12 @@ export default function VehicleDetailScreen({ navigation, route }) {
   const pickupAddress = listing.pickupAddress || `${city}, MB R3N 0P2`;
   const instantBooking = listing.instantBooking === true;
   const hostName = listing.hostName || 'Moe Jackson';
-  const hostTrips = listing.hostTrips ?? 52;
   const guestReviews = Array.isArray(listing.guestReviews) ? listing.guestReviews : [];
-  const hostRatingRaw = Number(listing.hostRating);
-  const hostRating = Number.isFinite(hostRatingRaw) ? hostRatingRaw : 5;
-  const hostStarsFilled = Math.min(5, Math.max(0, Math.round(hostRating)));
+  const displayRating = getListingDisplayRating(listing);
+  const hostStarsFilled =
+    displayRating != null
+      ? Math.min(5, Math.max(0, Math.round(displayRating)))
+      : 0;
 
   // If your listings ever include coordinates, we can center precisely.
   // For now, default to Winnipeg.
@@ -282,17 +289,21 @@ export default function VehicleDetailScreen({ navigation, route }) {
             <Text style={styles.hostLabel}>HOST</Text>
           </View>
           <View style={styles.hostMeta}>
-            <View style={styles.starRow}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Svg key={i} width={14} height={14} viewBox="0 0 24 24">
-                  <Path
-                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                    fill={i <= hostStarsFilled ? COLORS.YELLOWISH_ORANGE : '#E0E0E0'}
-                  />
-                </Svg>
-              ))}
-            </View>
-            <Text style={styles.hostTrips}>{hostTrips} trips</Text>
+            {listingHasGuestReviews(listing) ? (
+              <View style={styles.starRow}>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Svg key={i} width={14} height={14} viewBox="0 0 24 24">
+                    <Path
+                      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                      fill={i <= hostStarsFilled ? COLORS.YELLOWISH_ORANGE : '#E0E0E0'}
+                    />
+                  </Svg>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.hostNewBadge}>{formatNoReviewsLabel(listing)}</Text>
+            )}
+            <Text style={styles.hostTrips}>{formatListingTripLabel(listing)}</Text>
           </View>
         </TouchableOpacity>
 
@@ -636,6 +647,12 @@ const styles = StyleSheet.create({
   starRow: {
     flexDirection: 'row',
     gap: 2,
+    marginBottom: 4,
+  },
+  hostNewBadge: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 12,
+    color: '#4cb6b1',
     marginBottom: 4,
   },
   hostTrips: {

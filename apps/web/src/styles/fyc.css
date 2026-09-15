@@ -897,6 +897,14 @@
   color: #17252a;
 }
 
+.fyc-new-host {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4cb6b1;
+  letter-spacing: 0.01em;
+}
+
 .fyc-map-wrapper {
   position: relative;
   width: 50%;

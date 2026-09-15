@@ -4,6 +4,12 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'rea
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import {
+  formatListingTripLabel,
+  formatNoReviewsLabel,
+  getListingDisplayRating,
+  listingHasGuestReviews,
+} from '../utils/listingRating';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
@@ -18,8 +24,8 @@ export function ListingPriceText({ pricePerDay }) {
   );
 }
 
-export function ListingStarRating({ rating = 4, size = 12 }) {
-  const full = Math.floor(Number(rating) || 0);
+export function ListingStarRating({ rating, size = 12 }) {
+  const full = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
   return (
     <View style={styles.starRow}>
       {[1, 2, 3, 4, 5].map((i) => (
@@ -102,8 +108,12 @@ export default function ListingCard({
         </View>
         <Text style={styles.cardType}>{(listing.vehicleType || 'SEDAN').toUpperCase()}</Text>
         <View style={styles.cardMeta}>
-          <ListingStarRating rating={listing.rating ?? 4} size={12} />
-          <Text style={styles.tripsText}>{listing.trips ?? 0} trips</Text>
+          {listingHasGuestReviews(listing) ? (
+            <ListingStarRating rating={getListingDisplayRating(listing)} size={12} />
+          ) : (
+            <Text style={styles.newHostText}>{formatNoReviewsLabel(listing)}</Text>
+          )}
+          <Text style={styles.tripsText}>{formatListingTripLabel(listing)}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -227,5 +237,11 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 12,
     color: 'rgb(142,142,142)',
+  },
+  newHostText: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 12,
+    color: '#4cb6b1',
+    marginRight: 8,
   },
 });

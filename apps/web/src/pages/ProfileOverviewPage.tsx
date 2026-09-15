@@ -13,6 +13,12 @@ import {
 import type { MeUser } from '../api/users';
 import ProfileLayout from '../components/ProfileLayout';
 import type { OverviewStats } from '../components/ProfileSidebar';
+import {
+  formatListingTripLabel,
+  formatNoReviewsLabel,
+  getListingDisplayRating,
+  listingHasGuestReviews,
+} from '../utils/listingRating';
 
 function Stars({ n }: { n: number }) {
   const filled = Math.round(n);
@@ -99,12 +105,12 @@ function OverviewBody({
   }, []);
 
   useEffect(() => {
-    const rated = rides.filter(
-      (r) => typeof r.hostRating === 'number' && r.hostRating > 0,
-    );
+    const rated = rides
+      .map((r) => getListingDisplayRating(r))
+      .filter((n): n is number => n != null && n > 0);
     const avg =
       rated.length > 0
-        ? rated.reduce((s, r) => s + (r.hostRating ?? 0), 0) / rated.length
+        ? rated.reduce((s, n) => s + n, 0) / rated.length
         : 0;
     onStats({
       rides: rides.length,
@@ -222,9 +228,15 @@ function OverviewBody({
                       </div>
                     </div>
                     <div className="overview-car-meta">
-                      <Stars n={ride.hostRating ?? 0} />
+                      {listingHasGuestReviews(ride) ? (
+                        <Stars n={getListingDisplayRating(ride) ?? 0} />
+                      ) : (
+                        <span className="overview-new-host">
+                          {formatNoReviewsLabel(ride)}
+                        </span>
+                      )}
                       <span className="overview-trips">
-                        {ride.hostTrips ?? 0} trips
+                        {formatListingTripLabel(ride)}
                       </span>
                     </div>
                   </Link>

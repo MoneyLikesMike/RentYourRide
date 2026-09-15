@@ -730,6 +730,11 @@
   color: #17252a;
 }
 
+.checkout-new-host {
+  color: #4cb6b1;
+  font-weight: 700;
+}
+
 .checkout-stars {
   display: inline-flex;
   align-items: center;

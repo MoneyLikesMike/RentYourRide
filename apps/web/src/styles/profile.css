@@ -600,6 +600,13 @@
   color: #17252a;
 }
 
+.overview-new-host {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
 .overview-review-count {
   font-family: 'Nunito', sans-serif;
   font-size: 1.05rem;

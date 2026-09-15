@@ -19,6 +19,12 @@ import SiteFooter from '../components/SiteFooter';
 import SiteHeader from '../components/SiteHeader';
 import SearchTimePicker, { snapSearchTime } from '../components/SearchTimePicker';
 import type { SearchNavState, SearchTripDates } from '../types/search';
+import {
+  formatListingTripLabel,
+  formatNoReviewsLabel,
+  getListingDisplayRating,
+  listingHasGuestReviews,
+} from '../utils/listingRating';
 
 export type ListingDetailNavState = {
   search?: SearchNavState;
@@ -459,9 +465,15 @@ export default function ListingDetailPage() {
 
                 <div className="title-stars">
                   <h2 className="car-title">{listing.title}</h2>
-                  <Stars rating={listing.hostRating ?? 0} />
+                  {listingHasGuestReviews(listing) ? (
+                    <Stars rating={getListingDisplayRating(listing) ?? 0} />
+                  ) : (
+                    <span className="car-new-host">
+                      {formatNoReviewsLabel(listing)}
+                    </span>
+                  )}
                   <span className="car-trips">
-                    {listing.hostTrips ?? 0} trips
+                    {formatListingTripLabel(listing)}
                   </span>
                 </div>
 

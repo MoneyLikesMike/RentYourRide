@@ -2115,6 +2115,13 @@
   color: #17252a;
 }
 
+.your-rides-new-host {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(0.8rem, 0.85vw, 0.95rem);
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
 .your-rides-actions {
   box-sizing: border-box;
   padding: 2vw 1.25vw;

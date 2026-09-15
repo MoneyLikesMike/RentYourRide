@@ -32,6 +32,12 @@ import PlacesAutocomplete from '../components/PlacesAutocomplete';
 import PageMeta from '../components/PageMeta';
 import SiteHeader from '../components/SiteHeader';
 import type { SearchNavState, SearchTripDates } from '../types/search';
+import {
+  formatListingTripLabel,
+  formatNoReviewsLabel,
+  getListingDisplayRating,
+  listingHasGuestReviews,
+} from '../utils/listingRating';
 
 export type CheckoutNavState = {
   search?: SearchNavState;
@@ -1032,8 +1038,14 @@ export default function CheckoutPage() {
                 {vehicleTitle || listing.title}
               </h2>
               <div className="checkout-vehicle-meta">
-                <Stars rating={listing.hostRating ?? 0} />
-                <span>{listing.hostTrips ?? 0} trips</span>
+                {listingHasGuestReviews(listing) ? (
+                  <Stars rating={getListingDisplayRating(listing) ?? 0} />
+                ) : (
+                  <span className="checkout-new-host">
+                    {formatNoReviewsLabel(listing)}
+                  </span>
+                )}
+                <span>{formatListingTripLabel(listing)}</span>
               </div>
               <div className="checkout-day-price">
                 {formatMoney(listing.pricePerDay)}
