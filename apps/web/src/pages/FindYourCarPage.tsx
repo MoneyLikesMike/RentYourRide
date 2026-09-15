@@ -98,6 +98,56 @@ function combineLocal(dateStr: string, timeStr: string): Date | null {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
+/** en-CA → YYYY-MM-DD (avoids clipped native mm/dd/y placeholders). */
+function formatDisplayDateCa(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(y, m - 1, d));
+}
+
+function SearchDateField({
+  value,
+  onChange,
+  'aria-label': ariaLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  'aria-label': string;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const openPicker = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    try {
+      el.showPicker?.();
+    } catch {
+      el.focus();
+      el.click();
+    }
+  };
+
+  return (
+    <label className="fyc-dt-control fyc-dt-control--date" onClick={openPicker}>
+      <span className="fyc-dt-value">{formatDisplayDateCa(value)}</span>
+      <span className="fyc-dt-chevron" aria-hidden />
+      <input
+        ref={inputRef}
+        type="date"
+        className="fyc-dt-input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={ariaLabel}
+        lang="en-CA"
+      />
+    </label>
+  );
+}
+
 function Stars({ rating }: { rating: number }) {
   const filled = Math.max(0, Math.min(5, Math.round(rating || 0)));
   return (
@@ -749,16 +799,13 @@ export default function FindYourCarPage() {
           <div className="fyc-sort-field fyc-sort-field--dates">
             <span className="option-caption">Start</span>
             <div className="fyc-dt-row">
-              <label className="fyc-dt-control">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-                <span className="fyc-dt-chevron" aria-hidden />
-              </label>
+              <SearchDateField
+                value={startDate}
+                onChange={setStartDate}
+                aria-label="Start date"
+              />
               <SearchTimePicker
-                className="fyc-dt-control"
+                className="fyc-dt-control fyc-dt-control--time"
                 value={startTime}
                 onChange={setStartTime}
                 aria-label="Start time"
@@ -769,16 +816,13 @@ export default function FindYourCarPage() {
           <div className="fyc-sort-field fyc-sort-field--dates">
             <span className="option-caption">End</span>
             <div className="fyc-dt-row">
-              <label className="fyc-dt-control">
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-                <span className="fyc-dt-chevron" aria-hidden />
-              </label>
+              <SearchDateField
+                value={endDate}
+                onChange={setEndDate}
+                aria-label="End date"
+              />
               <SearchTimePicker
-                className="fyc-dt-control"
+                className="fyc-dt-control fyc-dt-control--time"
                 value={endTime}
                 onChange={setEndTime}
                 aria-label="End time"
@@ -850,7 +894,7 @@ export default function FindYourCarPage() {
                 setOpenFilterSelect(null);
               }}
             >
-              <span>More filter</span>
+              <span>More filters</span>
               <ChipChevron open={filtersOpen} />
             </button>
           </div>
