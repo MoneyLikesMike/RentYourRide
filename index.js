@@ -1,8 +1,17 @@
-import { registerRootComponent } from 'expo';
+import { AppRegistry, ScrollView, FlatList } from 'react-native';
 
 import App from './App';
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
-registerRootComponent(App);
+if (ScrollView.defaultProps == null) {
+  ScrollView.defaultProps = {};
+}
+ScrollView.defaultProps.keyboardShouldPersistTaps = 'handled';
+ScrollView.defaultProps.keyboardDismissMode = 'on-drag';
+
+if (FlatList.defaultProps == null) {
+  FlatList.defaultProps = {};
+}
+FlatList.defaultProps.keyboardShouldPersistTaps = 'handled';
+FlatList.defaultProps.keyboardDismissMode = 'on-drag';
+
+AppRegistry.registerComponent('main', () => App);

@@ -1,0 +1,27 @@
+{
+  "cli": {
+    "note": "Website build/deploy profiles — mirrors eas.json preview vs production"
+  },
+  "build": {
+    "testing": {
+      "host": "fedev.rentyourride.ca",
+      "api": "https://bedev.rentyourride.ca",
+      "studioApi": "https://backend.rentyourride.ca",
+      "viteMode": "development",
+      "stripe": "test",
+      "awsProfile": "dev",
+      "deployBucket": "dev-ryrbs",
+      "command": "npm run web:deploy:testing"
+    },
+    "production": {
+      "host": "app.rentyourride.ca",
+      "api": "https://backend.rentyourride.ca",
+      "studioApi": "https://backend.rentyourride.ca",
+      "viteMode": "production",
+      "stripe": "live",
+      "awsProfile": "ryr-prod",
+      "deployBucket": "prod-ryrbs",
+      "command": "npm run web:deploy:production"
+    }
+  }
+}

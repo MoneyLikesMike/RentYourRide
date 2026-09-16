@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback, useRef, useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -15,9 +16,10 @@ import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 /** GuestCheckout → Guidelines → Agreement → Sign → this screen — pop back to Active rentals / list. */
 const CHECKOUT_COMPLETION_FLOW_DEPTH = 5;
@@ -25,7 +27,8 @@ const CHECKOUT_COMPLETION_FLOW_DEPTH = 5;
 export default function GuestCheckoutTripCompleteScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId } = route.params || {};
-  const { getBookingById, updateGuestBooking } = useGuestBookings();
+  const { getBookingById } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
   const endBtnScale = useRef(new Animated.Value(1)).current;
   const [endTripBusy, setEndTripBusy] = useState(false);
 
@@ -61,10 +64,18 @@ export default function GuestCheckoutTripCompleteScreen({ navigation, route }) {
         setEndTripBusy(false);
         return;
       }
-      updateGuestBooking(booking.id, { guestCheckedOutAt: Date.now() });
-      navigation.navigate('GuestHostReviewScreen', { bookingId: booking.id });
+      void (async () => {
+        const ok = await applyBookingUpdate(
+          booking.id,
+          { guestCheckedOutAt: Date.now() },
+          { errorTitle: 'Could not complete trip' },
+        );
+        setEndTripBusy(false);
+        if (!ok) return;
+        navigation.navigate('GuestHostReviewScreen', { bookingId: booking.id });
+      })();
     });
-  }, [booking?.id, endTripBusy, endBtnScale, updateGuestBooking, navigation]);
+  }, [booking?.id, endTripBusy, endBtnScale, applyBookingUpdate, navigation]);
 
   if (!booking) {
     return (

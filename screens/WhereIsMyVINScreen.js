@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -16,7 +17,7 @@ import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const VIN_MARKER_LABELS = [
   'Under hood (front of engine block on most gasoline cars)',

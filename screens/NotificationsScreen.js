@@ -1,20 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { useAuth } from '../context/AuthContext';
+import { getNotificationSettings, patchNotificationSettings } from '../services/usersApi';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const NOTIFICATION_PREFS_KEY = '@ryr_notification_prefs';
 
+async function persistLocal(payload) {
+  await AsyncStorage.setItem(NOTIFICATION_PREFS_KEY, JSON.stringify(payload));
+}
+
 export default function NotificationsScreen({ navigation }) {
-  const [textNotif, setTextNotif] = useState(false);
-  const [emailNotif, setEmailNotif] = useState(false);
-  const [pushNotif, setPushNotif] = useState(false);
+  const { isAuthenticated, isReady } = useAuth();
+  // Unset prefs default ON (matches API / legacy onboarding).
+  const [textNotif, setTextNotif] = useState(true);
+  const [emailNotif, setEmailNotif] = useState(true);
+  const [pushNotif, setPushNotif] = useState(true);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   useEffect(() => {
@@ -22,11 +32,13 @@ export default function NotificationsScreen({ navigation }) {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(NOTIFICATION_PREFS_KEY);
-        if (cancelled || !raw) return;
-        const p = JSON.parse(raw);
-        if (typeof p.textNotif === 'boolean') setTextNotif(p.textNotif);
-        if (typeof p.emailNotif === 'boolean') setEmailNotif(p.emailNotif);
-        if (typeof p.pushNotif === 'boolean') setPushNotif(p.pushNotif);
+        if (cancelled) return;
+        if (raw) {
+          const p = JSON.parse(raw);
+          if (typeof p.textNotif === 'boolean') setTextNotif(p.textNotif);
+          if (typeof p.emailNotif === 'boolean') setEmailNotif(p.emailNotif);
+          if (typeof p.pushNotif === 'boolean') setPushNotif(p.pushNotif);
+        }
       } catch (_) {
         /* keep defaults */
       } finally {
@@ -38,11 +50,44 @@ export default function NotificationsScreen({ navigation }) {
     };
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!prefsLoaded || !isAuthenticated || !isReady) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          const s = await getNotificationSettings();
+          if (cancelled || !s || typeof s !== 'object') return;
+          const t = !!s.textNotif;
+          const e = !!s.emailNotif;
+          const p = !!s.pushNotif;
+          setTextNotif(t);
+          setEmailNotif(e);
+          setPushNotif(p);
+          await persistLocal({ textNotif: t, emailNotif: e, pushNotif: p });
+        } catch (_) {
+          /* offline */
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [prefsLoaded, isAuthenticated, isReady]),
+  );
+
   useEffect(() => {
     if (!prefsLoaded) return;
-    const payload = JSON.stringify({ textNotif, emailNotif, pushNotif });
-    AsyncStorage.setItem(NOTIFICATION_PREFS_KEY, payload).catch(() => {});
+    persistLocal({ textNotif, emailNotif, pushNotif }).catch(() => {});
   }, [prefsLoaded, textNotif, emailNotif, pushNotif]);
+
+  const pushRemote = async (t, e, p) => {
+    if (!isAuthenticated || !isReady) return;
+    try {
+      await patchNotificationSettings({ textNotif: t, emailNotif: e, pushNotif: p });
+    } catch (_) {
+      /* ignore */
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -64,7 +109,15 @@ export default function NotificationsScreen({ navigation }) {
         <View style={styles.sectionWrapper}>
           <View style={styles.headerRowWithToggle}>
             <Text style={styles.sectionHeader}>TEXT NOTIFICATIONS</Text>
-            <Switch value={textNotif} onValueChange={setTextNotif} trackColor={{ false: '#e0e0e0', true: COLORS.GREENY_BLUE_TWO }} thumbColor={textNotif ? '#fff' : '#fff'} />
+            <Switch
+              value={textNotif}
+              onValueChange={(v) => {
+                setTextNotif(v);
+                pushRemote(v, emailNotif, pushNotif);
+              }}
+              trackColor={{ false: '#e0e0e0', true: COLORS.GREENY_BLUE_TWO }}
+              thumbColor="#fff"
+            />
           </View>
           <Text style={styles.sectionDescription}>
             Receive important messages like booking requests, booking reminders, approvals, and messages from hosts or guests. These will be sent directly to your phone through text message.
@@ -75,7 +128,15 @@ export default function NotificationsScreen({ navigation }) {
         <View style={styles.sectionWrapper}>
           <View style={styles.headerRowWithToggle}>
             <Text style={styles.sectionHeader}>EMAIL NOTIFICATIONS</Text>
-            <Switch value={emailNotif} onValueChange={setEmailNotif} trackColor={{ false: '#e0e0e0', true: COLORS.GREENY_BLUE_TWO }} thumbColor={emailNotif ? '#fff' : '#fff'} />
+            <Switch
+              value={emailNotif}
+              onValueChange={(v) => {
+                setEmailNotif(v);
+                pushRemote(textNotif, v, pushNotif);
+              }}
+              trackColor={{ false: '#e0e0e0', true: COLORS.GREENY_BLUE_TWO }}
+              thumbColor="#fff"
+            />
           </View>
           <Text style={styles.sectionDescription}>
             Receive important messages like booking requests, booking reminders, approvals, and messages from hosts or guests. These will be sent directly to you through email.
@@ -86,7 +147,15 @@ export default function NotificationsScreen({ navigation }) {
         <View style={styles.sectionWrapper}>
           <View style={styles.headerRowWithToggle}>
             <Text style={styles.sectionHeader}>PUSH NOTIFICATIONS</Text>
-            <Switch value={pushNotif} onValueChange={setPushNotif} trackColor={{ false: '#e0e0e0', true: COLORS.GREENY_BLUE_TWO }} thumbColor={pushNotif ? '#fff' : '#fff'} />
+            <Switch
+              value={pushNotif}
+              onValueChange={(v) => {
+                setPushNotif(v);
+                pushRemote(textNotif, emailNotif, v);
+              }}
+              trackColor={{ false: '#e0e0e0', true: COLORS.GREENY_BLUE_TWO }}
+              thumbColor="#fff"
+            />
           </View>
           <Text style={styles.sectionDescription}>
             Receive important messages like booking requests, booking reminders, approvals, and messages from hosts or guests. These will be sent directly to your phone through our app.
@@ -189,4 +258,4 @@ const styles = StyleSheet.create({
     marginTop: 20 * scale,
     marginBottom: 20 * scale,
   },
-}); 
+});

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -11,15 +12,17 @@ import {
   Switch,
   Modal,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
+import { useSaveListingStep } from '../hooks/useSaveListingStep';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const EXTRAS = [
   { key: 'fuel', label: 'PRE PAID FUEL', helpTitle: 'PRE PAID FUEL', helpBody: 'Offer a pre-paid fuel option so guests can return the vehicle with a full tank without a separate refuel stop. Set the price you charge for this add-on.' },
@@ -28,7 +31,8 @@ const EXTRAS = [
 ];
 
 const ExtrasSetupScreen = ({ navigation }) => {
-  const { editingListingId, draft, setDraftListing } = useListings();
+  const { editingListingId, draft } = useListings();
+  const { saveStep, saving } = useSaveListingStep();
   const insets = useSafeAreaInsets();
   const [fuelOn, setFuelOn] = useState(false);
   const [fuelPrice, setFuelPrice] = useState('');
@@ -81,8 +85,8 @@ const ExtrasSetupScreen = ({ navigation }) => {
     else setUnlimitedKmOn(value);
   };
 
-  const handleContinue = () => {
-    setDraftListing({
+  const handleContinue = async () => {
+    const ok = await saveStep({
       extrasFuelOn: fuelOn,
       extrasFuelPrice: fuelPrice,
       extrasCleaningOn: cleaningOn,
@@ -90,6 +94,7 @@ const ExtrasSetupScreen = ({ navigation }) => {
       extrasUnlimitedKmOn: unlimitedKmOn,
       extrasUnlimitedKmPrice: unlimitedKmPrice,
     });
+    if (!ok) return;
     if (editingListingId) {
       navigation.navigate('EditYourRideScreen');
     } else {
@@ -179,8 +184,17 @@ const ExtrasSetupScreen = ({ navigation }) => {
       </Modal>
 
       <View style={[styles.saveButtonContainer, { paddingBottom: 24 + insets.bottom }]}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleContinue} activeOpacity={0.8}>
-          <Text style={styles.saveButtonText}>{editingListingId ? 'SAVE' : 'CONTINUE'}</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, saving && { opacity: 0.7 }]}
+          onPress={handleContinue}
+          activeOpacity={0.8}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.saveButtonText}>{editingListingId ? 'SAVE' : 'CONTINUE'}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>

@@ -1,14 +1,19 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, ScrollView, Platform, Linking } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useListings } from '../context/ListingsContext';
+import { useAuth } from '../context/AuthContext';
+import { useAccountSetupSteps } from '../hooks/useAccountSetupSteps';
+import AccountSetupProgressCard from '../components/AccountSetupProgressCard';
 import { navigateRootStack } from '../utils/navigateRootStack';
+import { ensureIdentityVerified } from '../utils/verificationGates';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 const PROFILE_OPTIONS = [
   { label: 'Contact Information', onPress: () => {} },
@@ -23,8 +28,10 @@ const PROFILE_OPTIONS = [
 
 export default function AccountManagementScreen({ navigation }) {
   const [selectedTab, setSelectedTab] = React.useState('profile');
+  const { signOut } = useAuth();
   const { firstName, lastName, photoUri } = useUserProfile();
   const { canUseListingsHub } = useListings();
+  const { stepsLeft, progress, allDone } = useAccountSetupSteps();
   const displayName =
     [firstName, lastName]
       .map((s) => (s ?? '').trim())
@@ -71,11 +78,13 @@ export default function AccountManagementScreen({ navigation }) {
             <Image source={require('../assets/icons/arrow-button.png')} style={styles.arrowIcon} />
           </View>
         </TouchableOpacity>
-        {/* Remaining Steps Section */}
-        <View style={styles.stepsSection}>
-          <Text style={styles.stepsTitle}>Complete these steps before booking or listing a car</Text>
-          {/* Add step items here as needed */}
-        </View>
+        {!allDone ? (
+          <AccountSetupProgressCard
+            stepsLeft={stepsLeft}
+            progress={progress}
+            onPress={() => navigation.navigate('VerificationStepsScreen')}
+          />
+        ) : null}
         {/* Profile Options */}
         <Text style={styles.basicInfoHeader}>BASIC INFORMATION</Text>
         {/* Grouped container for four buttons */}
@@ -114,7 +123,10 @@ export default function AccountManagementScreen({ navigation }) {
           {/* Listings */}
           <TouchableOpacity
             style={styles.ridesGroupButton}
-            onPress={() => {
+            onPress={async () => {
+              if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to list' }))) {
+                return;
+              }
               if (canUseListingsHub) {
                 navigation.navigate('ListingsScreen');
               } else {
@@ -143,13 +155,22 @@ export default function AccountManagementScreen({ navigation }) {
           </TouchableOpacity>
           <View style={styles.supportGroupDivider} />
           {/* Contact Us */}
-          <TouchableOpacity style={styles.supportGroupButton}>
+          <TouchableOpacity
+            style={styles.supportGroupButton}
+            onPress={() => {
+              const subject = encodeURIComponent('Rent Your Ride - Support');
+              const body = encodeURIComponent(
+                'Hello,\n\nI need help with Rent Your Ride. Please find my message below:\n\n\n\nThank you,',
+              );
+              Linking.openURL(`mailto:support@rentyourride.ca?subject=${subject}&body=${body}`);
+            }}
+          >
             <Text style={styles.supportGroupText}>CONTACT US</Text>
             <Image source={require('../assets/icons/arrow-button.png')} style={styles.supportGroupArrow} />
           </TouchableOpacity>
         </View>
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={() => navigation.navigate('AuthScreen')}>
+        <TouchableOpacity style={styles.logoutButton} onPress={() => signOut()}>
           <Text style={styles.logoutText}>Log out</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -273,16 +294,6 @@ const styles = StyleSheet.create({
     width: 12 * scale,
     height: 12 * scale,
     resizeMode: 'contain',
-  },
-  stepsSection: {
-    width: 344 * scale,
-    marginBottom: 32 * scale,
-  },
-  stepsTitle: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 13 * scale,
-    color: '#222',
-    marginBottom: 8 * scale,
   },
   optionsSection: {
     width: 344 * scale,

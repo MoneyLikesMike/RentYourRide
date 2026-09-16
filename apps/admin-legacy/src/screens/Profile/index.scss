@@ -1,0 +1,197 @@
+.profile-wrapper {
+  background-color: #fcfcfc;
+  padding: 3vw 6vw 5vw 2vw;
+  .profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-content: center;
+    .name-navigation-route {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-content: center;
+      .full-name {
+        font-family: "Nunito", sans-serif;
+        font-size: 1.5vw;
+        font-weight: bold;
+        color: #17252a;
+      }
+      .navigation-route {
+        font-family: "Nunito", sans-serif;
+        font-size: .8vw;
+        font-weight: 600;
+        color: #acacac;
+      }
+    }
+    .functional {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      width: 70%;
+      .functional-buttons {
+        background: none;
+        outline: none;
+        border: none;
+        color: #4cb6b1;
+        font-family: "Nunito", sans-serif;
+        font-size: 1.1vw;
+        font-weight: 600;
+      }
+      .href {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 24%;
+        font-family: "Nunito", sans-serif;
+        font-size: 1.05vw;
+        height: 1.05vw;
+        font-weight: 600;
+        text-align: right;
+        color: #4cb6b1;
+        text-decoration: none;
+        outline: none;
+        background: none;
+        border: none;
+      }
+      .border {
+        height: 1vw;
+        width: 0.01vw;
+        border-radius: 0.5px;
+        background-color: #acacac;
+      }
+      .private-message {
+        position: relative;
+        width: 24%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-right: 2vw;
+      .message-text {
+        position: absolute;
+        font-size: .9vw;
+        color: #3aafa9;
+        font-family: "Nunito", sans-serif;
+        font-weight: bold;
+        };
+      }
+      .rcw-widget-container {
+        width:100%;
+        position: static;
+        margin: 0;
+        .rcw-conversation-container.active {
+          position: absolute;
+          top: 3vw;
+          width: 27vw;
+        }
+        .rcw-conversation-container.hidden {
+          position: absolute;
+        }
+        .rcw-header {
+          background-color: #ffffff;
+          border-radius: 10px 10px 0 0;
+          color: #3aafa9;
+          display: flex;
+          flex-direction: column;
+          text-align: center;
+          justify-content: flex-start;
+          align-items: center;
+          .rcw-title {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            font-size: 1.2vw;
+            font-weight: lighter;
+            font-family: "Nunito", sans-serif;
+            width: 90%;
+            padding: 1vw;
+            box-sizing: border-box;
+            border-bottom: 2px solid #3aafa9;
+          }
+        }
+        .rcw-messages-container {
+          padding: 1vw;
+        }
+        .rcw-launcher .rcw-badge {
+          position: fixed;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1;
+          top: 0;
+          right: 0;
+          background-color: red;
+          color: #fff;
+          width: 20px;
+          height: 20px;
+          text-align: center;
+          line-height: 25px;
+          border-radius: 50%;
+        }
+        .rcw-client .rcw-message-text {
+          background-color: #4cb6b1;
+          color: #ffffff;
+          border-radius: 10px;
+          padding: 15px;
+          max-width: 215px;
+          text-align: left;
+        }
+        .rcw-launcher {
+          width: 100%;
+          height: 3vw;
+          border-radius: 1.5vw;
+          padding: 0;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin: 0;
+          background: transparent;
+          box-shadow: none;
+          color: transparent;
+          .rcw-open-launcher {
+            position: absolute;
+            background: #3aafa9;
+            right: .5vw;
+            border-radius: 1vw;
+            box-sizing: border-box;
+            padding: .3vw;
+            width: 2vw;
+          }
+          .rcw-close-launcher {
+            position: absolute;
+            background: #3aafa9;
+            right: .5vw;
+            border-radius: 1vw;
+            box-sizing: border-box;
+            padding: .5vw;
+            width: 2vw;
+          }
+        }
+      }
+    }
+  }
+  .tabs-wrapper {
+    margin-top: 3vw;
+    .react-tabs__tab-list {
+      border: none;
+      .react-tabs__tab {
+        border: none;
+        font-family: "Nunito", sans-serif;
+        font-size: 1.5vw;
+        color: #acacac;
+        margin: 0 2vw 0 0;
+        text-align: left;
+        padding: 0.5vw 0;
+      }
+      .react-tabs__tab--selected {
+        border-bottom: 2px solid #4cb6b1;
+        color: #17252a;
+        background: none;
+      }
+    }
+    .react-tabs__tab-panel--selected {
+      display: block;
+      border-top: 2px solid #bfe9e7;
+      margin-top: -11px;
+    }
+  }
+}

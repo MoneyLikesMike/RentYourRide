@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Linking } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 
+import { formatLocationLabel } from '../utils/searchLocation';
+
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function EmptyVehicleSearchScreen({ route }) {
   const [showNeedHeader, setShowNeedHeader] = useState(false);
-  const city = route?.params?.location ?? 'your area';
+  const city = formatLocationLabel(route?.params?.location);
 
   const handlePress = () => {
     setShowNeedHeader(true);

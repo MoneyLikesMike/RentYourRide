@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -15,10 +16,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { useBookingUpdate } from '../hooks/useBookingUpdate';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const BADGES = [
   { key: 'respectful', icon: require('../assets/icons/like1.png'), label: 'Respectful' },
@@ -53,7 +55,8 @@ function StarRow({ value, onChange }) {
 export default function HostGuestReviewScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { bookingId } = route.params || {};
-  const { getBookingById, updateGuestBooking } = useGuestBookings();
+  const { getBookingById } = useGuestBookings();
+  const { applyBookingUpdate } = useBookingUpdate();
 
   const [rating, setRating] = useState(5);
   const [selectedBadges, setSelectedBadges] = useState(() => new Set());
@@ -110,17 +113,24 @@ export default function HostGuestReviewScreen({ navigation, route }) {
     goHomeHostRentals();
   }, [goHomeHostRentals]);
 
-  const onSubmit = useCallback(() => {
+  const onSubmit = useCallback(async () => {
     if (!booking?.id) return;
-    updateGuestBooking(booking.id, {
-      hostReviewOfGuestRating: rating,
-      hostReviewOfGuestBadgeKeys: Array.from(selectedBadges),
-      hostReviewOfGuestPublic: publicReview.trim(),
-      hostReviewOfGuestPrivateNote: privateNote.trim(),
-      hostReviewOfGuestSubmittedAt: Date.now(),
-    });
-    goHomeHostRentals();
-  }, [booking?.id, rating, selectedBadges, publicReview, privateNote, updateGuestBooking, goHomeHostRentals]);
+    const ok = await applyBookingUpdate(
+      booking.id,
+      {
+        hostReviewOfGuestRating: rating,
+        hostReviewOfGuestBadgeKeys: Array.from(selectedBadges),
+        hostReviewOfGuestPublic: publicReview.trim(),
+        hostReviewOfGuestPrivateNote: privateNote.trim(),
+        hostReviewOfGuestSubmittedAt: Date.now(),
+        reviewRole: 'host',
+        rating,
+        reviewText: publicReview.trim(),
+      },
+      { errorTitle: 'Could not submit review' },
+    );
+    if (ok) goHomeHostRentals();
+  }, [booking?.id, rating, selectedBadges, publicReview, privateNote, applyBookingUpdate, goHomeHostRentals]);
 
   if (!booking) {
     return (

@@ -1,0 +1,56 @@
+.modal-wrapper .modal {
+  width: 25vw;
+}
+.add-note-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  .caption {
+    width: 100%;
+    text-align: center;
+    font-family: 'Nunito', sans-serif;
+    font-size: .75vw;
+    font-weight: 600;
+    color: #17252a;
+    box-sizing: border-box;
+    padding: 2vw;
+  }
+  .note-text {
+    width: 100%;
+    height: 6vw;
+    font-family: 'Nunito', sans-serif;
+    font-size: .8vw;
+    font-weight: 600;
+    line-height: 1.56;
+    color: #17252a;
+    box-sizing: border-box;
+    padding: 1vw;
+    border-radius: 5px;
+    border: solid 1px #a3a3a3;
+    background-color: #f9f9f9;
+    &::placeholder {
+      color: #ababab;
+    }
+    &.error-note {
+      border: solid 1px #f9493a;
+    }
+  }
+  .error-text {
+    position: absolute;
+    font-family: 'Nunito', sans-serif;
+    font-size: .8vw;
+    color: #f9493a;
+    top: 12vw;
+  }
+  .buttons-row {
+    box-sizing: border-box;
+    padding: 2vw 0 0;
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+

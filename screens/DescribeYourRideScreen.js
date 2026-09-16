@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { uiScale } from '../utils/uiScale';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -9,15 +10,17 @@ import {
   Dimensions,
   TextInput,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useListings } from '../context/ListingsContext';
+import { useSaveListingStep } from '../hooks/useSaveListingStep';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 export const DESCRIPTION_MAX_LENGTH = 500;
 export const INSTRUCTIONS_MAX_LENGTH = 500;
@@ -39,7 +42,8 @@ export const CAR_FEATURES = [
 
 const DescribeYourRideScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { setDraftListing, editingListingId, draft } = useListings();
+  const { editingListingId, draft } = useListings();
+  const { saveStep, saving } = useSaveListingStep();
   const [description, setDescription] = useState('');
   const [checkInInstructions, setCheckInInstructions] = useState('');
   const [checkOutInstructions, setCheckOutInstructions] = useState('');
@@ -82,13 +86,14 @@ const DescribeYourRideScreen = ({ navigation }) => {
     if (text.length <= INSTRUCTIONS_MAX_LENGTH) setCheckOutInstructions(text);
   };
 
-  const handleContinue = () => {
-    setDraftListing({
+  const handleContinue = async () => {
+    const ok = await saveStep({
       description: description.trim(),
       checkInInstructions: checkInInstructions.trim(),
       checkOutInstructions: checkOutInstructions.trim(),
       carFeatures: Array.from(selectedFeatures),
     });
+    if (!ok) return;
     if (editingListingId) {
       navigation.navigate('EditYourRideScreen');
     } else {
@@ -189,8 +194,17 @@ const DescribeYourRideScreen = ({ navigation }) => {
       </ScrollView>
 
       <View style={[styles.saveButtonContainer, { paddingBottom: 24 + insets.bottom }]}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleContinue} activeOpacity={0.8}>
-          <Text style={styles.saveButtonText}>{editingListingId ? 'SAVE' : 'CONTINUE'}</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, saving && { opacity: 0.7 }]}
+          onPress={handleContinue}
+          activeOpacity={0.8}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.saveButtonText}>{editingListingId ? 'SAVE' : 'CONTINUE'}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>

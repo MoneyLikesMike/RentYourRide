@@ -1,20 +1,23 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { registerForPushNotificationsAsync } from '../services/pushNotifications';
+import { patchNotificationSettings } from '../services/usersApi';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function NotificationOnboardingScreen() {
   const navigation = useNavigation();
 
   const handleNotifyMe = async () => {
     try {
-      await Notifications.requestPermissionsAsync();
+      await registerForPushNotificationsAsync();
+      await patchNotificationSettings({ pushNotif: true, emailNotif: true, textNotif: true });
     } catch (e) {}
     navigation.navigate('MainTabs', { screen: 'HomeScreen' });
   };

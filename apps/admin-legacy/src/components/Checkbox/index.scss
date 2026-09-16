@@ -1,0 +1,23 @@
+.checkbox {
+  width: 1vw;
+  height: 1vw;
+  border-radius: 0.3vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.selected {
+  @extend .checkbox;
+  border: solid 1px #4cb6b1;
+  background-color: #4cb6b1;
+}
+.unselected {
+  @extend .checkbox;
+  border: solid 1px #cecece;
+  background-color: #ffffff;
+}
+.checkbox-icon {
+  font-size: .75vw!important;
+  color: #fff;
+}

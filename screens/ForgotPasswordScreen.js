@@ -1,21 +1,38 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { uiScale } from '../utils/uiScale';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { forgotPassword } from '../services/referralsApi';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
+const scale = uiScale;
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const handleSendLink = () => {
-    // TODO: Implement send link logic
-    // For now, just show an alert or navigate
-    alert('Recovery link sent (mock)');
+  const handleSendLink = async () => {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      Alert.alert('Email required', 'Enter the email for your account.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await forgotPassword(trimmed);
+      Alert.alert(
+        'Check your email',
+        'If an account exists for that address, password reset instructions were sent. In development, the API may log a reset token to the server console.',
+      );
+    } catch (e) {
+      Alert.alert('Request failed', e?.message || 'Could not start password recovery.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -46,8 +63,12 @@ export default function ForgotPasswordScreen() {
         />
       </View>
       {/* Send Link Button */}
-      <TouchableOpacity style={styles.sendLinkButton} onPress={handleSendLink}>
-        <Text style={styles.sendLinkButtonText}>SEND LINK</Text>
+      <TouchableOpacity style={styles.sendLinkButton} onPress={handleSendLink} disabled={busy}>
+        {busy ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.sendLinkButtonText}>SEND LINK</Text>
+        )}
       </TouchableOpacity>
       {/* Remember your password? Sign In */}
       <View style={styles.bottomRow}>
@@ -127,11 +148,10 @@ const styles = StyleSheet.create({
   input: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 12 * scale,
-    color: 'rgb(142,142,142)',
+    color: COLORS.BLACK,
     letterSpacing: 0.2,
     flex: 1,
     width: '100%',
-    opacity: 0.3987397693452381,
     paddingHorizontal: 16 * scale,
   },
   sendLinkButton: {

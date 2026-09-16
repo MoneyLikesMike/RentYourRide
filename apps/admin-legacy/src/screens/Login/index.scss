@@ -1,0 +1,167 @@
+@import url("https://fonts.googleapis.com/css?family=Nunito:600&display=swap");
+
+.login-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60vw;
+  width: 100%;
+  .wrapper {
+    width: 30vw;
+    border-radius: 1.5vw;
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+    padding: 70px 30px;
+    .caption {
+      font-family: "Nunito", sans-serif;
+      font-size: 1.4vw;
+      font-weight: 600;
+      color: #17252a;
+      margin-bottom: 0.5vw;
+    }
+    .input {
+      padding: 0.85vw 4vw 0.85vw 1vw;
+      box-sizing: border-box;
+      width: 25vw;
+      border-radius: 0.3vw;
+      border: solid 1px #a3a3a3;
+      background-color: #f9f9f9;
+      font-family: "Nunito", sans-serif;
+      font-size: .75vw;
+      font-weight: 600;
+      color: #17252a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      &.invalid {
+        border: solid 1px #f9493a;
+      }
+    }
+    .error {
+      font-family: "Nunito", sans-serif;
+      font-size: 0.5vw;
+      color: #f9493a;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      position: absolute;
+      top: 3vw;
+      right: 0;
+
+    }
+    .password-input-wrapper {
+      position: relative;
+      padding: 0 0 1.5vw;
+      .secure {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+      }
+      .far {
+        position: absolute;
+        font-size: .75vw;
+        right: 2vw;
+        color: #979797;
+      }
+    }
+
+    .options {
+      width: 98%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 1.5vw 0;
+      .remember {
+        font-family: "Nunito", sans-serif;
+        font-size: .5vw;
+        font-weight: 600;
+        color: #ababab;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        .checkbox {
+          width: 13px;
+          height: 13px;
+          border-radius: 3px;
+          border: solid 1px #dcdcdc;
+          background-color: #ffffff;
+          margin: 0 0.3vw 0 0;
+        }
+      }
+      .forgot-option {
+        font-family: "Nunito", sans-serif;
+        font-size: 0.5vw;
+        font-weight: 600;
+        color: #3aafa9;
+        border: none;
+        background: none;
+        outline: none;
+        cursor: pointer;
+      }
+    }
+    .submit {
+      display: flex;
+      justify-content: center;
+      align-content: center;
+      width: 25vw;
+      padding: 0.85vw 1vw;
+      box-sizing: border-box;
+      border-radius: 1.5vw;
+      border: solid 2px #ffb214;
+      background-color: rgba(255, 178, 20, 0.1);
+      font-family: "Nunito", sans-serif;
+      font-size: .75vw;
+      letter-spacing: 0.25px;
+      color: #ffb214;
+      margin-bottom: 1vw;
+      outline: none;
+      cursor: pointer;
+    }
+  }
+}
+
+
+.edit-profile-wrapper {
+  background-color: #fcfcfc;
+  padding: 3vw 6vw 5vw 2vw;
+  .edit-profile-header {
+    margin: 0 0 4vw 0;
+    font-family: 'Nunito', sans-serif;
+    font-weight: bold;
+    color: #17252a;
+    font-size: 2vw;
+  }
+
+  .tabs-wrapper {
+    margin-top: 3vw;
+    .react-tabs__tab-list {
+      border: none;
+      .react-tabs__tab {
+        border: none;
+        font-family: "Nunito", sans-serif;
+        font-size: 1.5vw;
+        color: #acacac;
+        margin: 0 2vw 0 0;
+        text-align: left;
+        padding: 0.5vw 0;
+      }
+      .react-tabs__tab--selected {
+        border-bottom: 2px solid #4cb6b1;
+        color: #17252a;
+        background: none;
+      }
+    }
+    .react-tabs__tab-panel--selected {
+      display: block;
+      border-top: 2px solid #bfe9e7;
+      margin-top: -11px;
+    }
+  }
+}

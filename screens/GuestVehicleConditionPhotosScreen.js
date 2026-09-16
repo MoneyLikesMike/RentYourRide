@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -15,7 +16,7 @@ import PictureDocumentationPlaceholderGrid from '../components/PictureDocumentat
 import { FLOW_GUEST_CHECK_IN, FLOW_GUEST_CHECKOUT } from '../screens/PhotoShootScreen';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375;
+const scale = uiScale;
 
 const INSTRUCTION_COPY =
   'Document the vehicles condition. We require a picture of all four sides of the vehicle , all four wheels, the odometer, fuel gauge, the interior and proof of identification. If there is any damage take photos and document them in the damage notes.';

@@ -1,9 +1,10 @@
 import React from 'react';
+import { uiScale } from '../utils/uiScale';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions, Linking } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 
 const { width: screenWidth } = Dimensions.get('window');
-const scale = screenWidth / 375; // Base width is 375
+const scale = uiScale;
 
 const VINAlreadyExistsScreen = ({ navigation }) => {
   const handleContactSupport = () => {
