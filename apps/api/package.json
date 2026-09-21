@@ -8,6 +8,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "typecheck": "tsc --noEmit",
+    "test:host-cancel-notify": "tsc --outDir dist --pretty false --incremental false && node --test dist/notifications/host-cancel-notify.test.js",
     "db:tunnel": "aws ssm start-session --profile dev --region us-east-2 --target i-0e2ec07b03f5f9973 --document-name AWS-StartPortForwardingSessionToRemoteHost --parameters '{\"host\":[\"corestack-ryrdbsetuppostgresinstancec9b075df-uyfsvjmscu4e.cpeg8o0w4fhk.us-east-2.rds.amazonaws.com\"],\"portNumber\":[\"5432\"],\"localPortNumber\":[\"15432\"]}'",
     "legacy:flag-social-users": "node scripts/flag-legacy-social-only-users.mjs",
     "legacy:send-password-reset": "node scripts/send-migration-password-reset.mjs"

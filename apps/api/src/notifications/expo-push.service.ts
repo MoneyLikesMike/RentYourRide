@@ -17,6 +17,11 @@ type ExpoTicket = {
   details?: { error?: string };
 };
 
+export type ExpoPushSendResult = {
+  sent: boolean;
+  reason?: string;
+};
+
 @Injectable()
 export class ExpoPushService {
   private readonly log = new Logger(ExpoPushService.name);
@@ -26,14 +31,17 @@ export class ExpoPushService {
     return token.startsWith('ExponentPushToken[') || token.startsWith('ExpoPushToken[');
   }
 
-  async send(messages: ExpoPushMessage[]): Promise<void> {
+  async send(messages: ExpoPushMessage[]): Promise<ExpoPushSendResult> {
     const valid = messages.filter((m) => m.to && this.isExpoToken(m.to));
-    if (!valid.length) return;
+    if (!valid.length) return { sent: false, reason: 'no_expo_token' };
 
     const chunks: ExpoPushMessage[][] = [];
     for (let i = 0; i < valid.length; i += 100) {
       chunks.push(valid.slice(i, i + 100));
     }
+
+    let delivered = 0;
+    let lastError = '';
 
     for (const chunk of chunks) {
       try {
@@ -56,18 +64,26 @@ export class ExpoPushService {
           ),
         });
         if (!res.ok) {
+          lastError = `http_${res.status}`;
           this.log.warn(`Expo push HTTP ${res.status}: ${await res.text()}`);
           continue;
         }
         const payload = (await res.json()) as { data?: ExpoTicket[] };
         for (const ticket of payload.data ?? []) {
           if (ticket.status === 'error') {
-            this.log.warn(`Expo push ticket error: ${ticket.message ?? ticket.details?.error}`);
+            lastError = ticket.message ?? ticket.details?.error ?? 'push_ticket_error';
+            this.log.warn(`Expo push ticket error: ${lastError}`);
+          } else {
+            delivered += 1;
           }
         }
       } catch (err) {
-        this.log.error('Expo push batch failed', err instanceof Error ? err.message : err);
+        lastError = err instanceof Error ? err.message : 'push_provider_error';
+        this.log.error('Expo push batch failed', lastError);
       }
     }
+
+    if (delivered > 0) return { sent: true };
+    return { sent: false, reason: lastError || 'push_provider_error' };
   }
 }

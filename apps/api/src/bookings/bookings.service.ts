@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -13,6 +14,7 @@ import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { isConfirmedTripStatus } from '../notifications/host-cancel-notify';
 import { PaymentsService } from '../payments/payments.service';
 import { assertIdentityVerified } from '../common/user-verification';
 import {
@@ -71,6 +73,8 @@ export interface QuoteInput {
 
 @Injectable()
 export class BookingsService {
+  private readonly log = new Logger(BookingsService.name);
+
   constructor(
     @InjectRepository(BookingEntity)
     private readonly bookingsRepo: Repository<BookingEntity>,
@@ -472,14 +476,21 @@ export class BookingsService {
     if (['completed', 'cancelled', 'declined'].includes(b.status)) {
       throw new BadRequestException('Cannot cancel');
     }
+    const previousStatus = b.status;
+    let stripeRefundId: string | null = null;
     if (b.stripePaymentIntentId && !(b.lifecycle as { hostTransferId?: string })?.hostTransferId) {
-      await this.payments.refundBookingPayment(
+      const refund = await this.payments.refundBookingPayment(
         b.stripePaymentIntentId,
         'RentYourRide trip cancelled',
       );
+      stripeRefundId = refund.refundId;
     }
     b.status = 'cancelled';
-    b.lifecycle = { ...(b.lifecycle ?? {}), paymentRefundedAt: Date.now() };
+    b.lifecycle = {
+      ...(b.lifecycle ?? {}),
+      paymentRefundedAt: Date.now(),
+      ...(stripeRefundId ? { stripeRefundId } : {}),
+    };
     await this.bookingsRepo.save(b);
     const cancelledBy = b.guestUserId === userId ? 'guest' : 'host';
     await this.messaging.postBookingSystemMessage(
@@ -489,6 +500,23 @@ export class BookingsService {
         : 'Trip was cancelled by the host.',
       { event: 'cancelled', by: cancelledBy },
     );
+    // Confirmed-trip cancel must tell the host. Pending-request withdraw does not.
+    // `cancelled` is not a date-blocking status, so the listing calendar reopens on save.
+    if (isConfirmedTripStatus(previousStatus)) {
+      try {
+        await this.notifications.notifyHostConfirmedTripCancelled(b.id, {
+          previousStatus,
+          cancelledBy,
+          stripeRefundId,
+        });
+      } catch (err) {
+        // Refund and calendar reopen already committed. Notify logs its own channel failures.
+        this.log.error(
+          'Host cancel notify failed',
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
     return b.toMobileDto();
   }
 

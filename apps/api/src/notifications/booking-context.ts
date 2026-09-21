@@ -157,6 +157,10 @@ export class BookingNotificationContext {
     return formatStartDate(startMs(this.booking), this.tz);
   }
 
+  vehicleLabel(): string {
+    return vehicleModel(this.booking);
+  }
+
   endLabel(): string {
     return formatEndDate(endMs(this.booking), this.tz);
   }

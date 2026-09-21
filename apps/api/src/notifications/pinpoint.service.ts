@@ -3,6 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { PinpointClient, SendMessagesCommand } from '@aws-sdk/client-pinpoint';
 import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
 import { PinpointSubstitutions } from './template-variables.builder';
+import { classifySmsFailure, SmsFailureKind } from './host-cancel-notify';
+
+export type SmsSendResult = {
+  sent: boolean;
+  failure?: SmsFailureKind;
+  errorMessage?: string;
+};
 
 @Injectable()
 export class PinpointService {
@@ -102,6 +109,44 @@ export class PinpointService {
     }
   }
 
+  async sendSimpleEmail(to: string, subject: string, body: string): Promise<boolean> {
+    if (!to?.trim()) return false;
+    if (!this.pinpoint || !this.appId) {
+      this.log.warn(`[email-dev] To ${to} subject=${subject}\n${body}`);
+      return false;
+    }
+    try {
+      const out = await this.pinpoint.send(
+        new SendMessagesCommand({
+          ApplicationId: this.appId,
+          MessageRequest: {
+            Addresses: { [to]: { ChannelType: 'EMAIL' } },
+            MessageConfiguration: {
+              EmailMessage: {
+                FromAddress: this.senderAddress,
+                SimpleEmail: {
+                  Subject: { Data: subject },
+                  TextPart: { Data: body },
+                },
+              },
+            },
+          },
+        }),
+      );
+      const ok = this.deliveryOk(to, out.MessageResponse?.Result as never);
+      if (ok) {
+        this.log.log(`Pinpoint email sent to=${to} subject=${subject}`);
+      }
+      return ok;
+    } catch (err) {
+      this.log.error(
+        `Pinpoint email failed to=${to} subject=${subject}`,
+        err instanceof Error ? err.message : err,
+      );
+      return false;
+    }
+  }
+
   async sendSimpleAdminEmail(subject: string, body: string): Promise<boolean> {
     if (!this.pinpoint || !this.appId || !this.adminEmail) {
       this.log.warn(`[admin-email-dev] ${subject}\n${body}`);
@@ -139,11 +184,13 @@ export class PinpointService {
     }
   }
 
-  async sendSms(phoneNumber: string, message: string): Promise<boolean> {
-    if (!phoneNumber?.trim()) return false;
+  async sendSms(phoneNumber: string, message: string): Promise<SmsSendResult> {
+    if (!phoneNumber?.trim()) {
+      return { sent: false, failure: 'provider_error', errorMessage: 'missing phone' };
+    }
     if (!this.sns) {
       this.log.warn(`[sms-dev] To ${phoneNumber}: ${message}`);
-      return false;
+      return { sent: false, failure: 'not_configured', errorMessage: 'sms-dev SNS client missing' };
     }
 
     const origination = this.config.get<string>('PHONENUMBER')?.trim();
@@ -158,10 +205,10 @@ export class PinpointService {
       },
     };
 
-    try {
-      await this.sns.send(
+    const publish = async (withOrigination: boolean) => {
+      await this.sns!.send(
         new PublishCommand(
-          origination
+          withOrigination && origination
             ? {
                 ...base,
                 MessageAttributes: {
@@ -175,25 +222,25 @@ export class PinpointService {
             : base,
         ),
       );
-      return true;
+    };
+
+    try {
+      await publish(!!origination);
+      return { sent: true };
     } catch (err) {
+      const firstMessage = err instanceof Error ? err.message : String(err);
       if (origination) {
         try {
-          await this.sns.send(new PublishCommand(base));
-          return true;
+          await publish(false);
+          return { sent: true };
         } catch (retryErr) {
-          this.log.error(
-            `SNS SMS failed for ${phoneNumber}`,
-            retryErr instanceof Error ? retryErr.message : retryErr,
-          );
-          return false;
+          const errorMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          this.log.error(`SNS SMS failed for ${phoneNumber}`, errorMessage);
+          return { sent: false, failure: classifySmsFailure(errorMessage), errorMessage };
         }
       }
-      this.log.error(
-        `SNS SMS failed for ${phoneNumber}`,
-        err instanceof Error ? err.message : err,
-      );
-      return false;
+      this.log.error(`SNS SMS failed for ${phoneNumber}`, firstMessage);
+      return { sent: false, failure: classifySmsFailure(firstMessage), errorMessage: firstMessage };
     }
   }
 }

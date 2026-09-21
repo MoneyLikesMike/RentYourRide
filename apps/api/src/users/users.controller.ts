@@ -20,6 +20,7 @@ import { ReqUser } from '../common/req-user.decorator';
 import { UsersService } from './users.service';
 import { ConfigService } from '@nestjs/config';
 import { PushTokenService } from '../notifications/push-token.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export class PatchMeDto {
   @IsOptional()
@@ -90,6 +91,7 @@ export class UsersController {
     private readonly users: UsersService,
     private readonly config: ConfigService,
     private readonly pushTokens: PushTokenService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   @Get('me')
@@ -106,6 +108,11 @@ export class UsersController {
   @Patch('me/password')
   async patchPassword(@ReqUser() user, @Body() body: ChangePasswordDto) {
     return this.users.changePassword(user.id, body.currentPassword, body.newPassword);
+  }
+
+  @Get('me/in-app-notifications')
+  async inAppNotifications(@ReqUser() user) {
+    return this.notifications.listInAppForUser(user.id);
   }
 
   @Get('me/notification-settings')

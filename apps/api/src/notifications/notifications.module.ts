@@ -6,6 +6,10 @@ import { BookingExtensionEntity } from '../entities/booking-extension.entity';
 import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
 import { PushDeviceTokenEntity } from '../entities/push-device-token.entity';
+import { InAppNotificationEntity } from '../entities/in-app-notification.entity';
+import { NotificationDispatchClaimEntity } from '../entities/notification-dispatch-claim.entity';
+import { NotificationDispatchLogEntity } from '../entities/notification-dispatch-log.entity';
+import { SmsOutboxEntity } from '../entities/sms-outbox.entity';
 import { NotificationsService } from './notifications.service';
 import { PinpointService } from './pinpoint.service';
 import { ExpoPushService } from './expo-push.service';
@@ -22,6 +26,10 @@ import { TripReminderScheduler } from './trip-reminder.scheduler';
       ListingEntity,
       UserEntity,
       PushDeviceTokenEntity,
+      InAppNotificationEntity,
+      NotificationDispatchLogEntity,
+      NotificationDispatchClaimEntity,
+      SmsOutboxEntity,
     ]),
   ],
   providers: [

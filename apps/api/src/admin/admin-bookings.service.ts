@@ -9,6 +9,7 @@ import {
 } from '../common/pagination.dto';
 import { BookingPhase, statusesForPhase, toAdminBookingRow, toAdminBookingRegistration } from './admin.mapper';
 import { SortOrder } from '../common/pagination.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 function bookingOrderField(field?: string): string {
   switch (field) {
@@ -29,6 +30,7 @@ export class AdminBookingsService {
   constructor(
     @InjectRepository(BookingEntity)
     private readonly bookings: Repository<BookingEntity>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async listByPhase(phase: BookingPhase, opts: AdminBookingsPageOptionsDto) {
@@ -75,6 +77,7 @@ export class AdminBookingsService {
       relations: ['guest', 'host', 'listing'],
     });
     if (!booking) throw new NotFoundException('Booking not found');
-    return toAdminBookingRegistration(booking);
+    const notifyAttempts = await this.notifications.listDispatchLogForBooking(id);
+    return { ...toAdminBookingRegistration(booking), notifyAttempts };
   }
 }
