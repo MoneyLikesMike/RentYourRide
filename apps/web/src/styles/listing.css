@@ -461,6 +461,8 @@
   font-size: 0.85rem;
   color: #4a5a5f;
   min-height: 1em;
+  user-select: text;
+  overflow-wrap: anywhere;
 }
 
 .car-title {

@@ -137,15 +137,9 @@ function LinkIcon() {
   );
 }
 
+/** execCommand must run synchronously inside the click; the async Clipboard API is the fallback. */
 async function copyText(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    /* fall through to execCommand (older Safari / insecure contexts) */
-  }
+  const active = document.activeElement as HTMLElement | null;
   try {
     const el = document.createElement('textarea');
     el.value = text;
@@ -156,10 +150,20 @@ async function copyText(text: string): Promise<boolean> {
     el.select();
     const ok = document.execCommand('copy');
     document.body.removeChild(el);
-    return ok;
+    active?.focus();
+    if (ok) return true;
   } catch {
-    return false;
+    active?.focus();
   }
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* both unavailable */
+  }
+  return false;
 }
 
 export default function ListingDetailPage() {
@@ -215,7 +219,8 @@ export default function ListingDetailPage() {
 
   useEffect(() => {
     if (!shareNotice) return;
-    const t = window.setTimeout(() => setShareNotice(null), 2500);
+    const ms = shareNotice.startsWith('Copy this link') ? 15000 : 2500;
+    const t = window.setTimeout(() => setShareNotice(null), ms);
     return () => window.clearTimeout(t);
   }, [shareNotice]);
 
@@ -387,7 +392,7 @@ export default function ListingDetailPage() {
 
   const onCopyLink = async () => {
     const ok = await copyText(shareUrl);
-    setShareNotice(ok ? 'Link copied' : 'Could not copy link');
+    setShareNotice(ok ? 'Link copied' : `Copy this link: ${shareUrl}`);
   };
 
   const onShare = async () => {
