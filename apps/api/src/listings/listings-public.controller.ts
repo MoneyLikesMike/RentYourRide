@@ -1,10 +1,23 @@
-import { Controller, forwardRef, Get, Inject, Param, Query } from '@nestjs/common';
+import { Controller, forwardRef, Get, Inject, Param, Query, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
+import { albClientIp, IpRateLimiter } from '../common/ip-rate-limiter';
 import { GeocodeService } from '../geocode/geocode.service';
 import { withApproximateLocation } from './approximate-location';
 import { toPublicListingDto } from './public-listing.dto';
 import { ListingsService } from './listings.service';
 import { VinDecodeService } from './vin-decode.service';
+
+/**
+ * VIN lookups stay public because released mobile builds call them logged out
+ * during listing creation, but they reveal whether a VIN is listed, so cap
+ * enumeration per IP. A host adding a car needs a handful of lookups.
+ */
+const vinLookupLimiter = new IpRateLimiter(
+  30,
+  60 * 60 * 1000,
+  'Too many VIN lookups. Please wait a while and try again.',
+);
 
 @ApiTags('listings')
 @Controller('listings')
@@ -56,13 +69,15 @@ export class ListingsPublicController {
   }
 
   @Get('vin/:vin/status')
-  async vinStatus(@Param('vin') vin: string) {
+  async vinStatus(@Param('vin') vin: string, @Req() req: Request) {
+    vinLookupLimiter.hit(albClientIp(req));
     const taken = await this.listings.vinTaken(vin);
     return { exists: taken };
   }
 
   @Get('vin/:vin/decode')
-  async decodeVin(@Param('vin') vin: string) {
+  async decodeVin(@Param('vin') vin: string, @Req() req: Request) {
+    vinLookupLimiter.hit(albClientIp(req));
     const normalized = this.vinDecode.normalizeVin(vin);
     const exists = await this.listings.vinTaken(normalized);
     if (exists) {

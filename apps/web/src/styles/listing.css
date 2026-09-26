@@ -419,6 +419,52 @@
   margin: 0 0 0.55rem;
 }
 
+.car-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.85rem;
+}
+
+.car-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid #d5dbdd;
+  border-radius: 999px;
+  background: #fff;
+  color: #17252a;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.car-action:hover {
+  border-color: #17252a;
+}
+
+.car-action:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.car-action--on {
+  border-color: #f34949;
+  color: #c62828;
+  background: #fff5f5;
+}
+
+.car-action-notice {
+  font-size: 0.85rem;
+  color: #4a5a5f;
+  min-height: 1em;
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
 .car-title {
   font-family: 'Nunito', sans-serif;
   font-size: 1.5rem;

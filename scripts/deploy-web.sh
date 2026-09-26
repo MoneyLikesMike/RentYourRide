@@ -96,6 +96,13 @@ else
   rm -f "$ROOT/apps/web/dist/sitemap.xml"
 fi
 
+echo "==> Prerendering listing share previews from $API"
+if [[ "$MODE" == "production" ]]; then
+  node "$ROOT/scripts/prerender-listing-meta.mjs" "$ROOT/apps/web/dist" "$API" "https://www.rentyourride.ca"
+else
+  node "$ROOT/scripts/prerender-listing-meta.mjs" "$ROOT/apps/web/dist" "$API" "https://$HOST"
+fi
+
 echo "==> Packing dist → s3://${BUCKET}/${KEY}"
 rm -f /tmp/web-dist.tgz
 tar -czf /tmp/web-dist.tgz -C dist .
