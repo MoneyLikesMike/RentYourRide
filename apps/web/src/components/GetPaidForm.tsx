@@ -4,6 +4,7 @@ import type { ParsedPlace } from '../api/maps';
 import { submitPayoutSetup } from '../api/payouts';
 import { getMe } from '../api/users';
 import { useAuth } from '../auth/AuthContext';
+import { validateEmail } from '../auth/validation';
 import { regionsForCountry } from '../data/regions';
 import PlacesAutocomplete from './PlacesAutocomplete';
 
@@ -125,8 +126,10 @@ function validate(f: Fields): Partial<Record<keyof Fields, string>> {
   if (!f.firstName.trim()) errors.firstName = 'Please enter your first name';
   if (!f.lastName.trim()) errors.lastName = 'Please enter your last name';
   if (!f.email.trim()) errors.email = 'Please enter your email address';
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email))
-    errors.email = 'Please enter a valid email address';
+  else {
+    const emailErr = validateEmail(f.email, { rejectTypos: true });
+    if (emailErr) errors.email = emailErr;
+  }
   if (!f.dob.trim()) errors.dob = 'Please enter your date of birth';
   else if (!dobToIso(f.dob))
     errors.dob = 'Enter a valid date of birth (you must be 18 or older)';

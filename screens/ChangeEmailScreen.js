@@ -15,6 +15,7 @@ import {
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { startEmailChange } from '../services/usersApi';
+import { emailTypoUserMessage } from '../utils/emailDomainTypos';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const scale = uiScale;
@@ -28,6 +29,11 @@ export default function ChangeEmailScreen({ navigation, route }) {
     const next = email.trim();
     if (!next || !next.includes('@')) {
       Alert.alert('Invalid email', 'Enter a valid email address.');
+      return;
+    }
+    const typo = emailTypoUserMessage(next);
+    if (typo) {
+      Alert.alert('Check email domain', typo);
       return;
     }
     setBusy(true);

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
+import { emailTypoUserMessage } from '../common/email-domain-typos';
 import { UsersService } from '../users/users.service';
 import { PayoutSetupDto } from './payout-setup.dto';
 
@@ -62,6 +63,9 @@ export class PayoutsService {
    * ask for, so the caller is handed a link only when something is still due.
    */
   async submitPayoutDetails(userId: string, dto: PayoutSetupDto) {
+    const typoMsg = emailTypoUserMessage(dto.email);
+    if (typoMsg) throw new BadRequestException(typoMsg);
+
     const user = await this.users.requireById(userId);
     if (!this.stripe) {
       return {

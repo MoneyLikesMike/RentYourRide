@@ -1,6 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 export enum SortOrder {
   ASC = 'ASC',
@@ -67,6 +75,13 @@ export class AdminUsersPageOptionsDto extends PageOptionsDto {
   @IsOptional()
   @IsString()
   readonly query?: string;
+
+  /** When true, only members whose email domain is a known typo (e.g. gmil.com). */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  readonly emailTypo?: boolean;
 }
 
 export class AdminBookingsPageOptionsDto extends PageOptionsDto {

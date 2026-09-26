@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, ScrollView, Image } from 'react-native';
 import { COLORS } from '../constants/colors';
 import Svg, { Path } from 'react-native-svg';
+import { emailTypoUserMessage } from '../utils/emailDomainTypos';
 
 const COUNTRIES = [
   { code: 'CA', label: 'Canada' },
@@ -65,8 +66,17 @@ export default function GetPaidStep1Screen({ navigation }) {
   }
 
   function isValidEmail(email) {
-    // Simple email regex
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+    if (emailTypoUserMessage(email)) return false;
+    return true;
+  }
+
+  function emailFieldError() {
+    if (!email.trim()) return 'Please enter a valid email address';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return 'Please enter a valid email address';
+    }
+    return emailTypoUserMessage(email) || null;
   }
 
   return (
@@ -125,7 +135,7 @@ export default function GetPaidStep1Screen({ navigation }) {
           autoCapitalize="none"
         />
         {touched && !email.trim() && <ErrorRow message="Please enter email address" />}
-        {touched && email.trim() && !isValidEmail(email) && <ErrorRow message="Please enter a valid email address" />}
+        {touched && email.trim() && emailFieldError() && <ErrorRow message={emailFieldError()} />}
         <View style={[styles.divider, { marginTop: 25 }]} />
         <Text style={styles.inputLabel}>Date Of Birth</Text>
         <TextInput

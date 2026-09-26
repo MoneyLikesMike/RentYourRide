@@ -11,6 +11,7 @@ import {
   type MeUser,
 } from '../api/users';
 import { useAuth } from '../auth/AuthContext';
+import { validateEmail } from '../auth/validation';
 import {
   isAppleSignInCancellation,
   isAppleSignInConfigured,
@@ -260,8 +261,9 @@ function AccountSettingsForm({
     setError(null);
     setMessage(null);
     const next = newEmail.trim();
-    if (!next || !next.includes('@')) {
-      setError('Enter a valid email address.');
+    const emailErr = validateEmail(next, { rejectTypos: true });
+    if (emailErr) {
+      setError(emailErr);
       return;
     }
     setBusy('email-change');

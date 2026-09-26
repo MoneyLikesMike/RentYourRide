@@ -2,10 +2,21 @@ import { BookingEntity } from '../entities/booking.entity';
 import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
 import { diditConsoleSessionUrl } from '../didit/didit.constants';
+import { findEmailDomainTypo } from '../common/email-domain-typos';
 
 export function fullName(user: UserEntity | null | undefined): string {
   if (!user) return '';
   return [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
+}
+
+function emailTypoFlag(email: string | null | undefined) {
+  const hit = findEmailDomainTypo(email || '');
+  if (!hit) return null;
+  return {
+    domain: hit.domain,
+    suggestion: hit.suggestion,
+    suggestedEmail: hit.suggestedEmail,
+  };
 }
 
 function formatAdminGender(value: string | null | undefined): string {
@@ -94,6 +105,7 @@ export function toDashboardMember(user: UserEntity) {
     id: user.id,
     fullName: fullName(user),
     email: user.email,
+    emailDomainTypo: emailTypoFlag(user.email),
     signUpDate: user.createdAt,
     isActive: user.isActive !== false,
     loginsCount: 0,
@@ -109,6 +121,7 @@ export function toAdminProfile(user: UserEntity) {
     lastName: user.lastName,
     fullName: fullName(user),
     email: user.email,
+    emailDomainTypo: emailTypoFlag(user.email),
     about: user.aboutBio ?? '',
     phoneNumber: user.phone ?? '',
     isPhoneVerified: !!user.phoneVerified,
