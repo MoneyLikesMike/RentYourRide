@@ -17,7 +17,7 @@ import {
   listingToDraft,
   patchHostListing,
   publishHostListing,
-  uploadHostListingPhoto,
+  syncHostListingMedia,
   type ListRideDraft,
 } from '../api/hostListings';
 import {
@@ -37,6 +37,11 @@ import {
   resolveBrowserCurrentLocation,
   type ParsedPlace,
 } from '../api/maps';
+import {
+  listingVideoRejectReason,
+  MAX_LISTING_PHOTOS,
+  readVideoDurationMs,
+} from '../utils/listingMedia';
 import {
   findVehicleColor,
   VEHICLE_COLOR_OPTIONS,
@@ -201,8 +206,6 @@ const PHOTO_SLOTS = [
     cover: false,
   },
 ] as const;
-
-const MAX_LISTING_PHOTOS = 10;
 
 /** App DescribeYourRideScreen order */
 const CAR_FEATURE_ORDER = [
@@ -372,6 +375,7 @@ function ListYourRideWizard({
   const [photoPreviews, setPhotoPreviews] = useState<Array<string | null>>(
     [],
   );
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [loadingListing, setLoadingListing] = useState(isEdit);
   const [vinBusy, setVinBusy] = useState(false);
   const [vinMessage, setVinMessage] = useState<string | null>(null);
@@ -470,6 +474,20 @@ function ListYourRideWizard({
     };
   }, [draft.photos]);
 
+  useEffect(() => {
+    if (!draft.video) {
+      setVideoPreview(null);
+      return;
+    }
+    if (typeof draft.video === 'string') {
+      setVideoPreview(draft.video);
+      return;
+    }
+    const url = URL.createObjectURL(draft.video);
+    setVideoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [draft.video]);
+
   const patch = (partial: Partial<ListRideDraft>) => {
     setDraft((d) => ({ ...d, ...partial }));
     setError(null);
@@ -497,6 +515,22 @@ function ListYourRideWizard({
       else break;
     }
     patch({ photos: next.slice(0, MAX_LISTING_PHOTOS) });
+  };
+
+  const addVideo = async (file: File | undefined) => {
+    if (!file) return;
+    const durationMs = await readVideoDurationMs(file);
+    const reason = listingVideoRejectReason({
+      mimeType: file.type,
+      fileSize: file.size,
+      durationMs,
+      name: file.name,
+    });
+    if (reason) {
+      setError(reason);
+      return;
+    }
+    patch({ video: file });
   };
 
   const movePhoto = (from: number, to: number) => {
@@ -894,20 +928,8 @@ function ListYourRideWizard({
     setError(null);
     try {
       const body = draftToListingBody(draft);
-      const photoRefs: Array<{ uri: string }> = [];
-      for (const photo of draft.photos) {
-        if (!photo) continue;
-        if (typeof photo === 'string') {
-          photoRefs.push({ uri: photo });
-        } else {
-          const uploaded = await uploadHostListingPhoto(listingId, photo);
-          photoRefs.push({ uri: uploaded.uri });
-        }
-      }
-      await patchHostListing(listingId, {
-        ...body,
-        photos: photoRefs,
-      });
+      await syncHostListingMedia(listingId, draft);
+      await patchHostListing(listingId, body);
       navigate('/profile/your-rides', { replace: true });
     } catch (err) {
       setError(
@@ -928,11 +950,7 @@ function ListYourRideWizard({
     try {
       const body = draftToListingBody(draft);
       const created = await createHostListing(body);
-      for (const file of draft.photos) {
-        if (file && typeof file !== 'string') {
-          await uploadHostListingPhoto(created.id, file);
-        }
-      }
+      await syncHostListingMedia(created.id, draft);
       await publishHostListing(created.id);
       navigate('/profile/your-rides', { replace: true });
     } catch (err) {
@@ -1593,7 +1611,7 @@ function ListYourRideWizard({
         <section className="lyr-section lyr-step5">
           <div className="lyr-photos-title-row">
             <h2 className="lyr-section-title lyr-section-title--light">
-              Photos
+              Photos &amp; video
             </h2>
             <button
               type="button"
@@ -1608,9 +1626,55 @@ function ListYourRideWizard({
           </div>
 
           <p className="lyr-photo-hint">
-            Choose several photos at once, then drag any photo to reorder. The
-            first photo is your cover.
+            Add photos (cover first) and an optional short video — up to 1
+            minute / 60 MB, like Marketplace. Drag photos to reorder.
           </p>
+
+          <div className="lyr-video-block">
+            <span className="lyr-photo-slot-label">Listing video (optional)</span>
+            {draft.video && videoPreview ? (
+              <div className="lyr-video-slot">
+                <video
+                  src={videoPreview}
+                  className="lyr-photo-slot-img lyr-video-preview"
+                  muted
+                  playsInline
+                  controls
+                  preload="metadata"
+                />
+                <span className="lyr-video-badge">Video</span>
+                <button
+                  type="button"
+                  className="lyr-photo-slot-remove"
+                  aria-label="Remove video"
+                  onClick={() => patch({ video: null })}
+                >
+                  <img src="/close.png" alt="" className="close-x-img" />
+                </button>
+              </div>
+            ) : (
+              <label className="lyr-photo-slot lyr-photo-slot--add lyr-video-add">
+                <span className="lyr-photo-add-more">
+                  <span className="lyr-photo-add-plus" aria-hidden>
+                    +
+                  </span>
+                  <span className="lyr-photo-add-caption">Add video</span>
+                  <span className="lyr-photo-add-max">
+                    MP4 or MOV · max 1 minute · under 60 MB
+                  </span>
+                </span>
+                <input
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm,video/x-m4v,.mp4,.mov,.m4v,.webm"
+                  hidden
+                  onChange={(e) => {
+                    void addVideo(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            )}
+          </div>
 
           {/* Cover — Zeplin https://zpl.io/jplj90W */}
           <label
@@ -1791,7 +1855,7 @@ function ListYourRideWizard({
                     </span>
                     <span className="lyr-photo-add-caption">Add more photos</span>
                     <span className="lyr-photo-add-max">
-                      Select several at once — up to 10 photos
+                      Select several at once — up to 10 photos + 1 video
                     </span>
                   </span>
                   <input
