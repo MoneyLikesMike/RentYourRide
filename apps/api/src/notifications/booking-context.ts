@@ -170,6 +170,10 @@ export class BookingNotificationContext {
     return formatStartDate(startMs(this.booking), dates.startTime, this.tz);
   }
 
+  vehicleLabel(): string {
+    return vehicleModel(this.booking);
+  }
+
   endLabel(): string {
     const dates = bookingDatesOf(this.booking);
     return formatEndDate(endMs(this.booking), dates.endTime, this.tz);

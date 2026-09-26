@@ -13,6 +13,10 @@ export * from './email-verification-token.entity';
 export * from './booking-extension.entity';
 export * from './article.entity';
 export * from './team-member.entity';
+export * from './notification-dispatch-log.entity';
+export * from './notification-dispatch-claim.entity';
+export * from './in-app-notification.entity';
+export * from './sms-outbox.entity';
 
 import { UserEntity } from './user.entity';
 import { RefreshTokenEntity } from './refresh-token.entity';
@@ -29,6 +33,10 @@ import { EmailVerificationTokenEntity } from './email-verification-token.entity'
 import { BookingExtensionEntity } from './booking-extension.entity';
 import { ArticleEntity } from './article.entity';
 import { TeamMemberEntity } from './team-member.entity';
+import { NotificationDispatchLogEntity } from './notification-dispatch-log.entity';
+import { NotificationDispatchClaimEntity } from './notification-dispatch-claim.entity';
+import { InAppNotificationEntity } from './in-app-notification.entity';
+import { SmsOutboxEntity } from './sms-outbox.entity';
 
 export const entities = [
   UserEntity,
@@ -46,4 +54,8 @@ export const entities = [
   PushDeviceTokenEntity,
   ArticleEntity,
   TeamMemberEntity,
+  NotificationDispatchLogEntity,
+  NotificationDispatchClaimEntity,
+  InAppNotificationEntity,
+  SmsOutboxEntity,
 ];

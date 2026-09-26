@@ -582,9 +582,15 @@ export class PaymentsService {
     });
   }
 
-  /** Host decline / cancel — release hold or refund captured charge. */
-  async refundBookingPayment(paymentIntentId: string, description?: string): Promise<void> {
-    if (!this.stripe || !paymentIntentId) return;
+  /**
+   * Host decline / cancel — release hold or refund captured charge.
+   * Returns the Stripe refund id when a refund object was created.
+   */
+  async refundBookingPayment(
+    paymentIntentId: string,
+    description?: string,
+  ): Promise<{ refundId: string | null }> {
+    if (!this.stripe || !paymentIntentId) return { refundId: null };
     try {
       const pi = await this.stripe.paymentIntents.retrieve(paymentIntentId);
       if (description) {
@@ -592,11 +598,13 @@ export class PaymentsService {
       }
       if (pi.status === 'requires_capture') {
         await this.stripe.paymentIntents.cancel(paymentIntentId);
-        return;
+        return { refundId: null };
       }
       if (pi.status === 'succeeded') {
-        await this.stripe.refunds.create({ payment_intent: paymentIntentId });
+        const refund = await this.stripe.refunds.create({ payment_intent: paymentIntentId });
+        return { refundId: refund.id ?? null };
       }
+      return { refundId: null };
     } catch (err) {
       this.log.error(
         `Refund/cancel failed for ${paymentIntentId}`,

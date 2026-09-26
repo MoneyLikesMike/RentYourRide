@@ -6,6 +6,13 @@ import {
   SendTextMessageCommand,
 } from '@aws-sdk/client-pinpoint-sms-voice-v2';
 import { PinpointSubstitutions } from './template-variables.builder';
+import { classifySmsFailure, SmsFailureKind } from './host-cancel-notify';
+
+export type SmsSendResult = {
+  sent: boolean;
+  failure?: SmsFailureKind;
+  errorMessage?: string;
+};
 
 @Injectable()
 export class PinpointService {
@@ -129,6 +136,49 @@ export class PinpointService {
     }
   }
 
+  async sendSimpleEmail(to: string, subject: string, body: string): Promise<boolean> {
+    if (!to?.trim()) return false;
+    if (!this.pinpoint || !this.appId) {
+      this.log.warn(`[email-dev] To ${to} subject=${subject}\n${body}`);
+      return false;
+    }
+    try {
+      const out = await this.pinpoint.send(
+        new SendMessagesCommand({
+          ApplicationId: this.appId,
+          MessageRequest: {
+            Addresses: { [to]: { ChannelType: 'EMAIL' } },
+            MessageConfiguration: {
+              EmailMessage: {
+                FromAddress: this.senderAddress,
+                SimpleEmail: {
+                  Subject: { Data: subject },
+                  TextPart: { Data: body },
+                },
+              },
+            },
+          },
+        }),
+      );
+      const ok = this.deliveryOk(
+        to,
+        `simple:${subject}`,
+        out.MessageResponse?.Result as never,
+      );
+      if (ok) {
+        this.log.log(`Pinpoint email sent to=${to} subject=${subject}`);
+      }
+      return ok;
+    } catch (err) {
+      this.recordEmailFailure();
+      this.log.error(
+        `Pinpoint email failed to=${to} subject=${subject}`,
+        err instanceof Error ? err.message : err,
+      );
+      return false;
+    }
+  }
+
   async sendSimpleAdminEmail(subject: string, body: string): Promise<boolean> {
     if (!this.pinpoint || !this.appId || !this.adminEmail) {
       this.log.warn(`[admin-email-dev] ${subject}\n${body}`);
@@ -171,19 +221,28 @@ export class PinpointService {
   /**
    * Transactional notification SMS via End User Messaging (same pipe as OTP).
    * Classic SNS is spend-capped and silently drops traffic after the cap.
+   * Returns SmsSendResult so host-cancel retry / outbox can classify failures.
    */
-  async sendSms(phoneNumber: string, message: string): Promise<boolean> {
+  async sendSms(phoneNumber: string, message: string): Promise<SmsSendResult> {
     const e164 = toE164Phone(phoneNumber);
     if (!e164) {
       if (phoneNumber?.trim()) {
         this.log.warn(`SMS skipped — invalid phone "${phoneNumber}"`);
       }
-      return false;
+      return {
+        sent: false,
+        failure: 'provider_error',
+        errorMessage: 'invalid or missing phone',
+      };
     }
     const origination = this.config.get<string>('PHONENUMBER')?.trim();
     if (!this.smsClient || !origination) {
       this.log.warn(`[sms-dev] To ${e164}: ${message}`);
-      return false;
+      return {
+        sent: false,
+        failure: 'not_configured',
+        errorMessage: 'sms-dev EUM client or origination missing',
+      };
     }
 
     const protectId = this.config.get<string>('SMS_PROTECT_CONFIGURATION_ID')?.trim();
@@ -198,13 +257,15 @@ export class PinpointService {
         }),
       );
       this.log.log(`EUM SMS sent to=${e164}`);
-      return true;
+      return { sent: true };
     } catch (err) {
-      this.log.error(
-        `EUM SMS failed for ${e164}`,
-        err instanceof Error ? err.message : err,
-      );
-      return false;
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.log.error(`EUM SMS failed for ${e164}`, errorMessage);
+      return {
+        sent: false,
+        failure: classifySmsFailure(errorMessage),
+        errorMessage,
+      };
     }
   }
 }

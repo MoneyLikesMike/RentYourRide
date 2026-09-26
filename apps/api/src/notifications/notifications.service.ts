@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThanOrEqual, Repository } from 'typeorm';
 import { BookingEntity } from '../entities/booking.entity';
 import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
@@ -13,6 +14,25 @@ import { ExpoPushService } from './expo-push.service';
 import { PushTokenService } from './push-token.service';
 import { SmsCopy } from './sms-copy';
 import { BookingExtensionEntity } from '../entities/booking-extension.entity';
+import { InAppNotificationEntity } from '../entities/in-app-notification.entity';
+import { NotificationDispatchClaimEntity } from '../entities/notification-dispatch-claim.entity';
+import { NotificationDispatchLogEntity } from '../entities/notification-dispatch-log.entity';
+import { SmsOutboxEntity } from '../entities/sms-outbox.entity';
+import {
+  HOST_CANCEL_CHANNELS,
+  HOST_CANCEL_EMAIL_IS_TRANSACTIONAL,
+  HOST_CANCEL_NOTIFY_EVENT,
+  HostCancelChannel,
+  buildHostCancelCopy,
+  dispatchIndependentChannels,
+  inAppDedupeKey,
+  isConfirmedTripStatus,
+  nextSmsRetryDelayMs,
+  planHostCancelNotify,
+  resolveHostCancelAttempt,
+  smsFailureShouldQueue,
+  smsOutboxDedupeKey,
+} from './host-cancel-notify';
 import {
   adminBaseUrl,
   lines,
@@ -59,6 +79,14 @@ export class NotificationsService {
     private readonly listings: Repository<ListingEntity>,
     @InjectRepository(UserEntity)
     private readonly users: Repository<UserEntity>,
+    @InjectRepository(InAppNotificationEntity)
+    private readonly inApp: Repository<InAppNotificationEntity>,
+    @InjectRepository(NotificationDispatchLogEntity)
+    private readonly dispatchLogs: Repository<NotificationDispatchLogEntity>,
+    @InjectRepository(NotificationDispatchClaimEntity)
+    private readonly dispatchClaims: Repository<NotificationDispatchClaimEntity>,
+    @InjectRepository(SmsOutboxEntity)
+    private readonly smsOutbox: Repository<SmsOutboxEntity>,
   ) {}
 
   private wantsEmail(user: Recipient, transactional?: boolean): boolean {
@@ -888,4 +916,487 @@ export class NotificationsService {
     booking.lifecycle = { ...(booking.lifecycle ?? {}), [field]: Date.now() };
     await this.bookings.save(booking);
   }
+
+  /**
+   * Host notify after a confirmed trip is cancelled (guest, host, or any other actor).
+   * Channels run independently. Safe to call twice.
+   */
+  async notifyHostConfirmedTripCancelled(
+    bookingId: string,
+    meta: {
+      previousStatus: string;
+      cancelledBy: string;
+      stripeRefundId?: string | null;
+    },
+  ): Promise<void> {
+    if (!isConfirmedTripStatus(meta.previousStatus)) return;
+    const ctx = await this.loadBooking(bookingId);
+    if (!ctx) {
+      this.log.warn(`Host cancel notify skipped; booking missing ${bookingId}`);
+      return;
+    }
+    const copy = buildHostCancelCopy({
+      hostFirstName: ctx.host.firstName ?? '',
+      guestFirstName: ctx.guest.firstName ?? '',
+      vehicle: ctx.vehicleLabel(),
+      startLabel: ctx.startLabel(),
+      endLabel: ctx.endLabel(),
+      listingId: ctx.booking.listingId,
+      cancelledBy: meta.cancelledBy,
+      stripeRefundId: meta.stripeRefundId,
+    });
+    const auditBase = {
+      bookingId,
+      listingId: ctx.booking.listingId,
+      hostMemberId: ctx.host.id,
+      guestMemberId: ctx.guest.id,
+      stripeRefundId: meta.stripeRefundId ?? null,
+      detail: {
+        cancelledBy: meta.cancelledBy,
+        previousStatus: meta.previousStatus,
+        stripePaymentIntentId: ctx.booking.stripePaymentIntentId,
+        vehicle: ctx.vehicleLabel(),
+        tripStart: ctx.startLabel(),
+        tripEnd: ctx.endLabel(),
+        emailTransactional: HOST_CANCEL_EMAIL_IS_TRANSACTIONAL,
+      },
+    };
+
+    await dispatchIndependentChannels(HOST_CANCEL_CHANNELS, async (channel) => {
+      const gate = await this.acquireHostCancelClaim(bookingId, channel);
+      if (gate.action === 'skip') {
+        await this.appendDispatchLog({
+          ...auditBase,
+          channel,
+          status: 'skipped',
+          reason: gate.reason ?? 'skipped',
+        });
+        return;
+      }
+      try {
+        const outcome = await this.sendHostCancelChannel(channel, ctx, copy, auditBase);
+        await this.finishHostCancelClaim(bookingId, channel, outcome.status, outcome.reason ?? null);
+        await this.appendDispatchLog({
+          ...auditBase,
+          channel,
+          status: outcome.status,
+          reason: outcome.reason ?? null,
+        });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'channel_error';
+        this.log.error(`Host cancel notify ${channel} threw for ${bookingId}`, reason);
+        await this.finishHostCancelClaim(bookingId, channel, 'failed', reason);
+        await this.appendDispatchLog({
+          ...auditBase,
+          channel,
+          status: 'failed',
+          reason,
+        });
+      }
+    });
+  }
+
+  async listInAppForUser(userId: string) {
+    const rows = await this.inApp.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      body: row.body,
+      bookingId: row.bookingId,
+      listingId: row.listingId,
+      readAt: row.readAt ? row.readAt.getTime() : null,
+      createdAt: row.createdAt.getTime(),
+    }));
+  }
+
+  async listDispatchLogForBooking(bookingId: string) {
+    const rows = await this.dispatchLogs.find({
+      where: { bookingId },
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      event: row.event,
+      channel: row.channel,
+      status: row.status,
+      reason: row.reason,
+      listingId: row.listingId,
+      hostMemberId: row.hostMemberId,
+      guestMemberId: row.guestMemberId,
+      bookingId: row.bookingId,
+      stripeRefundId: row.stripeRefundId,
+      detail: row.detail,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  }
+
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async retryQueuedSms(): Promise<void> {
+    let due: SmsOutboxEntity[] = [];
+    try {
+      due = await this.smsOutbox.find({
+        where: { status: 'queued', nextRetryAt: LessThanOrEqual(new Date()) },
+        take: 25,
+        order: { nextRetryAt: 'ASC' },
+      });
+    } catch (err) {
+      this.log.warn('SMS outbox poll failed', err instanceof Error ? err.message : err);
+      return;
+    }
+    for (const row of due) {
+      try {
+        await this.retryOneSms(row);
+      } catch (err) {
+        this.log.error(
+          `SMS retry failed for booking ${row.bookingId}`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+  }
+
+  private async sendHostCancelChannel(
+    channel: HostCancelChannel,
+    ctx: BookingNotificationContext,
+    copy: ReturnType<typeof buildHostCancelCopy>,
+    auditBase: {
+      bookingId: string;
+      listingId: string;
+      hostMemberId: string;
+      guestMemberId: string;
+      stripeRefundId: string | null;
+    },
+  ): Promise<{ status: 'sent' | 'failed' | 'skipped'; reason?: string }> {
+    const tokens = channel === 'push' ? await this.pushTokens.tokensForUser(ctx.host.id) : [];
+    const plan = planHostCancelNotify({
+      hasEmail: !!ctx.host.email?.trim(),
+      hasPhone: !!ctx.host.phone?.trim(),
+      pushTokenCount: tokens.length,
+    }).find((row) => row.channel === channel);
+    if (plan?.action === 'skip') {
+      return { status: 'skipped', reason: plan.reason };
+    }
+
+    if (channel === 'in_app') {
+      await this.insertInApp(ctx, copy);
+      return { status: 'sent' };
+    }
+
+    if (channel === 'push') {
+      const push = await this.expoPush.send(
+        tokens.map((to) => ({
+          to,
+          title: copy.pushTitle,
+          body: copy.pushBody,
+          data: {
+            type: 'trip_cancelled',
+            bookingId: ctx.booking.id,
+            listingId: ctx.booking.listingId,
+          },
+        })),
+      );
+      return push.sent
+        ? { status: 'sent' }
+        : { status: 'failed', reason: push.reason ?? 'push_provider_error' };
+    }
+
+    if (channel === 'email') {
+      // Transactional: HOST_CANCEL_EMAIL_IS_TRANSACTIONAL. Do not consult emailNotif.
+      const ok = await this.pinpoint.sendSimpleEmail(
+        ctx.host.email,
+        copy.emailSubject,
+        copy.emailBody,
+      );
+      return ok
+        ? { status: 'sent' }
+        : { status: 'failed', reason: 'email_provider_error' };
+    }
+
+    const sms = await this.pinpoint.sendSms(ctx.host.phone ?? '', copy.sms);
+    if (sms.sent) return { status: 'sent' };
+    const failure = sms.failure ?? 'provider_error';
+    const errorMessage = sms.errorMessage ?? failure;
+    if (smsFailureShouldQueue(failure, errorMessage)) {
+      await this.enqueueHostCancelSms(ctx, copy.sms, failure, errorMessage, auditBase);
+    }
+    this.log.error(
+      `Host cancel SMS ${failure} booking=${ctx.booking.id} listingId=${ctx.booking.listingId} hostMemberId=${ctx.host.id} guestMemberId=${ctx.guest.id} stripeRefundId=${auditBase.stripeRefundId ?? ''} ${errorMessage}`,
+    );
+    return { status: 'failed', reason: failure };
+  }
+
+  private async insertInApp(
+    ctx: BookingNotificationContext,
+    copy: ReturnType<typeof buildHostCancelCopy>,
+  ): Promise<void> {
+    try {
+      await this.inApp.insert({
+        userId: ctx.host.id,
+        type: HOST_CANCEL_NOTIFY_EVENT,
+        title: copy.inAppTitle,
+        body: copy.inAppBody,
+        bookingId: ctx.booking.id,
+        listingId: ctx.booking.listingId,
+        dedupeKey: inAppDedupeKey(ctx.booking.id, ctx.host.id),
+        readAt: null,
+      });
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
+    }
+  }
+
+  private async enqueueHostCancelSms(
+    ctx: BookingNotificationContext,
+    body: string,
+    failureKind: string,
+    errorMessage: string,
+    auditBase: { stripeRefundId: string | null },
+  ): Promise<void> {
+    const delay = nextSmsRetryDelayMs(1);
+    const nextRetryAt = new Date(Date.now() + (delay ?? 15 * 60 * 1000));
+    const dedupeKey = smsOutboxDedupeKey(ctx.booking.id);
+    const existing = await this.smsOutbox.findOne({ where: { dedupeKey } });
+    if (existing) {
+      if (existing.status === 'sent') return;
+      return;
+    }
+    try {
+      await this.smsOutbox.insert({
+        dedupeKey,
+        phone: ctx.host.phone ?? '',
+        body,
+        bookingId: ctx.booking.id,
+        event: HOST_CANCEL_NOTIFY_EVENT,
+        failureKind,
+        status: 'queued',
+        attempts: 1,
+        lastError: errorMessage,
+        nextRetryAt,
+        listingId: ctx.booking.listingId,
+        hostMemberId: ctx.host.id,
+        guestMemberId: ctx.guest.id,
+        stripeRefundId: auditBase.stripeRefundId,
+        adminAlertedAt: null,
+        exhaustedAlertedAt: null,
+      });
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
+      return;
+    }
+    await this.alertSmsFailure(ctx, failureKind, errorMessage, auditBase.stripeRefundId, false);
+    await this.smsOutbox.update({ dedupeKey }, { adminAlertedAt: new Date() });
+  }
+
+  private async alertSmsFailure(
+    ctx: BookingNotificationContext,
+    failureKind: string,
+    errorMessage: string,
+    stripeRefundId: string | null,
+    exhausted: boolean,
+  ): Promise<void> {
+    const subject = exhausted
+      ? 'SMS retries exhausted: host trip-cancel notify'
+      : `SMS failed: host trip-cancel notify (${failureKind})`;
+    const body = [
+      exhausted
+        ? 'Queued SMS retries for a confirmed-trip cancellation are exhausted.'
+        : 'SMS for a confirmed-trip cancellation failed and was queued for retry.',
+      'The SMS spend cap was not changed (RYRA-408).',
+      `bookingId: ${ctx.booking.id}`,
+      `listingId: ${ctx.booking.listingId}`,
+      `hostMemberId: ${ctx.host.id}`,
+      `guestMemberId: ${ctx.guest.id}`,
+      `stripeRefundId: ${stripeRefundId ?? ''}`,
+      `failure: ${failureKind}`,
+      `error: ${errorMessage}`,
+    ].join('\n');
+    try {
+      await this.pinpoint.sendSimpleAdminEmail(subject, body);
+    } catch (err) {
+      this.log.error('Admin SMS-failure email threw', err instanceof Error ? err.message : err);
+    }
+  }
+
+  private async retryOneSms(row: SmsOutboxEntity): Promise<void> {
+    const result = await this.pinpoint.sendSms(row.phone, row.body);
+    if (result.sent) {
+      row.status = 'sent';
+      row.lastError = null;
+      await this.smsOutbox.save(row);
+      await this.finishHostCancelClaim(row.bookingId, 'sms', 'sent', null);
+      await this.appendDispatchLog({
+        bookingId: row.bookingId,
+        listingId: row.listingId,
+        hostMemberId: row.hostMemberId,
+        guestMemberId: row.guestMemberId,
+        stripeRefundId: row.stripeRefundId,
+        channel: 'sms',
+        status: 'sent',
+        reason: 'retry',
+        detail: { outboxId: row.id, attempts: row.attempts },
+      });
+      this.log.log(
+        `Host cancel SMS retry sent booking=${row.bookingId} listingId=${row.listingId ?? ''} hostMemberId=${row.hostMemberId ?? ''}`,
+      );
+      return;
+    }
+    const errorMessage = result.errorMessage ?? result.failure ?? 'provider_error';
+    row.attempts += 1;
+    row.lastError = errorMessage;
+    const delay = nextSmsRetryDelayMs(row.attempts);
+    if (delay == null) {
+      row.status = 'failed';
+      await this.smsOutbox.save(row);
+      await this.finishHostCancelClaim(row.bookingId, 'sms', 'failed', 'retries_exhausted');
+      await this.appendDispatchLog({
+        bookingId: row.bookingId,
+        listingId: row.listingId,
+        hostMemberId: row.hostMemberId,
+        guestMemberId: row.guestMemberId,
+        stripeRefundId: row.stripeRefundId,
+        channel: 'sms',
+        status: 'failed',
+        reason: 'retries_exhausted',
+        detail: { outboxId: row.id, attempts: row.attempts, error: errorMessage },
+      });
+      if (!row.exhaustedAlertedAt) {
+        const booking = await this.loadBooking(row.bookingId);
+        if (booking) {
+          await this.alertSmsFailure(
+            booking,
+            row.failureKind,
+            errorMessage,
+            row.stripeRefundId,
+            true,
+          );
+        }
+        row.exhaustedAlertedAt = new Date();
+        await this.smsOutbox.save(row);
+      }
+      this.log.error(
+        `Host cancel SMS retries exhausted booking=${row.bookingId} listingId=${row.listingId ?? ''} hostMemberId=${row.hostMemberId ?? ''} guestMemberId=${row.guestMemberId ?? ''} stripeRefundId=${row.stripeRefundId ?? ''} ${errorMessage}`,
+      );
+      return;
+    }
+    row.nextRetryAt = new Date(Date.now() + delay);
+    await this.smsOutbox.save(row);
+    await this.appendDispatchLog({
+      bookingId: row.bookingId,
+      listingId: row.listingId,
+      hostMemberId: row.hostMemberId,
+      guestMemberId: row.guestMemberId,
+      stripeRefundId: row.stripeRefundId,
+      channel: 'sms',
+      status: 'failed',
+      reason: result.failure ?? 'provider_error',
+      detail: { outboxId: row.id, attempts: row.attempts, queued: true, error: errorMessage },
+    });
+    this.log.error(
+      `Host cancel SMS retry failed booking=${row.bookingId} attempts=${row.attempts} ${errorMessage}`,
+    );
+  }
+
+  private async acquireHostCancelClaim(
+    bookingId: string,
+    channel: HostCancelChannel,
+  ): Promise<{ action: 'send' | 'skip'; reason?: string }> {
+    const existing = await this.dispatchClaims.findOne({
+      where: { bookingId, event: HOST_CANCEL_NOTIFY_EVENT, channel },
+    });
+    const smsQueued =
+      channel === 'sms' ? await this.isHostCancelSmsQueued(bookingId) : false;
+    const decision = resolveHostCancelAttempt({
+      channel,
+      prior: existing
+        ? {
+            status: existing.status as 'sending' | 'sent' | 'failed' | 'skipped',
+            reason: existing.reason,
+            updatedAtMs: existing.updatedAt?.getTime?.() ?? 0,
+          }
+        : null,
+      smsQueued,
+      nowMs: Date.now(),
+    });
+    if (decision.action === 'skip') return decision;
+    if (!existing) {
+      try {
+        await this.dispatchClaims.insert({
+          bookingId,
+          event: HOST_CANCEL_NOTIFY_EVENT,
+          channel,
+          status: 'sending',
+          reason: null,
+        });
+        return { action: 'send' };
+      } catch (err) {
+        if (isUniqueViolation(err)) return { action: 'skip', reason: 'in_progress' };
+        throw err;
+      }
+    }
+    const updated = await this.dispatchClaims.update(
+      { id: existing.id, status: existing.status },
+      { status: 'sending', reason: null },
+    );
+    if (!updated.affected) return { action: 'skip', reason: 'in_progress' };
+    return { action: 'send' };
+  }
+
+  private async finishHostCancelClaim(
+    bookingId: string,
+    channel: HostCancelChannel,
+    status: 'sent' | 'failed' | 'skipped',
+    reason: string | null,
+  ): Promise<void> {
+    await this.dispatchClaims.update(
+      { bookingId, event: HOST_CANCEL_NOTIFY_EVENT, channel },
+      { status, reason },
+    );
+  }
+
+  private async isHostCancelSmsQueued(bookingId: string): Promise<boolean> {
+    const row = await this.smsOutbox.findOne({
+      where: { dedupeKey: smsOutboxDedupeKey(bookingId) },
+    });
+    return row?.status === 'queued';
+  }
+
+  private async appendDispatchLog(input: {
+    bookingId: string;
+    listingId: string | null;
+    hostMemberId: string | null;
+    guestMemberId: string | null;
+    stripeRefundId: string | null;
+    channel: string;
+    status: string;
+    reason?: string | null;
+    detail?: Record<string, unknown> | null;
+  }): Promise<void> {
+    const row = this.dispatchLogs.create({
+      bookingId: input.bookingId,
+      event: HOST_CANCEL_NOTIFY_EVENT,
+      channel: input.channel,
+      status: input.status,
+      reason: input.reason ?? null,
+      listingId: input.listingId,
+      hostMemberId: input.hostMemberId,
+      guestMemberId: input.guestMemberId,
+      stripeRefundId: input.stripeRefundId,
+      detail: input.detail ?? null,
+    });
+    await this.dispatchLogs.save(row);
+    this.log.log(
+      `notify attempt event=${HOST_CANCEL_NOTIFY_EVENT} channel=${input.channel} status=${input.status} reason=${input.reason ?? ''} bookingId=${input.bookingId} listingId=${input.listingId ?? ''} hostMemberId=${input.hostMemberId ?? ''} guestMemberId=${input.guestMemberId ?? ''} stripeRefundId=${input.stripeRefundId ?? ''}`,
+    );
+  }
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  const row = err as { code?: string; driverError?: { code?: string } };
+  return row?.code === '23505' || row?.driverError?.code === '23505';
 }
