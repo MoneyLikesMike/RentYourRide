@@ -1,0 +1,3 @@
+# Account Creation
+
+This script is a bit finicky, and to rerun, the Management Account needs to ensure that StackSets are allowed.  Unfortunately, when I ran this, they were not, and all the accounts were created.  Deleting these accounts are a pain, so, for now, I will leave this alone.  But, if in the future this is necessary, ensure that the StackSet permission is enabled and make sure to change the SSO User Id (currently set to mine [Dan Slack])
