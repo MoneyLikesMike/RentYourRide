@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsString, Length, MinLength, IsEmail, IsOptional } from 'class-validator';
 import { AuthService } from './auth.service';
+import { clientIpFromRequest } from './phone-otp-policy';
 
 export class RegisterDto {
   @IsEmail()
@@ -35,6 +36,11 @@ export class RefreshDto {
 }
 
 export class ForgotDto {
+  @IsEmail()
+  email: string;
+}
+
+export class ChangeEmailDto {
   @IsEmail()
   email: string;
 }
@@ -145,7 +151,11 @@ export class AuthController {
   @ApiBearerAuth()
   @Post('start-phone-verification')
   async startPhoneVerification(@Req() req, @Body() body: StartPhoneVerificationDto) {
-    return this.auth.startPhoneVerification(req.user.id, body.phoneNumber);
+    return this.auth.startPhoneVerification(
+      req.user.id,
+      body.phoneNumber,
+      clientIpFromRequest(req),
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -179,5 +189,19 @@ export class AuthController {
   @HttpCode(200)
   async verifyEmail(@Body() body: { token: string }) {
     return this.auth.verifyEmail(body.token);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @Post('change-email')
+  @HttpCode(200)
+  async startEmailChange(@Req() req, @Body() body: ChangeEmailDto) {
+    return this.auth.startEmailChange(req.user.id, body.email);
+  }
+
+  @Post('confirm-email-change')
+  @HttpCode(200)
+  async confirmEmailChange(@Body() body: { token: string }) {
+    return this.auth.confirmEmailChange(body.token);
   }
 }

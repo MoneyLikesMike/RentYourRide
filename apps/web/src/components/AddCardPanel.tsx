@@ -36,12 +36,18 @@ type AddCardFormProps = {
 function AddCardFormInner({ onSaved, onCancel }: AddCardFormProps) {
   const stripe = useStripe();
   const elements = useElements();
+  const [cardholderName, setCardholderName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
+    const name = cardholderName.trim();
+    if (!name) {
+      setError('Please enter the cardholder name from your verified license.');
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
@@ -53,7 +59,10 @@ function AddCardFormInner({ onSaved, onCancel }: AddCardFormProps) {
       if (!card) throw new Error('Card form is not ready');
 
       const result = await stripe.confirmCardSetup(clientSecret, {
-        payment_method: { card },
+        payment_method: {
+          card,
+          billing_details: { name },
+        },
       });
       if (result.error) {
         throw new Error(result.error.message || 'Could not save card');
@@ -80,6 +89,18 @@ function AddCardFormInner({ onSaved, onCancel }: AddCardFormProps) {
 
   return (
     <form className="checkout-add-card" onSubmit={onSubmit}>
+      <label className="checkout-add-card-name">
+        <span className="checkout-add-card-label">Cardholder name</span>
+        <input
+          className="checkout-add-card-input"
+          type="text"
+          placeholder="Name on your verified license"
+          value={cardholderName}
+          onChange={(e) => setCardholderName(e.target.value)}
+          autoComplete="cc-name"
+          disabled={saving}
+        />
+      </label>
       <div className="checkout-card-element">
         <CardElement
           options={{

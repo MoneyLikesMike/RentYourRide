@@ -4,7 +4,7 @@ export type ConversationLastMessage = {
   text: string;
   createdAt: number;
   senderUserId: string | null;
-  type: 'user' | 'system' | string;
+  type: 'text' | 'system' | 'image' | string;
 };
 
 export type Conversation = {
@@ -20,6 +20,7 @@ export type Conversation = {
   bookingSnapshot: {
     id: string;
     status: string;
+    listingId?: string;
     listingTitle: string;
     listingCoverUri: string | null;
     guestUserId: string;
@@ -27,6 +28,8 @@ export type Conversation = {
   } | null;
   lastMessage: ConversationLastMessage | null;
   unreadCount: number;
+  counterpartLastReadAt?: number | null;
+  mediaUnlocked?: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -35,7 +38,7 @@ export type ChatMessage = {
   id: string;
   conversationId: string;
   senderUserId: string | null;
-  type: 'user' | 'system' | string;
+  type: 'text' | 'system' | 'image' | string;
   text: string;
   metadata: Record<string, unknown> | null;
   createdAt: number;
@@ -43,6 +46,13 @@ export type ChatMessage = {
 
 export async function listConversations(): Promise<Conversation[]> {
   return apiFetch<Conversation[]>('v1/conversations', { method: 'GET' });
+}
+
+export async function getConversation(id: string): Promise<Conversation> {
+  return apiFetch<Conversation>(
+    `v1/conversations/${encodeURIComponent(id)}`,
+    { method: 'GET' },
+  );
 }
 
 export async function listMessages(
@@ -66,6 +76,18 @@ export async function sendMessage(
   return apiFetch(
     `v1/conversations/${encodeURIComponent(conversationId)}/messages`,
     { method: 'POST', json: { text } },
+  );
+}
+
+export async function sendPhotoMessage(
+  conversationId: string,
+  file: File,
+): Promise<ChatMessage> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiFetch(
+    `v1/conversations/${encodeURIComponent(conversationId)}/messages/photo`,
+    { method: 'POST', body: form },
   );
 }
 

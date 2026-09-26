@@ -8,6 +8,7 @@ function toSearchParams(q: MemberListQuery): string {
   p.set('take', String(q.take));
   p.set('field', q.field);
   if (q.query) p.set('query', q.query);
+  if (q.emailTypo) p.set('emailTypo', 'true');
   return p.toString();
 }
 

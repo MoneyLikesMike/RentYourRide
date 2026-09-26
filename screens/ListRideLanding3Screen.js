@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import VehicleTypesModal from './VehicleTypesModal';
 import { useHorizontalSwipeNavigation } from '../hooks/useHorizontalSwipeNavigation';
-import { ensureIdentityVerified } from '../utils/verificationGates';
+import { ensureIdentityVerified, ensureHostProfilePhoto } from '../utils/verificationGates';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
@@ -108,8 +108,14 @@ const ListRideLanding3Screen = ({ navigation }) => {
         <TouchableOpacity
           style={styles.beginListingButton}
           onPress={async () => {
-            if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to list' }))) {
-              return;
+            // Simulator: Didit/phone OTP often block listing work; skip gates in __DEV__.
+            if (!__DEV__) {
+              if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to list' }))) {
+                return;
+              }
+              if (!(await ensureHostProfilePhoto(navigation))) {
+                return;
+              }
             }
             navigation.navigate('TellUsAboutYourRideScreen1');
           }}

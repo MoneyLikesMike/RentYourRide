@@ -37,6 +37,20 @@ export async function sendMessage(conversationId, text) {
   );
 }
 
+/** Post-accept photo. Server rejects while trip is still pending_host. */
+export async function sendPhotoMessage(conversationId, file) {
+  const form = new FormData();
+  form.append('file', {
+    uri: file.uri,
+    name: file.name || `chat-${Date.now()}.jpg`,
+    type: file.type || 'image/jpeg',
+  });
+  return apiFetch(
+    `/v1/conversations/${encodeURIComponent(conversationId)}/messages/photo`,
+    { method: 'POST', formData: form },
+  );
+}
+
 export async function markConversationRead(conversationId) {
   return apiFetch(
     `/v1/conversations/${encodeURIComponent(conversationId)}/read`,

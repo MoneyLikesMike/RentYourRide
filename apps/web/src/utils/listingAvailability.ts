@@ -37,3 +37,39 @@ export function apiRangesToCalendarData(
   if (blockedRanges.length === 0) return null;
   return { blockedRanges };
 }
+
+/** Prefer listing.calendarData / blockedRanges from public detail DTO. */
+export function listingToBlockedCalendarData(listing: {
+  calendarData?: {
+    blockedRanges?: Array<{ start: number | string; end: number | string }>;
+  } | null;
+  blockedRanges?: ApiAvailabilityRange[] | null;
+  availability?: ApiAvailabilityRange[] | null;
+}): ListRideCalendarData | null {
+  const fromCalendar = listing.calendarData?.blockedRanges;
+  if (Array.isArray(fromCalendar) && fromCalendar.length > 0) {
+    const blockedRanges = fromCalendar
+      .filter((r) => r?.start != null && r?.end != null)
+      .map((r) => ({
+        start:
+          typeof r.start === 'number' ? r.start : Date.parse(String(r.start)),
+        end: typeof r.end === 'number' ? r.end : Date.parse(String(r.end)),
+      }))
+      .filter((r) => Number.isFinite(r.start) && Number.isFinite(r.end));
+    if (blockedRanges.length === 0) return null;
+    return { blockedRanges };
+  }
+  const fromBlocked = apiRangesToCalendarData(listing.blockedRanges);
+  if (fromBlocked) return fromBlocked;
+  return apiRangesToCalendarData(listing.availability);
+}
+
+export function tripOverlapsBlocked(
+  startMs: number,
+  endMs: number,
+  calendar: ListRideCalendarData | null | undefined,
+): boolean {
+  const ranges = calendar?.blockedRanges;
+  if (!ranges?.length) return false;
+  return ranges.some((r) => startMs <= r.end && r.start <= endMs);
+}

@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { uiScale } from '../utils/uiScale';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
@@ -8,12 +8,15 @@ import { FONTS } from '../constants/fonts';
 import { useAuth } from '../context/AuthContext';
 import { getMe } from '../services/usersApi';
 import { formatPhoneForDisplay } from '../utils/phoneFormat';
+import { startEmailVerification } from '../services/authApi';
+import * as tokens from '../services/authTokens';
 import ChangeEmailScreen from './ChangeEmailScreen';
 import Modal from 'react-native-modal';
 import ChangePasswordScreen from './ChangePasswordScreen';
 import PasswordChangeSuccessScreen from './PasswordChangeSuccessScreen';
 import ChangePhoneNumberScreen from './ChangePhoneNumberScreen';
 import PhoneVerificationScreen from './PhoneVerificationScreen';
+import LicenseAlreadyApprovedModal from '../components/LicenseAlreadyApprovedModal';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -38,8 +41,32 @@ export default function ContactInformationScreen({ navigation }) {
   const [showPasswordChangeSuccess, setShowPasswordChangeSuccess] = React.useState(false);
   const [showChangePhoneNumber, setShowChangePhoneNumber] = React.useState(false);
   const [showPhoneVerification, setShowPhoneVerification] = React.useState(false);
+  const [showLicenseUpdateConfirm, setShowLicenseUpdateConfirm] = React.useState(false);
   const [pendingPhone, setPendingPhone] = React.useState('');
   const [pendingPhoneDisplay, setPendingPhoneDisplay] = React.useState('');
+  const [emailVerifyBusy, setEmailVerifyBusy] = React.useState(false);
+
+  const onVerifyEmail = async () => {
+    if (emailVerifyBusy) return;
+    setEmailVerifyBusy(true);
+    try {
+      const access = await tokens.getAccessToken();
+      if (!access) throw new Error('Sign in again to verify your email.');
+      const result = await startEmailVerification(access);
+      if (result?.alreadyVerified) {
+        Alert.alert('Already verified', 'Your email address is already verified.');
+        return;
+      }
+      Alert.alert(
+        'Check your email',
+        `Verification email sent to ${user.email || 'the email on file'}. Open the link in that email to verify.`,
+      );
+    } catch (e) {
+      Alert.alert('Could not send email', e?.message || 'Try again later.');
+    } finally {
+      setEmailVerifyBusy(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -56,9 +83,13 @@ export default function ContactInformationScreen({ navigation }) {
           const me = await getMe();
           if (cancelled) return;
           const phone = (me.phone || '').trim();
-          const addressParts = [me.addressLine, me.addressCity, me.addressCountry].filter(
-            (p) => p && String(p).trim(),
-          );
+          const addressParts = [
+            me.addressLine,
+            me.addressCity,
+            me.addressProvince,
+            me.addressPostalCode,
+            me.addressCountry,
+          ].filter((p) => p && String(p).trim());
           const license = (me.licenseNumber || '').trim();
           setUser({
             email: me.email || authUser?.email || '',
@@ -112,8 +143,10 @@ export default function ContactInformationScreen({ navigation }) {
               {user.emailVerified ? '(Verified)' : '(Not verified)'}
             </Text>
             {!user.emailVerified ? (
-              <TouchableOpacity onPress={() => navigation.navigate('EmailVerificationScreen', { email: user.email })}>
-                <Text style={styles.changeButton}>Verify</Text>
+              <TouchableOpacity onPress={() => void onVerifyEmail()} disabled={emailVerifyBusy}>
+                <Text style={styles.changeButton}>
+                  {emailVerifyBusy ? 'Sending…' : 'Verify'}
+                </Text>
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity onPress={() => setShowChangeEmail(true)}>
@@ -159,9 +192,17 @@ export default function ContactInformationScreen({ navigation }) {
             <Text style={user.mobileVerified ? styles.verifiedBadge : styles.notVerifiedBadge}>
               {user.mobileVerified ? '(Verified)' : '(Not verified)'}
             </Text>
-            <TouchableOpacity onPress={() => setShowChangePhoneNumber(true)}>
-              <Text style={styles.changeButton}>Change</Text>
-            </TouchableOpacity>
+            {user.mobileVerified ? (
+              <TouchableOpacity onPress={() => setShowChangePhoneNumber(true)}>
+                <Text style={styles.changeButton}>Change</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('AddPhoneNumberScreen')}
+              >
+                <Text style={styles.changeButton}>Verify</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
         {/* License Row */}
@@ -174,7 +215,15 @@ export default function ContactInformationScreen({ navigation }) {
             <Text style={user.licenseVerified ? styles.verifiedBadge : styles.notVerifiedBadge}>
               {user.licenseVerified ? '(Verified)' : '(Not verified)'}
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('LicenseVerificationScreen')}>
+            <TouchableOpacity
+              onPress={() => {
+                if (user.licenseVerified) {
+                  setShowLicenseUpdateConfirm(true);
+                  return;
+                }
+                navigation.navigate('LicenseVerificationScreen');
+              }}
+            >
               <Text style={styles.changeButton}>{user.license ? 'Change' : 'Add'}</Text>
             </TouchableOpacity>
           </View>
@@ -284,6 +333,14 @@ export default function ContactInformationScreen({ navigation }) {
           />
         </Modal>
       )}
+      <LicenseAlreadyApprovedModal
+        visible={showLicenseUpdateConfirm}
+        onCancel={() => setShowLicenseUpdateConfirm(false)}
+        onUpdate={() => {
+          setShowLicenseUpdateConfirm(false);
+          navigation.navigate('LicenseVerificationScreen');
+        }}
+      />
     </View>
   );
 }

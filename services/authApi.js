@@ -64,6 +64,10 @@ export async function verifyEmail(token) {
   return postJson('/v1/auth/verify-email', { token: token.trim() });
 }
 
+export async function confirmEmailChange(token) {
+  return postJson('/v1/auth/confirm-email-change', { token: token.trim() });
+}
+
 export async function startEmailVerification(accessToken) {
   const base = getApiBaseUrl();
   const url = `${base}/v1/auth/start-email-verification`;

@@ -62,7 +62,7 @@ export default function SignupPage() {
     setFormError(null);
 
     const errors: Record<string, string> = {};
-    const emailErr = validateEmail(email.trim());
+    const emailErr = validateEmail(email.trim(), { rejectTypos: true });
     const firstErr = validateRequired(firstName, 'First Name');
     const lastErr = validateRequired(lastName, 'Last Name');
     const passwordErr = validatePassword(password);
@@ -105,7 +105,12 @@ export default function SignupPage() {
     }
     setAppleLoading(true);
     try {
-      await signInWithApple();
+      const result = await signInWithApple();
+      if (result?.deletionCancelled) {
+        window.alert(
+          'Signing in cancelled your scheduled account deletion. Your account is active again.',
+        );
+      }
       if (hasStoredSession()) navigate('/', { replace: true });
     } catch (err) {
       setFormError(
@@ -130,7 +135,12 @@ export default function SignupPage() {
     }
     setGoogleLoading(true);
     try {
-      await signInWithGoogle();
+      const result = await signInWithGoogle();
+      if (result?.deletionCancelled) {
+        window.alert(
+          'Signing in cancelled your scheduled account deletion. Your account is active again.',
+        );
+      }
       if (hasStoredSession()) navigate('/', { replace: true });
     } catch (err) {
       setFormError(

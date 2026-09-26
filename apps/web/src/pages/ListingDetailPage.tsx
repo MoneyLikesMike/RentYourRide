@@ -4,7 +4,7 @@ import {
   CAR_FEATURE_ICONS,
   CAR_FEATURE_LABELS,
   getListing,
-  listingPhotoUrls,
+  listingMediaItems,
   type ListingDetail,
 } from '../api/listings';
 import { ApiError } from '../api/http';
@@ -18,7 +18,19 @@ import PhotoLightbox from '../components/PhotoLightbox';
 import SiteFooter from '../components/SiteFooter';
 import SiteHeader from '../components/SiteHeader';
 import SearchTimePicker, { snapSearchTime } from '../components/SearchTimePicker';
+import BookingCalendarModal from '../components/BookingCalendarModal';
 import type { SearchNavState, SearchTripDates } from '../types/search';
+import {
+  listingToBlockedCalendarData,
+  tripOverlapsBlocked,
+} from '../utils/listingAvailability';
+import { sanitizeHostBioForDisplay } from '../utils/hostBioDisplay';
+import {
+  formatListingTripLabel,
+  formatNoReviewsLabel,
+  getListingDisplayRating,
+  listingHasGuestReviews,
+} from '../utils/listingRating';
 
 export type ListingDetailNavState = {
   search?: SearchNavState;
@@ -105,6 +117,7 @@ export default function ListingDetailPage() {
   const [endTime, setEndTime] = useState(
     () => snapSearchTime(toTimeInput(navState.dates?.end) || '10:00'),
   );
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [pickupDisplay, setPickupDisplay] = useState('—');
 
   useEffect(() => {
@@ -184,11 +197,11 @@ export default function ListingDetailPage() {
     };
   }, [listing]);
 
-  const photos = useMemo(
-    () => (listing ? listingPhotoUrls(listing) : []),
+  const media = useMemo(
+    () => (listing ? listingMediaItems(listing) : []),
     [listing],
   );
-  const mainPhoto = photos[photoIndex] || photos[0] || null;
+  const mainMedia = media[photoIndex] || media[0] || null;
 
   const features = useMemo(() => {
     const keys = listing?.carFeatures ?? [];
@@ -220,13 +233,34 @@ export default function ListingDetailPage() {
   const vehicleType = listing?.vehicleType?.trim() || 'Cars';
   const kmOverage = listing?.extras?.kmOverageFee;
 
-  const hostBio = listing?.hostBio?.trim() || '';
+  const hostBio = sanitizeHostBioForDisplay(listing?.hostBio);
+
+  const blockedCalendar = useMemo(
+    () => (listing ? listingToBlockedCalendarData(listing) : null),
+    [listing],
+  );
+
+  const initialCalStart = useMemo(() => {
+    const d = combineLocal(startDate, startTime);
+    return d;
+  }, [startDate, startTime]);
+
+  const initialCalEnd = useMemo(() => {
+    const d = combineLocal(endDate, endTime);
+    return d;
+  }, [endDate, endTime]);
 
   const onCheckout = () => {
     const start = combineLocal(startDate, startTime);
     const end = combineLocal(endDate, endTime);
     if (!start || !end || end <= start) {
       setError('Choose a valid start and end for your trip.');
+      return;
+    }
+    if (tripOverlapsBlocked(start.getTime(), end.getTime(), blockedCalendar)) {
+      setError(
+        'Those dates are blocked by the host for this vehicle. Please choose different dates.',
+      );
       return;
     }
 
@@ -289,7 +323,16 @@ export default function ListingDetailPage() {
       name: listing.title,
       description: listing.description || description,
       url: canonical,
-      ...(photos.length ? { image: photos } : {}),
+      ...(media.length
+        ? {
+            image: media
+              .filter((m) => m.type === 'image')
+              .map((m) => m.url)
+              .concat(
+                media.filter((m) => m.type === 'video').map((m) => m.url),
+              ),
+          }
+        : {}),
       ...(vd.make ? { brand: { '@type': 'Brand', name: vd.make } } : {}),
       ...(vd.model ? { model: String(vd.model) } : {}),
       category: `${vehicleType} rental`,
@@ -320,7 +363,7 @@ export default function ListingDetailPage() {
       title,
       description,
       canonical,
-      image: photos[0],
+      image: media.find((m) => m.type === 'image')?.url || media[0]?.url,
       jsonLd: [
         jsonLd,
         {
@@ -339,7 +382,7 @@ export default function ListingDetailPage() {
         },
       ],
     };
-  }, [listing, listingId, photos, featureSummary, vehicleType]);
+  }, [listing, listingId, media, featureSummary, vehicleType]);
 
   return (
     <div className="car-page">
@@ -396,59 +439,92 @@ export default function ListingDetailPage() {
             <div className="car-details-wrapper">
               <div className="left-details-column">
                 <div className="photo-wrapper">
-                  {mainPhoto ? (
+                  {mainMedia ? (
                     <button
                       type="button"
                       className="main-photo-button"
                       onClick={() => setLightboxOpen(true)}
-                      aria-label={`View ${listing.title} photos`}
+                      aria-label={
+                        mainMedia.type === 'video'
+                          ? `Play ${listing.title} video`
+                          : `View ${listing.title} photos`
+                      }
                     >
-                      <img
-                        src={mainPhoto}
-                        alt={listing.title}
-                        className="main-photo"
-                      />
-                      <span className="main-photo-zoom" aria-hidden>
-                        <svg viewBox="0 0 24 24">
-                          <circle
-                            cx="11"
-                            cy="11"
-                            r="6.5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                          <path
-                            d="M11 8.5v5M8.5 11h5M15.8 15.8 20 20"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </span>
+                      {mainMedia.type === 'video' ? (
+                        <video
+                          key={mainMedia.url}
+                          className="main-photo main-photo-video"
+                          src={mainMedia.url}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          controls={false}
+                        />
+                      ) : (
+                        <img
+                          src={mainMedia.url}
+                          alt={listing.title}
+                          className="main-photo"
+                        />
+                      )}
+                      {mainMedia.type === 'video' ? (
+                        <span className="main-photo-play" aria-hidden>
+                          ▶
+                        </span>
+                      ) : (
+                        <span className="main-photo-zoom" aria-hidden>
+                          <svg viewBox="0 0 24 24">
+                            <circle
+                              cx="11"
+                              cy="11"
+                              r="6.5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M11 8.5v5M8.5 11h5M15.8 15.8 20 20"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </span>
+                      )}
                     </button>
                   ) : (
                     <div className="main-photo main-photo--empty" />
                   )}
-                  {photos.length > 1 ? (
+                  {media.length > 1 ? (
                     <div className="other-photos">
-                      {photos.map((url, i) => (
+                      {media.map((item, i) => (
                         <button
-                          key={url + i}
+                          key={item.url + i}
                           type="button"
-                          className={`car-photo${i === photoIndex ? ' active' : ''}`}
+                          className={`car-photo${i === photoIndex ? ' active' : ''}${
+                            item.type === 'video' ? ' car-photo--video' : ''
+                          }`}
                           onClick={() => setPhotoIndex(i)}
+                          aria-label={
+                            item.type === 'video'
+                              ? `Video ${i + 1}`
+                              : `Photo ${i + 1}`
+                          }
                         >
-                          <img src={url} alt="" />
+                          {item.type === 'video' ? (
+                            <span className="car-photo-video-label">Video</span>
+                          ) : (
+                            <img src={item.url} alt="" />
+                          )}
                         </button>
                       ))}
                     </div>
                   ) : null}
 
-                  {lightboxOpen && photos.length ? (
+                  {lightboxOpen && media.length ? (
                     <PhotoLightbox
-                      photos={photos}
+                      photos={media}
                       index={photoIndex}
                       title={listing.title}
                       onIndexChange={setPhotoIndex}
@@ -459,9 +535,15 @@ export default function ListingDetailPage() {
 
                 <div className="title-stars">
                   <h2 className="car-title">{listing.title}</h2>
-                  <Stars rating={listing.hostRating ?? 0} />
+                  {listingHasGuestReviews(listing) ? (
+                    <Stars rating={getListingDisplayRating(listing) ?? 0} />
+                  ) : (
+                    <span className="car-new-host">
+                      {formatNoReviewsLabel(listing)}
+                    </span>
+                  )}
                   <span className="car-trips">
-                    {listing.hostTrips ?? 0} trips
+                    {formatListingTripLabel(listing)}
                   </span>
                 </div>
 
@@ -556,14 +638,15 @@ export default function ListingDetailPage() {
                 <div className="trip-field">
                   <span className="trip-label">Start</span>
                   <div className="trip-inputs">
-                    <label className="trip-control">
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                      />
+                    <button
+                      type="button"
+                      className="trip-control trip-control--date"
+                      onClick={() => setCalendarOpen(true)}
+                      aria-label="Choose start date"
+                    >
+                      <span>{startDate || 'Select date'}</span>
                       <TripChevron />
-                    </label>
+                    </button>
                     <SearchTimePicker
                       className="trip-control"
                       value={startTime}
@@ -576,14 +659,15 @@ export default function ListingDetailPage() {
                 <div className="trip-field">
                   <span className="trip-label">End</span>
                   <div className="trip-inputs">
-                    <label className="trip-control">
-                      <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                      />
+                    <button
+                      type="button"
+                      className="trip-control trip-control--date"
+                      onClick={() => setCalendarOpen(true)}
+                      aria-label="Choose end date"
+                    >
+                      <span>{endDate || 'Select date'}</span>
                       <TripChevron />
-                    </label>
+                    </button>
                     <SearchTimePicker
                       className="trip-control"
                       value={endTime}
@@ -653,6 +737,20 @@ export default function ListingDetailPage() {
       </main>
 
       <SiteFooter />
+
+      <BookingCalendarModal
+        open={calendarOpen}
+        blocked={blockedCalendar}
+        initialStart={initialCalStart}
+        initialEnd={initialCalEnd}
+        onClose={() => setCalendarOpen(false)}
+        onConfirm={({ start, end }) => {
+          setStartDate(toDateInput(start.toISOString()));
+          setEndDate(toDateInput(end.toISOString()));
+          setError(null);
+          setCalendarOpen(false);
+        }}
+      />
     </div>
   );
 }

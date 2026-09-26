@@ -4,6 +4,15 @@ export async function searchListings(params = {}) {
   const qs = new URLSearchParams();
   if (params.q) qs.set('q', params.q);
   if (params.city) qs.set('city', params.city);
+  if (typeof params.latitude === 'number' && Number.isFinite(params.latitude)) {
+    qs.set('latitude', String(params.latitude));
+  }
+  if (typeof params.longitude === 'number' && Number.isFinite(params.longitude)) {
+    qs.set('longitude', String(params.longitude));
+  }
+  if (typeof params.radiusKm === 'number' && Number.isFinite(params.radiusKm)) {
+    qs.set('radiusKm', String(params.radiusKm));
+  }
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   return apiFetch(`/v1/listings/search${suffix}`, { method: 'GET', auth: false });
 }
@@ -67,7 +76,7 @@ export async function hostDeleteListing(id) {
   return apiFetch(`/v1/host/listings/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-/** @param {{ uri: string, name?: string, type?: string }} file */
+/** @param {{ uri: string, name?: string, type?: string, mediaType?: string }} file */
 export async function hostUploadListingPhoto(id, file) {
   const form = new FormData();
   form.append('file', {
@@ -75,6 +84,9 @@ export async function hostUploadListingPhoto(id, file) {
     name: file.name || 'photo.jpg',
     type: file.type || 'image/jpeg',
   });
+  if (file.mediaType) {
+    form.append('mediaType', file.mediaType);
+  }
   return apiFetch(`/v1/host/listings/${encodeURIComponent(id)}/photos`, {
     method: 'POST',
     formData: form,

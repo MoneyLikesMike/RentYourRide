@@ -1,15 +1,22 @@
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
- * Inclusive calendar days from pickup through return (local dates).
- * Matches typical car-rental billing: same calendar day = 1 day; Mon–Sun = 7 days.
+ * Billable trip length in whole days.
+ *
+ * A trip day is 24 hours. Charge full days only (Turo / traditional rental style):
+ * - ≤ 24 hours → 1 day
+ * - > 24 up to 48 → 2 days
+ * - and so on (ceil of elapsed 24-hour periods, minimum 1)
+ *
+ * Examples: 18h → 1; 22h → 1; 36h → 2
  */
 export function getTripBillingDays(start, end) {
   if (start == null || end == null) return 0;
   const a = start instanceof Date ? start : new Date(start);
   const b = end instanceof Date ? end : new Date(end);
-  const t1 = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
-  const t2 = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
-  const daySpan = Math.abs(t2 - t1) / MS_PER_DAY;
-  return Math.max(1, Math.floor(daySpan) + 1);
+  const startMs = a.getTime();
+  const endMs = b.getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return 0;
+  const ms = Math.abs(endMs - startMs);
+  return Math.max(1, Math.ceil(ms / MS_PER_DAY));
 }

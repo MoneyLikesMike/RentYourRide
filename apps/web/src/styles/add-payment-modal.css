@@ -217,6 +217,15 @@
   margin: 0.35rem 0 0;
 }
 
+.add-pay-hint {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #767676;
+  margin: 0.35rem 0 0;
+  display: block;
+}
+
 .add-pay-paypal-stub {
   font-family: 'Nunito', sans-serif;
   font-weight: 600;

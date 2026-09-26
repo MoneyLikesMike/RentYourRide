@@ -1,8 +1,39 @@
 /**
- * Open vehicle detail the same way as from search: Home stack holds VehicleDetailScreen.
- * From Profile (or any tab child), switch to Home tab and push detail with listing params.
+ * Prefer pushing on the nearest stack that owns the screen so Back returns to
+ * the caller (chat / trips / favourites / checkout) instead of switching tabs.
  */
+function navigatorHasScreen(navigation, screenName) {
+  try {
+    const names = navigation?.getState?.()?.routeNames;
+    return Array.isArray(names) && names.includes(screenName);
+  } catch {
+    return false;
+  }
+}
+
+function navigateInNearestStack(navigation, screenName, params) {
+  let nav = navigation;
+  for (let depth = 0; depth < 5 && nav; depth += 1) {
+    if (navigatorHasScreen(nav, screenName)) {
+      if (params !== undefined) {
+        nav.navigate(screenName, params);
+      } else {
+        nav.navigate(screenName);
+      }
+      return true;
+    }
+    nav = nav.getParent?.();
+  }
+  return false;
+}
+
+/** Prefer pushing on the nearest stack that owns `screenName` (keeps Back correct). */
+export { navigateInNearestStack };
+
 export function navigateToVehicleDetail(navigation, listing) {
+  if (navigateInNearestStack(navigation, 'VehicleDetailScreen', { listing })) {
+    return;
+  }
   const tabNav = navigation.getParent?.();
   if (tabNav?.navigate) {
     tabNav.navigate('HomeTab', {
@@ -14,8 +45,11 @@ export function navigateToVehicleDetail(navigation, listing) {
   navigation.navigate('VehicleDetailScreen', { listing });
 }
 
-/** Open UserProfileScreen from any tab (e.g. Rental Manager booking details). */
+/** Open UserProfileScreen; prefer current stack so Back returns to the caller. */
 export function navigateToUserProfile(navigation, params) {
+  if (navigateInNearestStack(navigation, 'UserProfileScreen', params)) {
+    return;
+  }
   const tabNav = navigation.getParent?.();
   if (tabNav?.navigate) {
     tabNav.navigate('ProfileScreen', {
@@ -27,8 +61,27 @@ export function navigateToUserProfile(navigation, params) {
   navigation.navigate('UserProfileScreen', params);
 }
 
+/** Open Add Card from checkout (or elsewhere) without leaving the current stack. */
+export function navigateToAddCard(navigation, params) {
+  if (navigateInNearestStack(navigation, 'AddCardScreen', params)) {
+    return;
+  }
+  const tabNav = navigation.getParent?.();
+  if (tabNav?.navigate) {
+    tabNav.navigate('ProfileScreen', {
+      screen: 'AddCardScreen',
+      params,
+    });
+    return;
+  }
+  navigation.navigate('AddCardScreen', params);
+}
+
 /** Use from root modals/stacks (e.g. ListRideStack) where `getParent` is not the tab bar. */
 export function navigateToVehicleDetailFromRoot(navigation, listing) {
+  if (navigateInNearestStack(navigation, 'VehicleDetailScreen', { listing })) {
+    return;
+  }
   const root = navigation.getParent?.();
   if (root?.navigate) {
     root.navigate('MainTabs', {

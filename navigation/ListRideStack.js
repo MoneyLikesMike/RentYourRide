@@ -22,6 +22,7 @@ import WhereIsMyVINScreen from '../screens/WhereIsMyVINScreen';
 import ScanVINScreen from '../screens/ScanVINScreen';
 import TypeVINScreen from '../screens/TypeVINScreen';
 import VINAlreadyExistsScreen from '../screens/VINAlreadyExistsScreen';
+import { SharedBrowseScreens } from './SharedBrowseScreens';
 
 const Stack = createNativeStackNavigator();
 
@@ -55,9 +56,11 @@ const ListRideStack = () => {
       <Stack.Screen name="HostStandardsScreen" component={HostStandardsScreen} />
       <Stack.Screen name="ReadyToStartEarningScreen" component={ReadyToStartEarningScreen} />
       <Stack.Screen name="WhereIsMyVINScreen" component={WhereIsMyVINScreen} />
-            <Stack.Screen name="ScanVINScreen" component={ScanVINScreen} />
-            <Stack.Screen name="TypeVINScreen" component={TypeVINScreen} />
-            <Stack.Screen name="VINAlreadyExistsScreen" component={VINAlreadyExistsScreen} />
+      <Stack.Screen name="ScanVINScreen" component={ScanVINScreen} />
+      <Stack.Screen name="TypeVINScreen" component={TypeVINScreen} />
+      <Stack.Screen name="VINAlreadyExistsScreen" component={VINAlreadyExistsScreen} />
+      {/* Preview listing without jumping to Home tab (Calendar already registered above). */}
+      {SharedBrowseScreens({ Stack, includeBookingFlow: false, includePaymentAdd: false })}
     </Stack.Navigator>
   );
 };

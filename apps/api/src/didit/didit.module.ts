@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DiditWebhookEventEntity } from '../entities/didit-webhook-event.entity';
 import { UsersModule } from '../users/users.module';
@@ -8,7 +8,7 @@ import { DiditService } from './didit.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([DiditWebhookEventEntity]),
-    UsersModule,
+    forwardRef(() => UsersModule),
   ],
   controllers: [DiditController],
   providers: [DiditService],

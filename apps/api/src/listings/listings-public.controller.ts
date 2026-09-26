@@ -2,6 +2,7 @@ import { Controller, forwardRef, Get, Inject, Param, Query } from '@nestjs/commo
 import { ApiTags } from '@nestjs/swagger';
 import { GeocodeService } from '../geocode/geocode.service';
 import { withApproximateLocation } from './approximate-location';
+import { toPublicListingDto } from './public-listing.dto';
 import { ListingsService } from './listings.service';
 import { VinDecodeService } from './vin-decode.service';
 
@@ -48,8 +49,10 @@ export class ListingsPublicController {
       lng,
       Number.isFinite(radius) ? radius : undefined,
     );
-    // Search cards don't need blocked ranges; keep payload light.
-    return rows.map((l) => withApproximateLocation(l.toDetailDto()));
+    // Search cards don't need blocked ranges; keep payload light + PII-free.
+    return rows.map((l) =>
+      withApproximateLocation(toPublicListingDto(l)),
+    );
   }
 
   @Get('vin/:vin/status')

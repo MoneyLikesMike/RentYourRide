@@ -79,6 +79,7 @@ TestFlight builds point at bedev/admindev; production builds at backend/admin. *
    - Guideline 2.1(a) (iPad "no option to proceed after login"): fixed by `utils/uiScale.js` (iPad scales by min(width/375, height/812) so bottom-anchored buttons stay on-screen); verified on iPad Air 11-inch simulator. Note: the earlier iPhone-only plan (build 31) was **rejected at upload** — App Store updates must keep supporting iPad (`TARGETED_DEVICE_FAMILY` must stay `"1,2"`).
 2. Apple Pay proper integration was deliberately deferred ("on hold"). To re-enable: register merchant ID with Apple/Stripe, restore the entitlement, flip `APPLE_PAY_ENABLED`.
 3. Website rebuild is a **separate** agent/track — see the `ryr-website` skill; don't mix it in here.
+4. Exhaustive QA (every screen on iOS + website) is the **`ryr-qa`** agent — don't run a full regression in this chat unless asked.
 
 ## Session start
 

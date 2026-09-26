@@ -23,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import { detectCardBrand } from '../utils/paymentMethodUtils';
 import { navigateAfterPaymentMethodSaved } from '../utils/navigateAfterPaymentSave';
 import { isStripeConfigured } from '../constants/stripe';
+import * as paymentsApi from '../services/paymentsApi';
 import { useSavePaymentCard } from '../hooks/useSavePaymentCard';
 
 function AddCardStripeBridge(props) {
@@ -200,13 +201,25 @@ function AddCardForm({ navigation, route, saveCard }) {
     }
 
     if (existing && useStripeCard) {
-      updatePaymentMethod(existing.id, {
-        cardholderName: name,
-        address: street,
-        country,
-        zip: z,
-      });
-      finishSave(true);
+      setSaving(true);
+      try {
+        await paymentsApi.updatePaymentMethodBilling(existing.id, {
+          cardholderName: name,
+          country,
+          postalCode: z,
+        });
+        updatePaymentMethod(existing.id, {
+          cardholderName: name,
+          address: street,
+          country,
+          zip: z,
+        });
+        finishSave(true);
+      } catch (e) {
+        Alert.alert('Could not save card', e?.message || 'Try again later.');
+      } finally {
+        setSaving(false);
+      }
       return;
     }
 
@@ -274,6 +287,9 @@ function AddCardForm({ navigation, route, saveCard }) {
           editable={!saving}
         />
       </View>
+      <Text style={styles.replaceHint}>
+        Use the same name as on your verified driver&apos;s license.
+      </Text>
 
       <Text style={styles.inputHeader}>CARD NUMBER</Text>
       {existing && !useStripeCard ? (

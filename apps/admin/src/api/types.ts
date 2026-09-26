@@ -8,6 +8,8 @@ export interface MemberListQuery {
   take: number;
   query?: string;
   field: UserSortField /** maps to `field` query param */;
+  /** When true, only members with known typo email domains. */
+  emailTypo?: boolean;
 }
 
 export interface PageMeta {
@@ -17,10 +19,17 @@ export interface PageMeta {
   pageCount: number;
 }
 
+export interface EmailDomainTypoFlag {
+  domain: string;
+  suggestion: string;
+  suggestedEmail: string;
+}
+
 export interface DashboardMember {
   id: number;
   fullName: string;
   email: string;
+  emailDomainTypo?: EmailDomainTypoFlag | null;
   signUpDate: string;
   isActive: boolean;
   loginsCount: number;

@@ -43,6 +43,14 @@ export class UserEntity {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  /** Set when the user requests deletion. Account is deactivated immediately. */
+  @Column({ name: 'deletion_requested_at', type: 'timestamptz', nullable: true })
+  deletionRequestedAt: Date | null;
+
+  /** Set after the 30-day grace period when personal data is permanently removed. */
+  @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })
+  deletedAt: Date | null;
+
   @Column({ type: 'varchar', length: 40, nullable: true })
   phone: string | null;
 
@@ -82,6 +90,14 @@ export class UserEntity {
 
   @Column({ name: 'license_number', type: 'varchar', length: 64, nullable: true })
   licenseNumber: string | null;
+
+  /** Legal first name from verified license (Didit OCR). Used for payment-card matching. */
+  @Column({ name: 'license_first_name', type: 'varchar', length: 120, nullable: true })
+  licenseFirstName: string | null;
+
+  /** Legal last name from verified license (Didit OCR). Used for payment-card matching. */
+  @Column({ name: 'license_last_name', type: 'varchar', length: 120, nullable: true })
+  licenseLastName: string | null;
 
   @Column({ name: 'license_verified', type: 'boolean', default: false })
   licenseVerified: boolean;
@@ -141,6 +157,8 @@ export class UserEntity {
       emailVerified: !!this.emailVerified,
       addressLine: this.addressLine ?? '',
       addressCity: this.addressCity ?? '',
+      addressProvince: this.addressProvince ?? '',
+      addressPostalCode: this.addressPostalCode ?? '',
       addressCountry: this.addressCountry ?? '',
       licenseNumber: this.licenseNumber ?? '',
       licenseVerified: !!this.licenseVerified,
@@ -155,6 +173,7 @@ export class UserEntity {
         pushNotif: this.notificationSettings?.pushNotif !== false,
       },
       createdAt: this.createdAt?.toISOString?.() ?? this.createdAt,
+      hasPassword: !!this.passwordHash,
       googleConnected: !!this.googleSub,
       appleConnected: !!this.appleSub,
     };

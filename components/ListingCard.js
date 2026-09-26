@@ -1,11 +1,21 @@
 import React from 'react';
 import { uiScale } from '../utils/uiScale';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { getListingDisplayRating, listingHasGuestReviews } from '../utils/listingRating';
+import {
+  formatListingSpecsLine,
+  formatListingTrustLine,
+  formatCardDateRange,
+  formatDistanceKm,
+  getListingTripSubtotal,
+  getListingDistanceFromOrigin,
+  isNewHostListing,
+} from '../utils/listingCardMeta';
+import { listingCoverUri } from '../utils/listingPhotos';
 
-const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
 
 export function ListingPriceText({ pricePerDay }) {
@@ -14,12 +24,13 @@ export function ListingPriceText({ pricePerDay }) {
     <Text style={styles.cardPrice}>
       <Text style={styles.cardPriceAmount}>{amount}</Text>
       <Text style={styles.cardPriceCurrency}> CAD</Text>
+      <Text style={styles.cardPriceUnit}> / day</Text>
     </Text>
   );
 }
 
-export function ListingStarRating({ rating = 4, size = 12 }) {
-  const full = Math.floor(Number(rating) || 0);
+export function ListingStarRating({ rating, size = 12 }) {
+  const full = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
   return (
     <View style={styles.starRow}>
       {[1, 2, 3, 4, 5].map((i) => (
@@ -37,7 +48,8 @@ export function ListingStarRating({ rating = 4, size = 12 }) {
 }
 
 /**
- * Same card layout as SearchResultsScreen — search / manage listings.
+ * Marketplace listing card.
+ * Pass bookingDates + searchOrigin on search results for trip total, dates, and distance.
  */
 export default function ListingCard({
   listing,
@@ -45,10 +57,24 @@ export default function ListingCard({
   isFavorited = false,
   onToggleFavorite,
   showInstantBadge = true,
-  /** When true (e.g. swipeable row), square right edge so action strip meets flush — rounded card corners otherwise leave grey wedges. */
   forSwipeRow = false,
+  bookingDates = null,
+  searchOrigin = null,
+  distanceKm: distanceKmProp = null,
 }) {
   const heartInteractive = typeof onToggleFavorite === 'function';
+  const specs = formatListingSpecsLine(listing);
+  const trustLine = formatListingTrustLine(listing);
+  const newHost = isNewHostListing(listing);
+  const tripSubtotal = getListingTripSubtotal(listing, bookingDates);
+  const dateRange = formatCardDateRange(bookingDates);
+  const distance =
+    distanceKmProp != null
+      ? distanceKmProp
+      : getListingDistanceFromOrigin(listing, searchOrigin);
+  const distanceLabel = formatDistanceKm(distance);
+  const footerParts = [dateRange, distanceLabel ? `${distanceLabel} away` : null].filter(Boolean);
+  const coverUri = listingCoverUri(listing?.photos);
 
   return (
     <TouchableOpacity
@@ -58,8 +84,8 @@ export default function ListingCard({
       delayPressIn={forSwipeRow ? 120 : heartInteractive ? 0 : 70}
     >
       <View style={styles.cardImageWrap}>
-        {listing.photos && listing.photos[0]?.uri ? (
-          <Image source={{ uri: listing.photos[0].uri }} style={styles.cardImage} resizeMode="cover" />
+        {coverUri ? (
+          <Image source={{ uri: coverUri }} style={styles.cardImage} resizeMode="cover" />
         ) : (
           <View style={styles.cardImagePlaceholder}>
             <Text style={styles.cardPlaceholderText}>No photo</Text>
@@ -94,17 +120,49 @@ export default function ListingCard({
         </TouchableOpacity>
       </View>
       <View style={styles.cardBody}>
-        <View style={styles.cardTitleRow}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {listing.title || 'Vehicle'}
-          </Text>
-          <ListingPriceText pricePerDay={listing.pricePerDay} />
+        <View
+          style={{
+            position: 'relative',
+            width: '100%',
+            paddingRight: 120,
+          }}
+        >
+          <Text style={styles.cardTitle}>{listing.title || 'Vehicle'}</Text>
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              alignItems: 'flex-end',
+            }}
+          >
+            <Text style={styles.cardPrice} numberOfLines={1}>
+              <Text style={styles.cardPriceAmount}>${Number(listing.pricePerDay) || 0}</Text>
+              <Text style={styles.cardPriceCurrency}> CAD</Text>
+              <Text style={styles.cardPriceUnit}> / day</Text>
+            </Text>
+            {tripSubtotal != null ? (
+              <Text style={styles.tripTotal} numberOfLines={1}>
+                ${tripSubtotal} trip
+              </Text>
+            ) : null}
+          </View>
         </View>
-        <Text style={styles.cardType}>{(listing.vehicleType || 'SEDAN').toUpperCase()}</Text>
-        <View style={styles.cardMeta}>
-          <ListingStarRating rating={listing.rating ?? 4} size={12} />
-          <Text style={styles.tripsText}>{listing.trips ?? 0} trips</Text>
-        </View>
+        {specs ? <Text style={styles.cardSpecs}>{specs}</Text> : null}
+
+        {newHost ? (
+          <Text style={styles.newHostText}>New host</Text>
+        ) : trustLine ? (
+          <Text style={styles.trustLine}>{trustLine}</Text>
+        ) : listingHasGuestReviews(listing) ? (
+          <View style={styles.cardMeta}>
+            <ListingStarRating rating={getListingDisplayRating(listing)} size={12} />
+          </View>
+        ) : null}
+
+        {footerParts.length > 0 ? (
+          <Text style={styles.footerLine}>{footerParts.join(' · ')}</Text>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -120,7 +178,6 @@ const styles = StyleSheet.create({
   cardDefaultRadius: {
     borderRadius: 12,
   },
-  /** Left corners match row; right edge square against swipe actions (parent swipeWrap still clips outer radius). */
   cardInSwipeRow: {
     borderTopLeftRadius: 12,
     borderBottomLeftRadius: 12,
@@ -172,48 +229,41 @@ const styles = StyleSheet.create({
   cardBody: {
     padding: 14 * scale,
   },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+  titlePriceRow: {
+    position: 'relative',
+    width: '100%',
   },
   cardTitle: {
     fontFamily: FONTS.NUNITO_BOLD,
     fontSize: 16,
     color: 'rgb(80,80,80)',
-    flex: 1,
-    marginRight: 8,
     textAlign: 'left',
+    marginBottom: 4,
   },
-  cardPrice: {
+  cardSpecs: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 17,
-    letterSpacing: -0.7,
-    textAlign: 'center',
-  },
-  cardPriceAmount: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 17,
-    color: 'rgb(56,141,137)',
-    letterSpacing: -0.7,
-  },
-  cardPriceCurrency: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 17,
-    color: COLORS.MANGO_TWO,
-    letterSpacing: -0.7,
-  },
-  cardType: {
-    fontFamily: FONTS.NUNITO_BOLD,
-    fontSize: 10,
-    color: 'rgb(176,176,176)',
+    fontSize: 13,
+    color: 'rgb(142,142,142)',
     marginBottom: 8,
     textAlign: 'left',
+    paddingRight: 100,
+  },
+  newHostText: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 13,
+    color: COLORS.MANGO_TWO,
+    marginBottom: 8,
+  },
+  trustLine: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 13,
+    color: 'rgb(80,80,80)',
+    marginBottom: 8,
   },
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
   },
   starRow: {
     flexDirection: 'row',
@@ -223,9 +273,47 @@ const styles = StyleSheet.create({
   star: {
     marginRight: 2,
   },
-  tripsText: {
+  priceBlock: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    alignItems: 'flex-end',
+  },
+  cardPrice: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 15,
+    letterSpacing: -0.5,
+    textAlign: 'right',
+  },
+  cardPriceAmount: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 15,
+    color: 'rgb(56,141,137)',
+    letterSpacing: -0.5,
+  },
+  cardPriceCurrency: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 15,
+    color: COLORS.MANGO_TWO,
+    letterSpacing: -0.5,
+  },
+  cardPriceUnit: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 13,
+    color: 'rgb(142,142,142)',
+    letterSpacing: -0.3,
+  },
+  tripTotal: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 12,
+    color: 'rgb(56,141,137)',
+    marginTop: 2,
+    textAlign: 'right',
+  },
+  footerLine: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 12,
     color: 'rgb(142,142,142)',
+    marginTop: 6,
   },
 });

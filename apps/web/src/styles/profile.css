@@ -600,6 +600,13 @@
   color: #17252a;
 }
 
+.overview-new-host {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4cb6b1;
+}
+
 .overview-review-count {
   font-family: 'Nunito', sans-serif;
   font-size: 1.05rem;
@@ -752,6 +759,23 @@
   margin-bottom: 0.75rem;
 }
 
+.account-field-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.account-note {
+  margin: 0 0 0.65rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8e8e8e;
+  line-height: 1.4;
+}
+
 .account-label {
   font-family: 'Nunito', sans-serif;
   font-size: 0.7rem;
@@ -829,6 +853,27 @@
 
 .account-input--secondary {
   margin-top: 0.5rem;
+}
+
+.account-field--address .places {
+  position: relative;
+  width: 100%;
+}
+
+.account-field--address .places-input {
+  border-radius: 5px;
+  border: solid 1px #a3a3a3;
+  background: #f9f9f9;
+  padding: 0.65rem 0.75rem;
+  box-sizing: border-box;
+  width: 100%;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #17252a;
+}
+
+.account-field--address .places-list {
+  z-index: 30;
 }
 
 .account-select {
@@ -1024,6 +1069,101 @@
 .account-save:disabled,
 .account-save-sm:disabled {
   opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.account-delete {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid #def2f1;
+}
+
+.account-delete-title {
+  margin: 0 0 0.65rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #17252a;
+}
+
+.account-delete-copy {
+  margin: 0 0 0.85rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #646464;
+}
+
+.account-delete-blocker {
+  background: #fff8f6;
+  border: 1px solid #f5d4ce;
+  border-radius: 0.65rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.account-delete-blocker strong {
+  display: block;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #17252a;
+  margin-bottom: 0.35rem;
+}
+
+.account-delete-blocker p {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #646464;
+}
+
+.account-delete-btn {
+  min-width: 10.6rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: 0.65rem;
+  background: #f9493a;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.account-delete-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.account-delete-reauth {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-width: 22rem;
+  margin-bottom: 0.85rem;
+}
+
+.account-delete-social {
+  display: block;
+  margin-top: 0.65rem;
+  min-width: 10.6rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border: none;
+  border-radius: 0.65rem;
+  background: #17252a;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.account-delete-social:disabled {
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
@@ -1286,6 +1426,30 @@
   width: min(100%, 24rem);
 }
 
+.license-verify-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.license-verify-confirm-icon {
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+  margin-bottom: 1rem;
+}
+
+.license-verify-confirm-title {
+  margin: 0 0 2rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0e262b;
+  line-height: 1.45;
+}
+
 .license-verify-main {
   display: flex;
   flex-direction: column;
@@ -1331,9 +1495,9 @@
 .license-verify-disclosure-title {
   margin: 0 0 0.5rem;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #4cb6b1;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #0e262b;
 }
 
 .license-verify-disclosure-body {
@@ -1341,7 +1505,7 @@
   font-family: 'Nunito', sans-serif;
   font-size: 0.875rem;
   line-height: 1.45;
-  color: #5a5a5a;
+  color: #8e8e8e;
 }
 
 .license-verify-primary {
@@ -1354,6 +1518,13 @@
   font-weight: 700;
   padding: 0.95rem 1rem;
   cursor: pointer;
+}
+
+.license-verify-primary--outline {
+  background: rgba(255, 178, 20, 0.1);
+  border: 2px solid #ffb214;
+  color: #ffb214;
+  border-radius: 999px;
 }
 
 .license-verify-primary:disabled {

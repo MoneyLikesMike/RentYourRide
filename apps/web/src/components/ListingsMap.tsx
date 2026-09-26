@@ -14,6 +14,8 @@ type Props = {
   center: { lat: number; lng: number } | null;
   /** Passed through to the listing route so back-navigation keeps the search. */
   linkState?: unknown;
+  /** Listing the user is hovering in the grid — highlights the matching pin. */
+  highlightId?: string | null;
 };
 
 type PinnedListing = {
@@ -49,12 +51,20 @@ function createPriceMarker(
   return new PriceMarker();
 }
 
-export default function ListingsMap({ listings, center, linkState }: Props) {
+export default function ListingsMap({
+  listings,
+  center,
+  linkState,
+  highlightId = null,
+}: Props) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const overlaysRef = useRef<google.maps.OverlayView[]>([]);
   const circleRef = useRef<google.maps.Circle | null>(null);
+  const pinsRef = useRef<Map<string, { el: HTMLButtonElement; position: google.maps.LatLngLiteral }>>(
+    new Map(),
+  );
   const { api, failed } = useGoogleMapsApi();
 
   // Latest values without forcing the marker effect to re-run on every render.
@@ -130,11 +140,13 @@ export default function ListingsMap({ listings, center, linkState }: Props) {
 
     overlaysRef.current.forEach((overlay) => overlay.setMap(null));
     overlaysRef.current = [];
+    pinsRef.current.clear();
 
     pinned.forEach(({ listing, position }) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'fyc-pin';
+      button.dataset.listingId = listing.id;
       button.textContent = `$${Math.round(listing.pricePerDay)}`;
       button.setAttribute(
         'aria-label',
@@ -159,6 +171,8 @@ export default function ListingsMap({ listings, center, linkState }: Props) {
       button.addEventListener('mouseleave', hideArea);
       button.addEventListener('blur', hideArea);
 
+      pinsRef.current.set(listing.id, { el: button, position });
+
       const overlay = createPriceMarker(api, position, button);
       overlay.setMap(map);
       overlaysRef.current.push(overlay);
@@ -179,9 +193,23 @@ export default function ListingsMap({ listings, center, linkState }: Props) {
     return () => {
       overlaysRef.current.forEach((overlay) => overlay.setMap(null));
       overlaysRef.current = [];
+      pinsRef.current.clear();
       circleRef.current?.setVisible(false);
     };
   }, [api, pinned, stableCenter]);
+
+  useEffect(() => {
+    const circle = circleRef.current;
+    pinsRef.current.forEach(({ el, position }, id) => {
+      const on = highlightId != null && id === highlightId;
+      el.classList.toggle('is-hot', on);
+      if (on && circle) {
+        circle.setCenter(position);
+        circle.setVisible(true);
+      }
+    });
+    if (!highlightId) circle?.setVisible(false);
+  }, [highlightId]);
 
   if (failed) {
     return (

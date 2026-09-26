@@ -25,6 +25,7 @@ import {
   fullName,
 } from './admin.mapper';
 import { DiditService } from '../didit/didit.service';
+import { knownTypoDomains } from '../common/email-domain-typos';
 
 @Injectable()
 export class AdminUsersService {
@@ -53,6 +54,14 @@ export class AdminUsersService {
             .orWhere('LOWER(user.email) LIKE :q', { q })
             .orWhere('user.phone LIKE :raw', { raw: `%${opts.query!.trim()}%` });
         }),
+      );
+    }
+
+    if (opts.emailTypo) {
+      const domains = knownTypoDomains();
+      qb.andWhere(
+        `LOWER(SPLIT_PART(user.email, '@', 2)) IN (:...typoDomains)`,
+        { typoDomains: domains },
       );
     }
 

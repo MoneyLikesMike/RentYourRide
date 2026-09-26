@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import Svg, { Path } from 'react-native-svg';
@@ -22,13 +22,19 @@ export default function ActiveRentalsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
-  const { activeRentals } = useGuestBookings();
+  const { activeRentals, refreshBookingsFromApi } = useGuestBookings();
   const { firstName, lastName } = useUserProfile();
   const { listings } = useListings();
   const [activeTab, setActiveTab] = useState(() =>
     route.params?.initialTab === 'host' ? 'host' : 'guest'
   );
   const tabWidths = { guest: 50 * scale, host: 43 * scale };
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshBookingsFromApi?.();
+    }, [refreshBookingsFromApi]),
+  );
 
   useEffect(() => {
     const t = route.params?.initialTab;

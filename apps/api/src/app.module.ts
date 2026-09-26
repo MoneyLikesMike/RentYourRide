@@ -18,11 +18,15 @@ import { AdminModule } from './admin/admin.module';
 import { ArticlesModule } from './articles/articles.module';
 import { TeamModule } from './team/team.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { MailerliteModule } from './mailerlite/mailerlite.module';
+import { OpsModule } from './ops/ops.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     NotificationsModule,
+    MailerliteModule,
+    OpsModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

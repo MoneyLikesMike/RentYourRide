@@ -1,7 +1,7 @@
 import type { ContentBlock } from '../pages/legalContentTypes';
 
 export const TERMS_OF_SERVICE_BLOCKS: ContentBlock[] = [
-  { type: 'updated', text: 'Last updated: July 28, 2026' },
+  { type: 'updated', text: 'Last updated: August 19, 2026' },
 
   { type: 'section', title: '1. — Scope of RYR Services' },
   {
@@ -416,7 +416,7 @@ export const TERMS_OF_SERVICE_BLOCKS: ContentBlock[] = [
   {
     type: 'sub',
     id: '12.5',
-    text: 'In order to add a Payment Method or Payout Method, you will be required to provide customary billing information including your name, billing address, and financial instrument information either to RYR or, if applicable, a third-party payment processor. You must provide up-to-date, accurate, and complete information when adding a Payment Method or Payout Method, and you are required to keep your Payment Method and Payout Method up-to-date and accurate at all times. You are solely responsible for the accuracy and completeness of your Payment Method and Payout Method information. RYR is not responsible for any loss suffered by you as a result of your failure to provide accurate and complete Payment Method and Payout Method information.',
+    text: 'In order to add a Payment Method or Payout Method, you will be required to provide customary billing information including your name, billing address, and financial instrument information either to RYR or, if applicable, a third-party payment processor. You must provide up-to-date, accurate, and complete information when adding a Payment Method or Payout Method, and you are required to keep your Payment Method and Payout Method up-to-date and accurate at all times. For guests booking a vehicle, the cardholder name on your Payment Method must match the legal name on your verified driver\'s license; RYR may decline or cancel a booking when names do not match, to reduce fraud and unauthorized use of payment cards. You are solely responsible for the accuracy and completeness of your Payment Method and Payout Method information. RYR is not responsible for any loss suffered by you as a result of your failure to provide accurate and complete Payment Method and Payout Method information.',
   },
   {
     type: 'sub',
@@ -667,16 +667,31 @@ export const TERMS_OF_SERVICE_BLOCKS: ContentBlock[] = [
   {
     type: 'sub',
     id: '15.2',
-    text: 'These Terms of Service are effective unless and until terminated by either you or us. You may terminate these Terms of Service at any time by notifying us that you no longer wish to use our Services, or when you cease using the Site.',
+    text: 'These Terms of Service are effective unless and until terminated by either you or us. You may terminate these Terms of Service at any time by deleting your RYR Account as described in Section 15.3, or when you cease using the Site.',
   },
   {
     type: 'sub',
     id: '15.3',
-    text: 'If in our sole judgment you fail, or we suspect that you have failed, to comply with any term or provision of these Terms of Service, we also may terminate these Terms of Service and permanently suspend your RYR Account at any time without notice and you will remain liable for all amounts due up to and including the date of termination; and/or accordingly may deny you access to the RYR Platform (or any part thereof).',
+    text: 'You may delete your RYR Account at any time from the RentYourRide mobile application (Profile → Delete account) or from the website under Contact information. For security, you must sign in again (using your password or Apple or Google, as applicable) before deletion starts. You are not required to call, email, or otherwise contact customer service to delete your account. Your Guest and Host profiles are part of the same RYR Account and are deleted together.',
   },
   {
     type: 'sub',
     id: '15.4',
+    text: 'You may not delete your RYR Account while you have an active or upcoming trip (including pending booking requests, confirmed trips, trips in progress, trip extensions, or checkout pending) as a Guest or as a Host, or while you have an outstanding balance owed to RYR or another User. You must finish or cancel those trips and pay any outstanding balance before deletion can be started.',
+  },
+  {
+    type: 'sub',
+    id: '15.5',
+    text: 'When you request deletion, we immediately deactivate your RYR Account. You will not be able to use the RYR Platform, and your listings will be unpublished. For 30 days after you request deletion, you may cancel the request by signing in again with the same credentials. Signing in during that period reactivates your account. After 30 days, we permanently delete your profile, listings, saved payment methods, and personal information. Past trip records needed by other Users (for example, the other party to a completed booking) may be retained without your personal details. Amounts you owe, and our rights to collect them, survive deletion. Reviews and other User Content already posted may remain on the RYR Platform in anonymized form.',
+  },
+  {
+    type: 'sub',
+    id: '15.6',
+    text: 'If in our sole judgment you fail, or we suspect that you have failed, to comply with any term or provision of these Terms of Service, we also may terminate these Terms of Service and permanently suspend your RYR Account at any time without notice and you will remain liable for all amounts due up to and including the date of termination; and/or accordingly may deny you access to the RYR Platform (or any part thereof).',
+  },
+  {
+    type: 'sub',
+    id: '15.7',
     text: 'RYR may take the following steps in the event a User breaches these Terms of Services or where RYR otherwise determines in its sole discretion that such action is reasonably necessary to protect the personal safety or property of RYR, its Users, third parties, the RYR Platform, or to prevent fraud or other illegal activity:',
     letters: [
       {
@@ -696,12 +711,12 @@ export const TERMS_OF_SERVICE_BLOCKS: ContentBlock[] = [
   },
   {
     type: 'sub',
-    id: '15.5',
+    id: '15.8',
     text: 'If we take any of the measures described above (a) we may refund your Guests in full for any and all confirmed bookings that have been cancelled, and (b) you will not be entitled to any compensation for pending or confirmed bookings that were cancelled.',
   },
   {
     type: 'sub',
-    id: '15.6',
+    id: '15.9',
     text: 'If your access to or use of the RYR Platform has been limited or your RYR Account has been temporarily or permanently suspended or these Terms of Service have been terminated by us, you may not register a new RYR Account or access and use the RYR Platform through an RYR Account of another User.',
   },
 

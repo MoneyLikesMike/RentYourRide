@@ -2,7 +2,7 @@
   "expo": {
     "name": "RentYourRide",
     "slug": "rentyourride",
-    "version": "3.0.4",
+    "version": "3.0.7",
     "orientation": "portrait",
     "icon": "./assets/icons/RYRAppStoreIcon-1024.png",
     "splash": {
@@ -11,10 +11,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rentyourride.ios",
-      "buildNumber": "32",
+      "buildNumber": "50",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "RentYourRide uses your location to search nearby vehicles and set pickup addresses.",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -28,10 +30,11 @@
     },
     "extra": {
       "apiUrl": "https://backend.rentyourride.ca",
-      "useDevApi": false,
+      "useDevApi": true,
       "devApiUrl": "https://bedev.rentyourride.ca",
       "stripePublishableKey": "",
-      "stripeMerchantIdentifier": "merchant.com.rentyourride.ios"
+      "stripeMerchantIdentifier": "merchant.com.rentyourride.ios",
+      "crispWebsiteId": "065277e6-bbc9-4e14-936d-66e377740234"
     },
     "plugins": [
       "expo-font",
@@ -62,6 +65,8 @@
       [
         "@stripe/stripe-react-native",
         {
+          "merchantIdentifier": "merchant.com.rentyourride.ios",
+          "enableApplePay": true,
           "enableGooglePay": false
         }
       ],
@@ -77,6 +82,15 @@
         {
           "iosVariant": "core",
           "androidVariant": "core"
+        }
+      ],
+      [
+        "crisp-sdk-react-native",
+        {
+          "websiteId": "065277e6-bbc9-4e14-936d-66e377740234",
+          "notifications": {
+            "enabled": false
+          }
         }
       ]
     ]

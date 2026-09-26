@@ -31,8 +31,14 @@ export function getUserJson(): AuthUser | null {
   }
 }
 
+/** Fired after tokens are cleared (e.g. failed refresh) so AuthProvider can re-read session. */
+export const SESSION_CLEARED_EVENT = 'ryr:session-cleared';
+
 export function clearSession(): void {
   localStorage.removeItem(ACCESS);
   localStorage.removeItem(REFRESH);
   localStorage.removeItem(USER);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(SESSION_CLEARED_EVENT));
+  }
 }

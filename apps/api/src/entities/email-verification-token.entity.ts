@@ -29,6 +29,15 @@ export class EmailVerificationTokenEntity {
   @Column({ type: 'varchar', length: 32, default: 'signup' })
   purpose: string;
 
+  /** New address for purpose=email_change (null for signup/otp). */
+  @Column({
+    name: 'pending_email',
+    type: 'varchar',
+    length: 320,
+    nullable: true,
+  })
+  pendingEmail: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

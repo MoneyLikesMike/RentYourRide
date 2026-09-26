@@ -20,6 +20,12 @@ import { Picker } from '@react-native-picker/picker';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { getTripBillingDays } from '../utils/rentalTripDays';
+import {
+  defaultTripEndTime,
+  defaultTripStartTime,
+  getTimeToMinutes,
+  isTodayDate,
+} from '../utils/bookingDatesDefaults';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
@@ -50,6 +56,7 @@ const TIME_OPTIONS = (() => {
   }
   return opts;
 })();
+
 const BOOKING_CHIP_WIDTH = 63;
 const BOOKING_CHIP_GAP = 8;
 
@@ -181,8 +188,8 @@ const CalendarScreen = ({ navigation, route }) => {
   const [hoursClose, setHoursClose] = useState(initialSaved?.hoursClose ?? '5:00 PM');
   const [open24Hours, setOpen24Hours] = useState(initialSaved?.open24Hours ?? false);
   const [timePickerField, setTimePickerField] = useState(null); // 'open' | 'close' | null
-  const [tripStartTime, setTripStartTime] = useState('2:30 PM');
-  const [tripEndTime, setTripEndTime] = useState('10:30 PM');
+  const [tripStartTime, setTripStartTime] = useState(() => defaultTripStartTime());
+  const [tripEndTime, setTripEndTime] = useState(() => defaultTripEndTime(defaultTripStartTime()));
   const availabilityDataRef = useRef(route.params?.availabilityData);
   const startTimeScrollRef = useRef(null);
   const endTimeScrollRef = useRef(null);
@@ -205,7 +212,23 @@ const CalendarScreen = ({ navigation, route }) => {
     setOpen24Hours(parsed?.open24Hours ?? false);
     setSelectionStart(null);
     setSelectionEnd(null);
+    const nextStart = defaultTripStartTime();
+    setTripStartTime(nextStart);
+    setTripEndTime(defaultTripEndTime(nextStart));
   }, [isBooking, route.params?.bookingSessionKey, route.params?.savedCalendarData]);
+
+  useEffect(() => {
+    if (!isBooking || !selectionStart || !isTodayDate(selectionStart)) return;
+    const earliestStart = defaultTripStartTime();
+    if (getTimeToMinutes(tripStartTime) < getTimeToMinutes(earliestStart)) {
+      setTripStartTime(earliestStart);
+      setTripEndTime((prev) =>
+        getTimeToMinutes(prev) <= getTimeToMinutes(earliestStart)
+          ? defaultTripEndTime(earliestStart)
+          : prev,
+      );
+    }
+  }, [selectionStart, isBooking, tripStartTime]);
 
   const tripStartAmPm = tripStartTime.includes('PM') ? 'PM' : 'AM';
   const tripEndAmPm = tripEndTime.includes('PM') ? 'PM' : 'AM';
@@ -219,23 +242,6 @@ const CalendarScreen = ({ navigation, route }) => {
   };
 
   const timeChipLabel = (t) => String(t).split(' ')[0]; // '2:30 PM' -> '2:30'
-
-  const getTimeToMinutes = (timeStr) => {
-    const [clock, ampmRaw] = String(timeStr).split(' ');
-    const [hStr, mStr] = clock.split(':');
-    const ampm = ampmRaw?.toUpperCase();
-    let h = Number(hStr) || 0;
-    const m = Number(mStr) || 0;
-    if (ampm === 'PM' && h !== 12) h += 12;
-    if (ampm === 'AM' && h === 12) h = 0;
-    return h * 60 + m;
-  };
-
-  const isTodayDate = (d) => {
-    if (!d) return false;
-    const now = new Date();
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-  };
 
   const isPastTimeForDate = (dateObj, timeStr) => {
     if (!dateObj) return false;
@@ -310,7 +316,10 @@ const CalendarScreen = ({ navigation, route }) => {
     if (isBooking) {
       const todayStartMs = startOfDay(new Date());
       if (startOfDay(date) < todayStartMs) return;
-      if (isBlockedForBooking) return;
+      if (isBlockedForBooking) {
+        Alert.alert('Date unavailable', 'This date is blocked by the host.');
+        return;
+      }
       if (!selectionStart) {
         setSelectionStart(date);
         setSelectionEnd(null);
@@ -325,7 +334,10 @@ const CalendarScreen = ({ navigation, route }) => {
           return;
         }
         if (hasBlockedOverlap(blockedRanges, s, e)) {
-          // Keep the existing start date; user must choose an end date that doesn't cross blocked ranges.
+          Alert.alert(
+            'Dates unavailable',
+            'Your trip includes dates blocked by the host. Choose a range that avoids the red blocked days.',
+          );
           return;
         }
         setSelectionStart(s);

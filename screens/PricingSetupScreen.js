@@ -10,7 +10,6 @@ import {
   Dimensions,
   Image,
   TextInput,
-  Switch,
   Modal,
   Pressable,
   ActivityIndicator,
@@ -230,18 +229,21 @@ const PricingSetupScreen = ({ navigation }) => {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               onPress={() => setHelpModalContent({
                 title: 'DELIVERY',
-                body: 'Turn on delivery to allow guests to have the vehicle delivered to them. Delivery includes both drop off and pick up. You can set the delivery price when this is enabled.',
+                body: 'Add delivery to allow guests to have the vehicle delivered to them. Delivery includes both drop off and pick up. Set the delivery price after you add it.',
               })}
             >
               <Text style={styles.helpText}>?</Text>
             </TouchableOpacity>
             <View style={{ flex: 1 }} />
-            <Switch
-              value={deliveryOn}
-              onValueChange={setDeliveryOn}
-              trackColor={{ false: '#E0E0E0', true: COLORS.GREENY_BLUE_TWO }}
-              thumbColor="#fff"
-            />
+            <TouchableOpacity
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+              activeOpacity={0.7}
+              onPress={() => setDeliveryOn((v) => !v)}
+            >
+              <Text style={[styles.addText, deliveryOn && styles.addTextOn]}>
+                {deliveryOn ? 'Added' : 'Add'}
+              </Text>
+            </TouchableOpacity>
           </View>
           {deliveryOn && (
             <>
@@ -456,6 +458,15 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 11,
     color: '#9B9B9B',
+  },
+  addText: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 14 * scale,
+    color: COLORS.GREENY_BLUE_TWO,
+  },
+  addTextOn: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    color: COLORS.GREENY_BLUE_TWO,
   },
   inputWrapper: {
     width: 331 * scale,

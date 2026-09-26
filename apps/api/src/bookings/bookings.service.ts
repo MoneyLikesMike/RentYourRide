@@ -20,6 +20,7 @@ import { assertIdentityVerified } from '../common/user-verification';
 import {
   formatRentalStripeDescription,
   formatRentalStripeDescriptionFromBooking,
+  formatTripOutcomeStripeDescription,
 } from './booking-stripe-description';
 import {
   DATE_BLOCKING_BOOKING_STATUSES,
@@ -28,9 +29,16 @@ import {
   manualAvailabilityToDayRanges,
   toDayRangeMs,
 } from './booking-date-ranges';
+import {
+  bookingSnapshotAccess,
+  redactListingSnapshotForViewer,
+} from './booking-snapshot-access';
+import { getTripBillingDays } from './trip-billing-days';
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+export { getTripBillingDays } from './trip-billing-days';
+
 const MS_PER_HOUR = 60 * 60 * 1000;
+
 function statusLabel(status: BookingStatus): string | null {
   switch (status) {
     case 'checkin_pending':
@@ -46,13 +54,25 @@ function statusLabel(status: BookingStatus): string | null {
   }
 }
 
-export function getTripBillingDays(startMs: number, endMs: number): number {
-  const a = new Date(startMs);
-  const b = new Date(endMs);
-  const t1 = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
-  const t2 = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
-  const daySpan = Math.abs(t2 - t1) / MS_PER_DAY;
-  return Math.max(1, Math.floor(daySpan) + 1);
+/** Present a booking to an API viewer with listingSnapshot redacted as needed. */
+function presentBooking(booking: BookingEntity, viewerUserId: string) {
+  const base = booking.toMobileDto();
+  const viewerIsHost = booking.hostUserId === viewerUserId;
+  const startMs = Number(
+    (booking.bookingDates as { start?: number } | null)?.start,
+  );
+  const access = bookingSnapshotAccess({
+    viewerIsHost,
+    status: booking.status,
+    tripStartMs: Number.isFinite(startMs) ? startMs : null,
+  });
+  return {
+    ...base,
+    listingSnapshot: redactListingSnapshotForViewer(
+      base.listingSnapshot as Record<string, unknown>,
+      access,
+    ),
+  };
 }
 
 function parsePercent(value: unknown): number {
@@ -170,7 +190,7 @@ export class BookingsService {
       hostReceiveTotal,
       kmIncludedLabel: input.extraUnlimitedKm
         ? 'Unlimited kms'
-        : `${kmPerDayNumber * tripDays} km`,
+        : `${Math.round(kmPerDayNumber * tripDays)} km`,
       selectedExtras,
       canDeliver,
     };
@@ -242,7 +262,9 @@ export class BookingsService {
         const existingByKey = await manager.findOne(BookingEntity, {
           where: { idempotencyKey: key },
         });
-        if (existingByKey) return existingByKey.toMobileDto();
+        if (existingByKey) {
+          return { kind: 'existing' as const, dto: presentBooking(existingByKey, guestId) };
+        }
       }
 
       const requestedRange = toDayRangeMs(startMs, endMs);
@@ -267,7 +289,9 @@ export class BookingsService {
           Number(row.bookingDates?.start) === startMs &&
           Number(row.bookingDates?.end) === endMs,
       );
-      if (exactDuplicate) return exactDuplicate.toMobileDto();
+      if (exactDuplicate) {
+        return { kind: 'existing' as const, dto: presentBooking(exactDuplicate, guestId) };
+      }
 
       const bookingConflict = openRows.find((row) => {
         const existing = bookingDatesToDayRange(
@@ -403,7 +427,17 @@ export class BookingsService {
         idempotencyKey: key,
         stripePaymentIntentId,
         instantBooking,
-        listingSnapshot: body.listingSnapshot ?? listing.toDetailDto(listing.host),
+        listingSnapshot: {
+          // Always server-built so clients cannot inject PII they no longer receive publicly.
+          ...listing.toDetailDto(listing.host),
+          // Preserve any non-sensitive client display fields the app already sent.
+          ...(body.listingSnapshot && typeof body.listingSnapshot === 'object'
+            ? {
+                title: (body.listingSnapshot as Record<string, unknown>).title,
+                photos: (body.listingSnapshot as Record<string, unknown>).photos,
+              }
+            : {}),
+        },
         bookingDates,
         pickupAddress: (body.pickupAddress as string) || listing.pickupAddress,
         dropoffAddress: (body.dropoffAddress as string) || null,
@@ -417,19 +451,23 @@ export class BookingsService {
 
       await manager.save(row);
 
-      // Seed a conversation for this booking (intro message + system message).
-      // This is idempotent — the messaging service will find an existing conversation.
+      // Notify + seed chat AFTER this transaction commits. Firing inside the
+      // transaction races: notification/messaging repos use other connections and
+      // often cannot see the uncommitted booking (silent no-op → no emails/SMS).
+      return { kind: 'created' as const, row, status };
+    }).then(async (result) => {
+      if (result.kind === 'existing') return result.dto;
       try {
-        await this.messaging.findOrCreateForBooking(guestId, row.id);
+        await this.messaging.findOrCreateForBooking(guestId, result.row.id);
       } catch {
         // Never fail the booking on messaging setup issues.
       }
-      if (status === 'confirmed') {
-        this.notifications.bookingApproved(row.id);
+      if (result.status === 'confirmed') {
+        this.notifications.bookingApproved(result.row.id);
       } else {
-        this.notifications.bookingCreated(row.id);
+        this.notifications.bookingCreated(result.row.id);
       }
-      return row.toMobileDto();
+      return presentBooking(result.row, guestId);
     });
   }
 
@@ -452,7 +490,7 @@ export class BookingsService {
 
     qb.orderBy('b.created_at', 'DESC');
     const rows = await qb.getMany();
-    return rows.map((r) => r.toMobileDto());
+    return rows.map((r) => presentBooking(r, userId));
   }
 
   async getOne(userId: string, id: string) {
@@ -464,11 +502,14 @@ export class BookingsService {
     if (b.guestUserId !== userId && b.hostUserId !== userId) {
       throw new ForbiddenException();
     }
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async cancel(userId: string, id: string) {
-    const b = await this.bookingsRepo.findOne({ where: { id } });
+    const b = await this.bookingsRepo.findOne({
+      where: { id },
+      relations: ['host'],
+    });
     if (!b) throw new NotFoundException('Booking not found');
     if (b.guestUserId !== userId && b.hostUserId !== userId) {
       throw new ForbiddenException();
@@ -477,11 +518,17 @@ export class BookingsService {
       throw new BadRequestException('Cannot cancel');
     }
     const previousStatus = b.status;
+    const cancelledBy = b.guestUserId === userId ? 'guest' : 'host';
     let stripeRefundId: string | null = null;
     if (b.stripePaymentIntentId && !(b.lifecycle as { hostTransferId?: string })?.hostTransferId) {
       const refund = await this.payments.refundBookingPayment(
         b.stripePaymentIntentId,
-        'RentYourRide trip cancelled',
+        formatTripOutcomeStripeDescription({
+          outcome: 'Cancelled',
+          by: cancelledBy,
+          booking: b,
+          host: b.host,
+        }),
       );
       stripeRefundId = refund.refundId;
     }
@@ -492,7 +539,6 @@ export class BookingsService {
       ...(stripeRefundId ? { stripeRefundId } : {}),
     };
     await this.bookingsRepo.save(b);
-    const cancelledBy = b.guestUserId === userId ? 'guest' : 'host';
     await this.messaging.postBookingSystemMessage(
       b.id,
       cancelledBy === 'guest'
@@ -517,7 +563,7 @@ export class BookingsService {
         );
       }
     }
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async acceptHost(userId: string, id: string) {
@@ -556,11 +602,14 @@ export class BookingsService {
       { event: 'accepted' },
     );
     this.notifications.bookingApproved(b.id);
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async declineHost(userId: string, id: string) {
-    const b = await this.bookingsRepo.findOne({ where: { id } });
+    const b = await this.bookingsRepo.findOne({
+      where: { id },
+      relations: ['host'],
+    });
     if (!b) throw new NotFoundException('Booking not found');
     if (b.hostUserId !== userId) throw new ForbiddenException();
     if (b.status !== 'pending_host') {
@@ -569,7 +618,12 @@ export class BookingsService {
     if (b.stripePaymentIntentId) {
       await this.payments.refundBookingPayment(
         b.stripePaymentIntentId,
-        'RentYourRide trip declined by host',
+        formatTripOutcomeStripeDescription({
+          outcome: 'Declined',
+          by: 'host',
+          booking: b,
+          host: b.host,
+        }),
       );
     }
     b.status = 'declined';
@@ -581,7 +635,7 @@ export class BookingsService {
       { event: 'declined' },
     );
     this.notifications.bookingDenied(b.id);
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async patchLifecycle(userId: string, id: string, patch: Record<string, unknown>) {
@@ -599,7 +653,7 @@ export class BookingsService {
     // status change that waits on the host.
     if (justCheckedIn) this.notifications.bookingCheckedIn(b.id);
     if (justCheckedOut) this.notifications.bookingCheckedOut(b.id);
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async transitionStatus(
@@ -632,7 +686,7 @@ export class BookingsService {
     if (next === 'completed' && prev === 'checkout_pending') {
       this.notifications.reviewReminder(b.id);
     }
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   /** Legacy: Connect transfer when both parties finish check-in (status → active). */
@@ -690,7 +744,7 @@ export class BookingsService {
     const prev = (b.lifecycle?.[key] as string[]) ?? [];
     b.lifecycle = { ...(b.lifecycle ?? {}), [key]: [...prev, ...uris] };
     await this.bookingsRepo.save(b);
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async submitReview(
@@ -719,7 +773,7 @@ export class BookingsService {
     } else {
       this.notifications.reviewByHost(b.id);
     }
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   private async assertSucceededPaymentIntent(
@@ -741,6 +795,10 @@ export class BookingsService {
     if (pi.metadata?.guestId && pi.metadata.guestId !== guestId) {
       throw new BadRequestException('Invalid payment');
     }
+    await this.payments.assertPaymentIntentMatchesGuestIdentity(
+      guestId,
+      paymentIntentId,
+    );
     return pi.id;
   }
 
@@ -831,11 +889,14 @@ export class BookingsService {
       { event: 'extension_requested', extensionId: savedExt.id },
     );
     this.notifications.extensionCreated(savedExt.id);
-    return booking.toMobileDto();
+    return presentBooking(booking, guestId);
   }
 
   async respondExtension(hostId: string, bookingId: string, approved: boolean) {
-    const booking = await this.bookingsRepo.findOne({ where: { id: bookingId } });
+    const booking = await this.bookingsRepo.findOne({
+      where: { id: bookingId },
+      relations: ['host'],
+    });
     if (!booking) throw new NotFoundException('Booking not found');
     if (booking.hostUserId !== hostId) throw new ForbiddenException();
     if (booking.status !== 'extension_pending') {
@@ -875,7 +936,12 @@ export class BookingsService {
         try {
           await this.payments.refundBookingPayment(
             ext.stripePaymentIntentId,
-            'RentYourRide extension declined',
+            formatTripOutcomeStripeDescription({
+              outcome: 'Declined',
+              by: 'host',
+              booking,
+              host: booking.host,
+            }).replace('Trip Declined', 'Trip Extension Declined'),
           );
         } catch {
           // Refund failure should not block decline
@@ -891,7 +957,7 @@ export class BookingsService {
       this.notifications.extensionDenied(ext.id);
     }
 
-    return booking.toMobileDto();
+    return presentBooking(booking, hostId);
   }
 
   private async requireBookingForExtension(

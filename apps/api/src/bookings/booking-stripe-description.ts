@@ -11,7 +11,11 @@ function possessiveFirstName(firstName: string): string {
 }
 
 /** Matches mobile checkout: `JUN 10, 2020 - 12:00 AM` */
-export function formatBookingDateTimeLabel(ms: number, tz = DEFAULT_TZ): string {
+export function formatBookingDateTimeLabel(
+  ms: number,
+  tz = DEFAULT_TZ,
+  timeOverride?: string | null,
+): string {
   const d = new Date(ms);
   const month = new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'short' })
     .format(d)
@@ -21,12 +25,15 @@ export function formatBookingDateTimeLabel(ms: number, tz = DEFAULT_TZ): string 
     new Intl.DateTimeFormat('en-US', { timeZone: tz, day: 'numeric' }).format(d),
   );
   const year = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric' }).format(d);
-  const time = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(d);
+  const booked = typeof timeOverride === 'string' ? timeOverride.trim() : '';
+  const time =
+    booked ||
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(d);
   return `${month} ${day}, ${year} - ${time}`;
 }
 
@@ -61,7 +68,7 @@ export function formatRentalStripeDescription(opts: {
   host?: UserEntity | null;
   listing?: ListingEntity | null;
   listingSnapshot?: Record<string, unknown> | null;
-  bookingDates?: { start?: number; end?: number };
+  bookingDates?: { start?: number; end?: number; startTime?: string; endTime?: string };
   tz?: string;
 }): string {
   const snapshot =
@@ -76,8 +83,8 @@ export function formatRentalStripeDescription(opts: {
   const vehicle = vehicleLabelFromSnapshot(snapshot);
 
   if (Number.isFinite(startMs) && Number.isFinite(endMs)) {
-    const startLabel = formatBookingDateTimeLabel(startMs, tz);
-    const endLabel = formatBookingDateTimeLabel(endMs, tz);
+    const startLabel = formatBookingDateTimeLabel(startMs, tz, dates.startTime);
+    const endLabel = formatBookingDateTimeLabel(endMs, tz, dates.endTime);
     return `Rental of ${owner} ${vehicle} ${startLabel} - ${endLabel}`;
   }
 
@@ -91,6 +98,25 @@ export function formatRentalStripeDescriptionFromBooking(
   return formatRentalStripeDescription({
     host: host ?? booking.host,
     listingSnapshot: (booking.listingSnapshot ?? {}) as Record<string, unknown>,
-    bookingDates: booking.bookingDates as { start?: number; end?: number },
+    bookingDates: booking.bookingDates as {
+      start?: number;
+      end?: number;
+      startTime?: string;
+      endTime?: string;
+    },
   });
+}
+
+/**
+ * Stripe description when a trip is declined or cancelled.
+ * Example: Trip Declined by host · Rental of Michael's 2013 INFINITI G37 JUN 10, 2026 - 12:00 AM - JUN 11, 2026 - 12:00 AM
+ */
+export function formatTripOutcomeStripeDescription(opts: {
+  outcome: 'Declined' | 'Cancelled';
+  by: 'host' | 'guest';
+  booking: BookingEntity;
+  host?: UserEntity | null;
+}): string {
+  const rental = formatRentalStripeDescriptionFromBooking(opts.booking, opts.host);
+  return `Trip ${opts.outcome} by ${opts.by} · ${rental}`;
 }

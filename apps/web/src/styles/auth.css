@@ -43,6 +43,35 @@
   font-family: var(--ryr-font);
 }
 
+/* Short status cards (verify email, etc.) — not the tall login shell */
+.auth-card--compact {
+  width: min(100%, 22rem);
+  min-height: 0;
+  padding: 2rem 1.5rem 1.75rem;
+  gap: 0.75rem;
+}
+
+.auth-card--compact .auth-caption {
+  margin-bottom: 0;
+}
+
+.auth-card--compact .auth-note,
+.auth-card--compact .auth-success,
+.auth-card--compact .auth-error {
+  margin: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.auth-card--compact .auth-cta {
+  margin-top: 0.5rem;
+}
+
+.auth-card--compact .auth-footer {
+  margin: 0.25rem 0 0;
+  text-align: center;
+}
+
 /* Zeplin Group 44 — 430 × 675 */
 .auth-card--login {
   position: relative;
@@ -226,6 +255,13 @@
   text-transform: uppercase;
   letter-spacing: 0.02em;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-sizing: border-box;
+  line-height: 1;
+  padding: 0;
 }
 
 .auth-cta:disabled {
@@ -436,9 +472,128 @@
   accent-color: var(--ryr-teal);
 }
 
+/* Password recovery — Set up password */
+.auth-card--setup-password {
+  position: relative;
+  width: min(100%, 26.875rem);
+  min-height: min(36rem, calc(100vh - 3rem));
+  border-radius: 1.0625rem;
+  padding: 4.25rem 1.875rem 5.5rem;
+  box-sizing: border-box;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.auth-close--left {
+  right: auto;
+  left: 1.15rem;
+}
+
+.auth-caption--left {
+  text-align: left;
+  margin-bottom: 1.25rem;
+}
+
+.auth-field-label {
+  display: block;
+  font-family: var(--ryr-font);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.7);
+  margin-bottom: 0.55rem;
+}
+
+.auth-card--setup-password .auth-field {
+  margin-top: 0.35rem;
+}
+
+.auth-card--setup-password .auth-secure {
+  top: auto;
+  bottom: 0.85rem;
+  transform: none;
+  color: var(--ryr-teal);
+}
+
+.auth-cta--bottom {
+  position: absolute;
+  left: 1.875rem;
+  right: 1.875rem;
+  bottom: 1.75rem;
+  width: auto;
+  border: none;
+  background: var(--ryr-teal);
+  color: #f7f7f7;
+  text-transform: none;
+  font-weight: 600;
+}
+
+.auth-card--reset-success {
+  width: min(100%, 26.875rem);
+  min-height: min(36rem, calc(100vh - 3rem));
+  padding: 3rem 1.5rem 5.5rem;
+  position: relative;
+  justify-content: center;
+  gap: 1.25rem;
+}
+
+.auth-reset-success-icon {
+  width: 11.25rem;
+  height: 11.25rem;
+  object-fit: contain;
+}
+
+.auth-reset-success-title {
+  position: relative;
+  margin: 0;
+  font-family: var(--ryr-font);
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: var(--ryr-ink);
+  text-align: center;
+  max-width: 16rem;
+  line-height: 1.35;
+}
+
+.auth-reset-success-highlight {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-reset-success-highlight::before {
+  content: '';
+  position: absolute;
+  left: -0.1rem;
+  right: -0.1rem;
+  top: 0.55em;
+  height: 0.55rem;
+  background: rgba(255, 177, 49, 0.3);
+  border-radius: 0.3rem;
+  z-index: -1;
+}
+
+.auth-card--reset-success .auth-cta {
+  position: absolute;
+  left: 1.875rem;
+  right: 1.875rem;
+  bottom: 1.75rem;
+  width: auto;
+  border: none;
+  background: var(--ryr-teal);
+  color: #f7f7f7;
+  text-transform: none;
+  font-weight: 600;
+}
+
 @media (max-width: 720px) {
   .auth-card--login {
     min-height: auto;
     padding: 3.5rem 1.25rem 1.5rem;
+  }
+
+  .auth-card--setup-password,
+  .auth-card--reset-success {
+    min-height: auto;
   }
 }

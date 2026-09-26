@@ -19,11 +19,11 @@ export default function NotificationOnboardingScreen() {
       await registerForPushNotificationsAsync();
       await patchNotificationSettings({ pushNotif: true, emailNotif: true, textNotif: true });
     } catch (e) {}
-    navigation.navigate('MainTabs', { screen: 'HomeScreen' });
+    navigation.navigate('MainTabs', { screen: 'HomeTab' });
   };
 
   const handleSkip = () => {
-    navigation.navigate('MainTabs', { screen: 'HomeScreen' });
+    navigation.navigate('MainTabs', { screen: 'HomeTab' });
   };
 
   return (

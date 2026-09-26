@@ -29,6 +29,21 @@ import SearchTimePicker, { snapSearchTime } from '../components/SearchTimePicker
 import SiteHeader from '../components/SiteHeader';
 import type { SearchNavState } from '../types/search';
 import { VEHICLE_COLOR_OPTIONS } from '../data/vehicleColors';
+import {
+  formatCardDateRange,
+  formatDistanceKm,
+  formatListingSpecsLine,
+  formatListingTrustLine,
+  getListingDistanceFromOrigin,
+  getListingTripSubtotal,
+  isNewHostListing,
+} from '../utils/listingCardMeta';
+import {
+  hasSearchOrigin,
+  haversineKm,
+  MAX_RESULT_DISTANCE_KM,
+  SEARCH_RADIUS_KM,
+} from '../utils/searchLocation';
 
 const VEHICLE_TYPE_OPTIONS = [
   { label: 'cars', value: 'Car', icon: '/fyc/vehicles/cars.png' },
@@ -98,13 +113,53 @@ function combineLocal(dateStr: string, timeStr: string): Date | null {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
-function Stars({ rating }: { rating: number }) {
-  const filled = Math.max(0, Math.min(5, Math.round(rating || 0)));
+/** en-CA → YYYY-MM-DD (avoids clipped native mm/dd/y placeholders). */
+function formatDisplayDateCa(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(y, m - 1, d));
+}
+
+function SearchDateField({
+  value,
+  onChange,
+  'aria-label': ariaLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  'aria-label': string;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const openPicker = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    try {
+      el.showPicker?.();
+    } catch {
+      el.focus();
+      el.click();
+    }
+  };
+
   return (
-    <span className="fyc-stars" aria-label={`${filled} of 5 stars`}>
-      {'★'.repeat(filled)}
-      <span className="fyc-stars-empty">{'★'.repeat(5 - filled)}</span>
-    </span>
+    <label className="fyc-dt-control fyc-dt-control--date" onClick={openPicker}>
+      <span className="fyc-dt-value">{formatDisplayDateCa(value)}</span>
+      <span className="fyc-dt-chevron" aria-hidden />
+      <input
+        ref={inputRef}
+        type="date"
+        className="fyc-dt-input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={ariaLabel}
+        lang="en-CA"
+      />
+    </label>
   );
 }
 
@@ -284,12 +339,14 @@ function MapPanel({
   label,
   listings,
   searchState,
+  highlightId,
 }: {
   lat: number | null;
   lng: number | null;
   label: string;
   listings: ListingSummary[];
   searchState: SearchNavState;
+  highlightId?: string | null;
 }) {
   const hasCoords =
     typeof lat === 'number' &&
@@ -303,6 +360,7 @@ function MapPanel({
         listings={listings}
         center={hasCoords ? { lat, lng } : null}
         linkState={{ search: searchState, dates: searchState.dates }}
+        highlightId={highlightId}
       />
     );
   }
@@ -398,9 +456,9 @@ export default function FindYourCarPage() {
   const [searchQuery, setSearchQuery] = useState(initialQuery);
 
   const [listings, setListings] = useState<ListingSummary[]>([]);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>(
-    'idle',
-  );
+  const [status, setStatus] = useState<
+    'idle' | 'loading' | 'ok' | 'error' | 'needs-location'
+  >('idle');
   const [error, setError] = useState<string | null>(null);
 
   const [priceOpen, setPriceOpen] = useState(false);
@@ -429,6 +487,7 @@ export default function FindYourCarPage() {
   const [favBusyId, setFavBusyId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc' | 'trips' | 'rating'>('default');
   const [sortOpen, setSortOpen] = useState(false);
+  const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (
@@ -490,8 +549,18 @@ export default function FindYourCarPage() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    // With no city or query this browses every published listing, so the page
-    // still renders for a visitor (or crawler) arriving straight from Google.
+    const hasCity = Boolean(searchCity?.trim());
+    const hasCoords = hasSearchOrigin(place?.latitude, place?.longitude);
+
+    // Empty / weak Where? must never dump continental results. Require a city
+    // or map coordinates before calling search.
+    if (!hasCity && !hasCoords) {
+      setListings([]);
+      setStatus('needs-location');
+      setError(null);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       setStatus('loading');
@@ -499,13 +568,36 @@ export default function FindYourCarPage() {
       try {
         const rows = await searchListings({
           city: searchCity || undefined,
-          q: !searchCity && searchQuery ? searchQuery : undefined,
+          // Do not send free-text `q` without a city — that used to return
+          // nationwide title matches with multi-thousand-km cards.
           latitude: place?.latitude,
           longitude: place?.longitude,
-          radiusKm: 50,
+          radiusKm: SEARCH_RADIUS_KM,
         });
         if (cancelled) return;
-        setListings(Array.isArray(rows) ? rows : []);
+
+        const originLat = place?.latitude;
+        const originLng = place?.longitude;
+        const bounded =
+          hasSearchOrigin(originLat, originLng) &&
+          typeof originLng === 'number'
+            ? (Array.isArray(rows) ? rows : []).filter((listing) => {
+                const lat = Number(listing.latitude);
+                const lng = Number(listing.longitude);
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                  // Keep city-name matches that lack coordinates.
+                  return Boolean(searchCity?.trim());
+                }
+                return (
+                  haversineKm(originLat, originLng, lat, lng) <=
+                  MAX_RESULT_DISTANCE_KM
+                );
+              })
+            : Array.isArray(rows)
+              ? rows
+              : [];
+
+        setListings(bounded);
         setStatus('ok');
       } catch (err) {
         if (cancelled) return;
@@ -523,13 +615,7 @@ export default function FindYourCarPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    searchCity,
-    searchQuery,
-    place?.latitude,
-    place?.longitude,
-    navigate,
-  ]);
+  }, [searchCity, place?.latitude, place?.longitude]);
 
   const filtered = useMemo(() => {
     const rows = listings.filter((l) => {
@@ -710,6 +796,10 @@ export default function FindYourCarPage() {
         onChange={(text) => {
           setAddressText(text);
           setPlace(null);
+          if (!text.trim()) {
+            setSearchCity('');
+            setSearchQuery('');
+          }
         }}
         onPlaceSelected={(parsed) => {
           setPlace(parsed);
@@ -749,16 +839,13 @@ export default function FindYourCarPage() {
           <div className="fyc-sort-field fyc-sort-field--dates">
             <span className="option-caption">Start</span>
             <div className="fyc-dt-row">
-              <label className="fyc-dt-control">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-                <span className="fyc-dt-chevron" aria-hidden />
-              </label>
+              <SearchDateField
+                value={startDate}
+                onChange={setStartDate}
+                aria-label="Start date"
+              />
               <SearchTimePicker
-                className="fyc-dt-control"
+                className="fyc-dt-control fyc-dt-control--time"
                 value={startTime}
                 onChange={setStartTime}
                 aria-label="Start time"
@@ -769,16 +856,13 @@ export default function FindYourCarPage() {
           <div className="fyc-sort-field fyc-sort-field--dates">
             <span className="option-caption">End</span>
             <div className="fyc-dt-row">
-              <label className="fyc-dt-control">
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-                <span className="fyc-dt-chevron" aria-hidden />
-              </label>
+              <SearchDateField
+                value={endDate}
+                onChange={setEndDate}
+                aria-label="End date"
+              />
               <SearchTimePicker
-                className="fyc-dt-control"
+                className="fyc-dt-control fyc-dt-control--time"
                 value={endTime}
                 onChange={setEndTime}
                 aria-label="End time"
@@ -850,7 +934,7 @@ export default function FindYourCarPage() {
                 setOpenFilterSelect(null);
               }}
             >
-              <span>More filter</span>
+              <span>More filters</span>
               <ChipChevron open={filtersOpen} />
             </button>
           </div>
@@ -1232,10 +1316,23 @@ export default function FindYourCarPage() {
             {status === 'loading' ? (
               <p className="fyc-loading-message">Loading…</p>
             ) : null}
+            {status === 'needs-location' ? (
+              <div className="fyc-empty-location">
+                <p className="fyc-loading-message">
+                  Enter a city above to find rides near you.
+                </p>
+                <p className="fyc-empty-location-hint">
+                  Search works best with a city or neighbourhood — we won&apos;t
+                  show cars across the country.
+                </p>
+              </div>
+            ) : null}
             {status === 'ok' && filtered.length === 0 ? (
-              <p className="fyc-loading-message">
-                No rides found. Try another city or filter.
-              </p>
+              <div className="fyc-empty-location">
+                <p className="fyc-loading-message">
+                  No rides nearby. Try another city or widen your search.
+                </p>
+              </div>
             ) : null}
 
             <div className="fyc-car-grid">
@@ -1243,8 +1340,45 @@ export default function FindYourCarPage() {
                 const photo = listingPhotoUrl(listing);
                 const state = currentSearchState();
                 const isFav = favoriteIds.has(String(listing.id));
+                const tripStart = combineLocal(startDate, startTime);
+                const tripEnd = combineLocal(endDate, endTime);
+                const specs = formatListingSpecsLine(listing);
+                const trust = formatListingTrustLine(listing);
+                const newHost = isNewHostListing(listing);
+                const tripSubtotal = getListingTripSubtotal(
+                  listing,
+                  tripStart,
+                  tripEnd,
+                );
+                const dateRange = formatCardDateRange(tripStart, tripEnd);
+                const origin =
+                  typeof place?.latitude === 'number' &&
+                  typeof place?.longitude === 'number'
+                    ? {
+                        latitude: place.latitude,
+                        longitude: place.longitude,
+                      }
+                    : typeof mapLat === 'number' && typeof mapLng === 'number'
+                      ? { latitude: mapLat, longitude: mapLng }
+                      : null;
+                const distLabel = formatDistanceKm(
+                  getListingDistanceFromOrigin(listing, origin),
+                );
+                const footer = [
+                  dateRange,
+                  distLabel ? `${distLabel} away` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
                 return (
-                  <article key={listing.id} className="fyc-car-wrapper">
+                  <article
+                    key={listing.id}
+                    className={`fyc-car-wrapper${hoveredListingId === listing.id ? ' is-hot' : ''}`}
+                    onMouseEnter={() => setHoveredListingId(listing.id)}
+                    onMouseLeave={() =>
+                      setHoveredListingId((id) => (id === listing.id ? null : id))
+                    }
+                  >
                     <div className="fyc-car-img-wrap">
                       <Link
                         to={`/find-your-car/${listing.id}`}
@@ -1275,30 +1409,28 @@ export default function FindYourCarPage() {
                       state={{ search: state, dates: state.dates }}
                       className="fyc-car-description"
                     >
-                      <div className="fyc-title-type-price">
-                        <div className="fyc-title-type">
-                          <span className="fyc-card-title-text">
-                            {listing.title}
-                          </span>
-                          {listing.vehicleType ? (
-                            <span className="fyc-card-type">
-                              {listing.vehicleType}
-                            </span>
+                      <div className="fyc-title-price-row">
+                        <p className="fyc-card-title-text">{listing.title}</p>
+                        <div className="fyc-price-block">
+                          <p className="fyc-price-cad">
+                            <span className="fyc-price">${listing.pricePerDay}</span>
+                            <span className="fyc-cad">CAD</span>
+                            <span className="fyc-per-day"> / day</span>
+                          </p>
+                          {tripSubtotal != null ? (
+                            <p className="fyc-trip-total">${tripSubtotal} trip</p>
                           ) : null}
                         </div>
-                        <div className="fyc-price-cad">
-                          <span className="fyc-price">
-                            ${listing.pricePerDay}
-                          </span>
-                          <span className="fyc-cad">CAD</span>
-                        </div>
                       </div>
-                      <div className="fyc-stars-trips">
-                        <Stars rating={listing.hostRating ?? 0} />
-                        <span className="fyc-trips">
-                          {listing.hostTrips ?? 0} trips
-                        </span>
-                      </div>
+                      {specs ? <p className="fyc-card-specs">{specs}</p> : null}
+                      {newHost ? (
+                        <span className="fyc-new-host">New host</span>
+                      ) : trust ? (
+                        <p className="fyc-trust-line">{trust}</p>
+                      ) : null}
+                      {footer ? (
+                        <p className="fyc-card-footer">{footer}</p>
+                      ) : null}
                     </Link>
                   </article>
                 );
@@ -1313,6 +1445,7 @@ export default function FindYourCarPage() {
               label={searchCity || searchQuery}
               listings={filtered}
               searchState={currentSearchState()}
+              highlightId={hoveredListingId}
             />
             <div className="fyc-map-fade fyc-map-fade--top" aria-hidden />
             <div className="fyc-map-fade fyc-map-fade--bottom" aria-hidden />

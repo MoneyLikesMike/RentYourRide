@@ -1,20 +1,17 @@
 import React from 'react';
 import { uiScale } from '../utils/uiScale';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
+import { openCrispChat } from '../services/crispChat';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
 
 const VINAlreadyExistsScreen = ({ navigation }) => {
   const handleContactSupport = () => {
-    const subject = encodeURIComponent('Duplicate VIN Issue - Vehicle Already Listed');
-    const body = encodeURIComponent('Hello,\n\nI am encountering a duplicate VIN error when trying to list my vehicle. The VIN I entered appears to already be in use on your platform. Could you please help me resolve this issue?\n\nThank you.');
-    const emailUrl = `mailto:support@rentyourride.ca?subject=${subject}&body=${body}`;
-    
-    Linking.openURL(emailUrl).catch(err => {
-      console.error('Failed to open email client:', err);
-      alert('Unable to open email client. Please contact support@rentyourride.ca directly.');
+    openCrispChat({
+      topic: 'duplicate_vin',
+      note: 'Guest hit a duplicate VIN while listing a vehicle.',
     });
   };
 

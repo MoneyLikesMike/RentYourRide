@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { assertIdentityVerified } from '../common/user-verification';
 import {
   DATE_BLOCKING_BOOKING_STATUSES,
 } from '../bookings/booking-date-ranges';
+import { toPublicListingDto } from './public-listing.dto';
 
 @Injectable()
 export class ListingsService {
@@ -31,6 +33,15 @@ export class ListingsService {
     if (!user) throw new NotFoundException('User not found');
     assertIdentityVerified(user);
     return user;
+  }
+
+  private assertHostProfilePhoto(user: UserEntity): void {
+    if (user.avatarUrl?.trim()) return;
+    throw new ForbiddenException({
+      code: 'PROFILE_PHOTO_REQUIRED',
+      message:
+        'Add a profile photo before you can list a vehicle. Guests need to see who they are booking with.',
+    });
   }
 
   private mapPersistenceError(err: unknown): never {
@@ -198,7 +209,7 @@ export class ListingsService {
   }
 
   async toPublicDetailDto(listing: ListingEntity) {
-    const dto = listing.toDetailDto(listing.host);
+    const dto = toPublicListingDto(listing);
     const blockedRanges = await this.getBlockedRanges(listing.id, listing);
     return {
       ...dto,
@@ -237,8 +248,22 @@ export class ListingsService {
     return !!found;
   }
 
+  /** Prefer body.vin; fall back to vehicleData.vin so unique index can block duplicates. */
+  private resolveVin(
+    body: Partial<ListingEntity> & { vehicleData?: Record<string, unknown> | null },
+  ): string | null {
+    const direct = typeof body.vin === 'string' ? body.vin.trim() : '';
+    if (direct) return direct.toUpperCase();
+    const vd = body.vehicleData;
+    const nested =
+      vd && typeof vd === 'object' && typeof vd.vin === 'string' ? vd.vin.trim() : '';
+    return nested ? nested.toUpperCase() : null;
+  }
+
   async create(hostUserId: string, body: Partial<ListingEntity>): Promise<ListingEntity> {
-    await this.requireVerifiedHost(hostUserId);
+    const host = await this.requireVerifiedHost(hostUserId);
+    this.assertHostProfilePhoto(host);
+    const vin = this.resolveVin(body as Partial<ListingEntity> & { vehicleData?: Record<string, unknown> | null });
     const listing = this.repo.create({
       hostUserId,
       city: body.city || 'Winnipeg',
@@ -257,7 +282,7 @@ export class ListingsService {
       pickupAddress: body.pickupAddress || '',
       active: body.active !== false,
       published: body.published ?? false,
-      vin: body.vin?.trim() ? body.vin.trim().toUpperCase() : null,
+      vin,
       carFeatures: body.carFeatures ?? [],
       extras: body.extras ?? {},
       availability: body.availability ?? [],
@@ -282,8 +307,11 @@ export class ListingsService {
       published?: boolean;
     };
     Object.assign(listing, safePatch);
-    if (patch.vin !== undefined) {
-      listing.vin = patch.vin?.trim() ? patch.vin.trim().toUpperCase() : null;
+    const resolvedVin = this.resolveVin(
+      patch as Partial<ListingEntity> & { vehicleData?: Record<string, unknown> | null },
+    );
+    if (patch.vin !== undefined || (resolvedVin && !listing.vin)) {
+      listing.vin = resolvedVin ?? (patch.vin === null || patch.vin === '' ? null : listing.vin);
     }
     if (typeof listing.pricePerDay === 'number') {
       listing.pricePerDay = String(listing.pricePerDay);
@@ -311,7 +339,8 @@ export class ListingsService {
 
   async publish(hostUserId: string, id: string, published: boolean) {
     if (published) {
-      await this.requireVerifiedHost(hostUserId);
+      const host = await this.requireVerifiedHost(hostUserId);
+      this.assertHostProfilePhoto(host);
     }
     const listing = await this.findForHost(hostUserId, id);
     listing.published = published;
@@ -321,16 +350,27 @@ export class ListingsService {
   }
 
   async ensureHost(user: UserEntity) {
-    if (user.role !== 'host') {
-      user.role = 'host';
-      await this.repo.manager.getRepository(UserEntity).save(user);
+    // Admins can also host; never demote them to host (breaks admin login).
+    if (user.role === 'admin' || user.role === 'host') {
+      return;
     }
+    user.role = 'host';
+    await this.repo.manager.getRepository(UserEntity).save(user);
   }
 
-  async appendPhoto(hostUserId: string, listingId: string, uri: string) {
+  async appendPhoto(
+    hostUserId: string,
+    listingId: string,
+    uri: string,
+    meta?: { type?: 'image' | 'video' },
+  ) {
     const listing = await this.findForHost(hostUserId, listingId);
     const photos = [...(listing.photos || [])];
-    photos.push({ uri });
+    const entry: { uri: string; type?: string } = { uri };
+    if (meta?.type === 'video' || meta?.type === 'image') {
+      entry.type = meta.type;
+    }
+    photos.push(entry);
     listing.photos = photos;
     await this.repo.save(listing);
     return listing;

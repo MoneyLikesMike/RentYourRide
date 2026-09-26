@@ -23,3 +23,8 @@ export function brandLabel(brand) {
       return 'Card';
   }
 }
+
+/** Normalize Stripe / saved-method brand strings for icon lookup. */
+export function normalizeCardBrand(brand) {
+  return String(brand || 'card').toLowerCase().replace(/\s+/g, '').replace(/_/g, '');
+}

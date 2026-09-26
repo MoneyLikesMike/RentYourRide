@@ -12,6 +12,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CodeField,
   Cursor,
@@ -41,6 +42,7 @@ export default function PhoneVerificationScreen({
   phoneE164 = '',
   onPhoneVerified,
 }) {
+  const insets = useSafeAreaInsets();
   const [value, setValue] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -50,6 +52,8 @@ export default function PhoneVerificationScreen({
     value,
     setValue,
   });
+  // Tab bar is hidden on this screen (CustomTabBar); pad for home indicator only.
+  const callBottomPad = Math.max(insets.bottom, 16) + 24 * scale;
 
   const displayPhone = phoneNumber || route?.params?.phoneNumber || '';
   const verifyTarget = phoneE164 || route?.params?.phoneE164 || displayPhone;
@@ -185,7 +189,10 @@ export default function PhoneVerificationScreen({
         </View>
 
         <View style={styles.callMeSpacer} />
-        <TouchableOpacity style={styles.callContainer} disabled>
+        <TouchableOpacity
+          style={[styles.callContainer, { marginBottom: callBottomPad }]}
+          disabled
+        >
           <FontAwesome name="phone" size={21 * scale} color={COLORS.GREENY_BLUE_TWO} style={styles.callIcon} />
           <Text style={styles.callText}>Call me instead</Text>
         </TouchableOpacity>
@@ -341,7 +348,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    marginBottom: 68 * scale,
     opacity: 0.45,
   },
   callIcon: {

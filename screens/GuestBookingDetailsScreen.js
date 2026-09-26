@@ -29,7 +29,7 @@ const scale = uiScale;
 
 const EXTRA_DISPLAY_ORDER = ['clean', 'kms', 'fuel', 'delivery'];
 
-const CANCELLATION_POLICY_URL = 'https://rentyourride.com/terms';
+const CANCELLATION_POLICY_URL = 'https://app.rentyourride.ca/terms-conditions?section=cancelation';
 
 function getExtraIconSource(key) {
   switch (key) {
@@ -54,6 +54,18 @@ export default function GuestBookingDetailsScreen({ navigation, route }) {
 
   const booking = useMemo(() => (bookingId ? getBookingById(bookingId) : null), [bookingId, getBookingById]);
 
+  const extras = Array.isArray(booking?.extras) ? booking.extras : [];
+  const sortedExtras = useMemo(() => {
+    return [...extras].sort((a, b) => {
+      const ia = EXTRA_DISPLAY_ORDER.indexOf(a.key);
+      const ib = EXTRA_DISPLAY_ORDER.indexOf(b.key);
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+  }, [extras]);
+
   if (!booking) {
     return (
       <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
@@ -71,17 +83,6 @@ export default function GuestBookingDetailsScreen({ navigation, route }) {
   const p = booking.pricing || {};
   const startFmt = formatTripDateTime(booking.bookingDates?.start, booking.bookingDates?.startTime);
   const endFmt = formatTripDateTime(booking.bookingDates?.end, booking.bookingDates?.endTime);
-  const extras = Array.isArray(booking.extras) ? booking.extras : [];
-  const sortedExtras = useMemo(() => {
-    return [...extras].sort((a, b) => {
-      const ia = EXTRA_DISPLAY_ORDER.indexOf(a.key);
-      const ib = EXTRA_DISPLAY_ORDER.indexOf(b.key);
-      if (ia === -1 && ib === -1) return 0;
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-      return ia - ib;
-    });
-  }, [extras]);
 
   const tripDays = p.tripDays ?? 1;
   const pricePerDay = Number(p.pricePerDay ?? ls.pricePerDay ?? 0);

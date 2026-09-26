@@ -23,12 +23,17 @@ JWT=$(echo "$SECRET" | jq -r '.jwtSecret // .JWT_SECRET // empty')
 STRIPE=$(echo "$SECRET" | jq -r '.stripeSecretKey // .STRIPE_SECRET_KEY // empty')
 DIDIT_API_KEY=$(echo "$SECRET" | jq -r '.DIDIT_API_KEY // empty')
 DIDIT_WEBHOOK_SECRET=$(echo "$SECRET" | jq -r '.DIDIT_WEBHOOK_SECRET // empty')
+DIDIT_CONSOLE_TEAM=$(echo "$SECRET" | jq -r '.DIDIT_CONSOLE_TEAM // empty')
+DIDIT_CONSOLE_APP=$(echo "$SECRET" | jq -r '.DIDIT_CONSOLE_APP // empty')
 PHONENUMBER=$(echo "$SECRET" | jq -r '.PHONENUMBER // empty')
+SMS_PROTECT_CONFIGURATION_ID=$(echo "$SECRET" | jq -r '.SMS_PROTECT_CONFIGURATION_ID // empty')
 PINPOINT_APP=$(echo "$SECRET" | jq -r '.AWS_PINPOINT_APP_ID // empty')
 PINPOINT_SENDER=$(echo "$SECRET" | jq -r '.AWS_PINPOINT_SENDER_ADDRESS // empty')
 ADMIN_EMAIL=$(echo "$SECRET" | jq -r '.ADMIN_EMAIL // empty')
 GEOCODE_KEY=$(echo "$SECRET" | jq -r '.GOOGLE_GEOCODING_API_KEY // .GOOGLE_MAPS_KEY // empty')
 PLACES_KEY=$(echo "$SECRET" | jq -r '.GOOGLE_PLACES_API_KEY // empty')
+MAILERLITE_API_TOKEN=$(echo "$SECRET" | jq -r '.MAILERLITE_API_TOKEN // .MAILERLITE_API_KEY // empty')
+MAILERLITE_GROUP_ID=$(echo "$SECRET" | jq -r '.MAILERLITE_GROUP_ID // empty')
 DB_URL=$(echo "$SECRET" | jq -r '.DATABASE_URL // .NEST_DATABASE_URL // empty')
 
 if [ -z "$DB_URL" ] || [ "$DB_URL" = "null" ]; then
@@ -73,6 +78,7 @@ NODE_ENV=production
 AWS_REGION=${AWS_REGION}
 UPLOADS_DIR=/home/ec2-user/rentyourride-uploads
 ADMIN_BASE_URL=https://admin.rentyourride.ca
+PUBLIC_WEB_ORIGIN=https://app.rentyourride.ca
 ENV
 
 append_env() {
@@ -87,16 +93,23 @@ append_env() {
 append_env STRIPE_SECRET_KEY "$STRIPE"
 append_env GOOGLE_GEOCODING_API_KEY "$GEOCODE_KEY"
 append_env GOOGLE_PLACES_API_KEY "$PLACES_KEY"
-append_env GOOGLE_OAUTH_WEB_CLIENT_ID "" "72018389432-1u5ekal6enkntlov1q2rdjn2kij823qr.apps.googleusercontent.com"
+# Live (…toiv…) + testing/fedev (…sito…) + legacy mobile web (7201…)
+append_env GOOGLE_OAUTH_WEB_CLIENT_ID "" "524622562399-toivedknrhgcqcnclosv2012ss5bftrv.apps.googleusercontent.com,524622562399-sito90jpj9crnik6l14h77i3tbb1h3p8.apps.googleusercontent.com,72018389432-1u5ekal6enkntlov1q2rdjn2kij823qr.apps.googleusercontent.com"
 append_env GOOGLE_OAUTH_IOS_CLIENT_ID "" "72018389432-rb2t4cj7pda7on5rj4bigvjkipgoqp2k.apps.googleusercontent.com"
 append_env APPLE_CLIENT_ID "" "com.rentyourride.ios"
+append_env APPLE_WEB_CLIENT_ID "" "com.rentyourride.web"
 append_env DIDIT_API_KEY "$DIDIT_API_KEY"
 append_env DIDIT_WEBHOOK_SECRET "$DIDIT_WEBHOOK_SECRET"
+append_env DIDIT_CONSOLE_TEAM "$DIDIT_CONSOLE_TEAM"
+append_env DIDIT_CONSOLE_APP "$DIDIT_CONSOLE_APP"
 append_env PHONENUMBER "$PHONENUMBER"
+append_env SMS_PROTECT_CONFIGURATION_ID "$SMS_PROTECT_CONFIGURATION_ID"
 # RentYourRidePinpoint-production — without this every email is only logged.
 append_env AWS_PINPOINT_APP_ID "$PINPOINT_APP" "7cd30b694f16415999c21780666247b9"
 append_env AWS_PINPOINT_SENDER_ADDRESS "$PINPOINT_SENDER" "donotreply@rentyourride.ca"
 append_env ADMIN_EMAIL "$ADMIN_EMAIL" "donotreply@rentyourride.ca"
+append_env MAILERLITE_API_TOKEN "$MAILERLITE_API_TOKEN"
+append_env MAILERLITE_GROUP_ID "$MAILERLITE_GROUP_ID"
 echo "BEDEV_API_BASE_URL=https://bedev.rentyourride.ca" >> /tmp/nest-api.env
 chmod 600 /tmp/nest-api.env
 

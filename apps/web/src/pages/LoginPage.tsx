@@ -83,7 +83,12 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await signIn(email.trim(), password);
+      const result = await signIn(email.trim(), password);
+      if (result?.deletionCancelled) {
+        window.alert(
+          'Signing in cancelled your scheduled account deletion. Your account is active again.',
+        );
+      }
       goAfterAuth();
     } catch (err) {
       setFormError(
@@ -108,7 +113,12 @@ export default function LoginPage() {
     }
     setAppleLoading(true);
     try {
-      await signInWithApple();
+      const result = await signInWithApple();
+      if (result?.deletionCancelled) {
+        window.alert(
+          'Signing in cancelled your scheduled account deletion. Your account is active again.',
+        );
+      }
       if (hasStoredSession()) goAfterAuth();
     } catch (err) {
       setFormError(
@@ -133,7 +143,12 @@ export default function LoginPage() {
     }
     setGoogleLoading(true);
     try {
-      await signInWithGoogle();
+      const result = await signInWithGoogle();
+      if (result?.deletionCancelled) {
+        window.alert(
+          'Signing in cancelled your scheduled account deletion. Your account is active again.',
+        );
+      }
       if (hasStoredSession()) goAfterAuth();
     } catch (err) {
       setFormError(

@@ -6,6 +6,7 @@ import { useAuth } from './AuthContext';
 import { isRemoteListingId } from '../utils/listingId';
 import { draftToListingBody } from '../utils/listingDraftPayload';
 import { syncListingPhotos } from '../utils/listingPhotos';
+import { calendarDataToApiRanges } from '../utils/listingAvailability';
 
 const ListingsContext = createContext(null);
 
@@ -162,8 +163,7 @@ export function ListingsProvider({ children }) {
       vehicleType: listing.vehicleType || 'SEDAN',
       photos: listing.photos || [],
       pricePerDay: listing.pricePerDay,
-      trips: listing.trips ?? 0,
-      rating: listing.rating ?? 4,
+      trips: listing.hostTrips ?? listing.trips ?? 0,
       owned: true,
       active: listing.active !== false,
     };
@@ -281,6 +281,13 @@ export function ListingsProvider({ children }) {
           let row = await listingsApi.hostPatchListing(id, { active: !!active });
           if (!active) {
             row = (await listingsApi.hostUnpublishListing(id)) || row;
+          } else {
+            // Reactivating must also publish or search stays empty (active-only is not enough).
+            try {
+              row = (await listingsApi.hostPublishListing(id)) || row;
+            } catch (pubErr) {
+              console.warn('[Listings] hostPublishListing on activate failed', pubErr?.message || pubErr);
+            }
           }
           if (row) {
             mergeRemoteListings([{ ...row, owned: true }]);
@@ -336,29 +343,45 @@ export function ListingsProvider({ children }) {
     [editingListingId],
   );
 
+  /** Single-flight create so parallel wizard saves cannot open two empty drafts. */
+  const ensureDraftCreatePromiseRef = useRef(null);
+
   const ensureServerDraftListing = useCallback(async (draftSnapshot) => {
     const d = draftSnapshot ?? draft;
     const existingId = resolveRemoteListingId(d);
     if (existingId) return existingId;
     if (!isAuthenticated || !isReady) return null;
-    try {
-      const created = await listingsApi.hostCreateListing(draftToListingBody(d));
-      const id = created?.id;
-      if (id) {
-        setDraft((prev) => ({ ...prev, serverListingId: id }));
-        mergeRemoteListings([{ ...created, owned: true }]);
-      }
-      return id ?? null;
-    } catch (e) {
-      console.warn('[Listings] ensureServerDraftListing failed', e?.message || e);
-      return null;
+    if (ensureDraftCreatePromiseRef.current) {
+      return ensureDraftCreatePromiseRef.current;
     }
+    ensureDraftCreatePromiseRef.current = (async () => {
+      try {
+        const created = await listingsApi.hostCreateListing(draftToListingBody(d));
+        const id = created?.id;
+        if (id) {
+          setDraft((prev) => {
+            if (prev?.serverListingId && isRemoteListingId(prev.serverListingId)) {
+              return prev;
+            }
+            return { ...prev, serverListingId: id };
+          });
+          mergeRemoteListings([{ ...created, owned: true }]);
+        }
+        return id ?? null;
+      } catch (e) {
+        console.warn('[Listings] ensureServerDraftListing failed', e?.message || e);
+        return null;
+      } finally {
+        ensureDraftCreatePromiseRef.current = null;
+      }
+    })();
+    return ensureDraftCreatePromiseRef.current;
   }, [draft, isAuthenticated, isReady, resolveRemoteListingId, mergeRemoteListings]);
 
   /** Persist wizard/edit draft section to API when authenticated. */
   const saveRemoteListingPatch = useCallback(
     async (patch, { uploadPhotos = false, syncAvailability = false } = {}) => {
-      const nextDraft = { ...draft, ...patch };
+      let nextDraft = { ...draft, ...patch };
       setDraft(nextDraft);
       if (!isAuthenticated || !isReady) return { ok: true, listingId: null };
 
@@ -373,7 +396,9 @@ export function ListingsProvider({ children }) {
           const uploaded = await syncListingPhotos(listingId, patch.photos);
           if (uploaded) {
             mergeRemoteListings([{ ...uploaded, owned: true }]);
-            setDraft((prev) => ({ ...prev, photos: uploaded.photos ?? patch.photos }));
+            const syncedPhotos = uploaded.photos ?? patch.photos;
+            nextDraft = { ...nextDraft, photos: syncedPhotos };
+            setDraft((prev) => ({ ...prev, photos: syncedPhotos }));
           }
         }
         const row = await listingsApi.hostPatchListing(listingId, draftToListingBody(nextDraft));
@@ -421,8 +446,13 @@ export function ListingsProvider({ children }) {
           }
         }
         if (row) mergeRemoteListings([{ ...row, owned: true }]);
-        if (Array.isArray(draft.availability) && draft.availability.length > 0) {
+        if (Array.isArray(draft.availability)) {
           await listingsApi.hostListingAvailability(editingListingId, draft.availability);
+        } else if (draft.calendarData?.blockedRanges) {
+          await listingsApi.hostListingAvailability(
+            editingListingId,
+            calendarDataToApiRanges(draft.calendarData),
+          );
         }
       } catch (e) {
         console.warn('[Listings] hostPatchListing failed', e?.message || e);

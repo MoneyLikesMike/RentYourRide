@@ -29,9 +29,13 @@ GOOGLE_OAUTH_IOS=$(echo "$SECRET" | jq -r '.GOOGLE_OAUTH_IOS_CLIENT_ID // empty'
 APPLE_CLIENT=$(echo "$SECRET" | jq -r '.APPLE_CLIENT_ID // empty')
 DIDIT_API_KEY=$(echo "$SECRET" | jq -r '.DIDIT_API_KEY // empty')
 DIDIT_WEBHOOK_SECRET=$(echo "$SECRET" | jq -r '.DIDIT_WEBHOOK_SECRET // empty')
+DIDIT_CONSOLE_TEAM=$(echo "$SECRET" | jq -r '.DIDIT_CONSOLE_TEAM // empty')
+DIDIT_CONSOLE_APP=$(echo "$SECRET" | jq -r '.DIDIT_CONSOLE_APP // empty')
 PINPOINT_APP=$(echo "$SECRET" | jq -r '.AWS_PINPOINT_APP_ID // empty')
 PINPOINT_SENDER=$(echo "$SECRET" | jq -r '.AWS_PINPOINT_SENDER_ADDRESS // empty')
 ADMIN_EMAIL=$(echo "$SECRET" | jq -r '.ADMIN_EMAIL // empty')
+MAILERLITE_API_TOKEN=$(echo "$SECRET" | jq -r '.MAILERLITE_API_TOKEN // .MAILERLITE_API_KEY // empty')
+MAILERLITE_GROUP_ID=$(echo "$SECRET" | jq -r '.MAILERLITE_GROUP_ID // empty')
 cat > /tmp/nest-api.env <<ENV
 DATABASE_URL=${DB_URL}
 DATABASE_SSL=1
@@ -59,7 +63,7 @@ fi
 if [ -n "$GOOGLE_OAUTH_WEB" ] && [ "$GOOGLE_OAUTH_WEB" != "null" ]; then
   echo "GOOGLE_OAUTH_WEB_CLIENT_ID=${GOOGLE_OAUTH_WEB}" >> /tmp/nest-api.env
 else
-  echo "GOOGLE_OAUTH_WEB_CLIENT_ID=72018389432-1u5ekal6enkntlov1q2rdjn2kij823qr.apps.googleusercontent.com" >> /tmp/nest-api.env
+  echo "GOOGLE_OAUTH_WEB_CLIENT_ID=524622562399-toivedknrhgcqcnclosv2012ss5bftrv.apps.googleusercontent.com,524622562399-sito90jpj9crnik6l14h77i3tbb1h3p8.apps.googleusercontent.com,72018389432-1u5ekal6enkntlov1q2rdjn2kij823qr.apps.googleusercontent.com" >> /tmp/nest-api.env
 fi
 if [ -n "$GOOGLE_OAUTH_IOS" ] && [ "$GOOGLE_OAUTH_IOS" != "null" ]; then
   echo "GOOGLE_OAUTH_IOS_CLIENT_ID=${GOOGLE_OAUTH_IOS}" >> /tmp/nest-api.env
@@ -71,11 +75,18 @@ if [ -n "$APPLE_CLIENT" ] && [ "$APPLE_CLIENT" != "null" ]; then
 else
   echo "APPLE_CLIENT_ID=com.rentyourride.ios" >> /tmp/nest-api.env
 fi
+echo "APPLE_WEB_CLIENT_ID=com.rentyourride.web" >> /tmp/nest-api.env
 if [ -n "$DIDIT_API_KEY" ] && [ "$DIDIT_API_KEY" != "null" ]; then
   echo "DIDIT_API_KEY=${DIDIT_API_KEY}" >> /tmp/nest-api.env
 fi
 if [ -n "$DIDIT_WEBHOOK_SECRET" ] && [ "$DIDIT_WEBHOOK_SECRET" != "null" ]; then
   echo "DIDIT_WEBHOOK_SECRET=${DIDIT_WEBHOOK_SECRET}" >> /tmp/nest-api.env
+fi
+if [ -n "$DIDIT_CONSOLE_TEAM" ] && [ "$DIDIT_CONSOLE_TEAM" != "null" ]; then
+  echo "DIDIT_CONSOLE_TEAM=${DIDIT_CONSOLE_TEAM}" >> /tmp/nest-api.env
+fi
+if [ -n "$DIDIT_CONSOLE_APP" ] && [ "$DIDIT_CONSOLE_APP" != "null" ]; then
+  echo "DIDIT_CONSOLE_APP=${DIDIT_CONSOLE_APP}" >> /tmp/nest-api.env
 fi
 if [ -n "$PINPOINT_APP" ] && [ "$PINPOINT_APP" != "null" ]; then
   echo "AWS_PINPOINT_APP_ID=${PINPOINT_APP}" >> /tmp/nest-api.env
@@ -92,7 +103,14 @@ if [ -n "$ADMIN_EMAIL" ] && [ "$ADMIN_EMAIL" != "null" ] && [ "$ADMIN_EMAIL" != 
 else
   echo "ADMIN_EMAIL=okoyem@rentyourride.ca" >> /tmp/nest-api.env
 fi
+if [ -n "$MAILERLITE_API_TOKEN" ] && [ "$MAILERLITE_API_TOKEN" != "null" ]; then
+  echo "MAILERLITE_API_TOKEN=${MAILERLITE_API_TOKEN}" >> /tmp/nest-api.env
+fi
+if [ -n "$MAILERLITE_GROUP_ID" ] && [ "$MAILERLITE_GROUP_ID" != "null" ]; then
+  echo "MAILERLITE_GROUP_ID=${MAILERLITE_GROUP_ID}" >> /tmp/nest-api.env
+fi
 echo "ADMIN_BASE_URL=https://admindev.rentyourride.ca" >> /tmp/nest-api.env
+echo "PUBLIC_WEB_ORIGIN=https://fedev.rentyourride.ca" >> /tmp/nest-api.env
 chmod 600 /tmp/nest-api.env
 
 aws s3 cp /tmp/nest-api-deploy.tgz "s3://${BUCKET}/${KEY}"

@@ -26,7 +26,7 @@ export default function ForgotPasswordScreen() {
       await forgotPassword(trimmed);
       Alert.alert(
         'Check your email',
-        'If an account exists for that address, password reset instructions were sent. In development, the API may log a reset token to the server console.',
+        'If an account exists for that address, we sent a link to set a new password.',
       );
     } catch (e) {
       Alert.alert('Request failed', e?.message || 'Could not start password recovery.');

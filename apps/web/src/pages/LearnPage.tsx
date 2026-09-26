@@ -80,10 +80,11 @@ export default function LearnPage() {
 
         <section className="learn-section" aria-labelledby="learn-news">
           <h2 className="learn-section-title" id="learn-news">
-            News &amp; <TextDecorator title="Updates" width="100%" />
+            Follow Our <TextDecorator title="Journey" width="100%" />
           </h2>
           <p className="learn-section-lead">
-            What&apos;s new at Rent Your Ride.
+            Stay on the road to more experiences with Rent Your Ride&apos;s
+            company updates, platform updates, partnerships and press releases.
           </p>
 
           <ul className="news-list">

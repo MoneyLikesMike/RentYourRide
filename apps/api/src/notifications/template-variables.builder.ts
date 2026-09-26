@@ -1,5 +1,10 @@
 export type PinpointSubstitutions = Record<string, string[]>;
 
+/** Strip Handlebars delimiters so substitution values cannot break template rendering. */
+function sanitizeSubstitution(value: string): string {
+  return value.replace(/\{\{/g, '').replace(/\}\}/g, '');
+}
+
 export class TemplateVariablesBuilder {
   private variables: PinpointSubstitutions = {};
 
@@ -8,7 +13,7 @@ export class TemplateVariablesBuilder {
   }
 
   setVariable(key: string, value: string): this {
-    this.variables[key] = [value];
+    this.variables[key] = [sanitizeSubstitution(value ?? '')];
     return this;
   }
 
@@ -18,7 +23,8 @@ export class TemplateVariablesBuilder {
   }
 
   setMoneyVariable(key: string, dollars: number): this {
-    this.variables[key] = [`$${dollars}`];
+    const n = Number.isFinite(dollars) ? dollars : 0;
+    this.variables[key] = [`$${n.toFixed(2)}`];
     return this;
   }
 

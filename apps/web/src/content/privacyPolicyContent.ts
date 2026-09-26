@@ -1,10 +1,10 @@
 import type { ContentBlock } from '../pages/legalContentTypes';
 
 export const PRIVACY_POLICY_BLOCKS: ContentBlock[] = [
-  { type: 'updated', text: 'Last updated: July 28, 2026' },
+  { type: 'updated', text: 'Last updated: August 19, 2026' },
   {
     type: 'p',
-    text: 'Mobi Ride Share Ltd. operating as Rent Your Ride (hereinafter, “Rent Your Ride”, “we”, “us” or “our”) wants to make sure you know we consider the privacy of our users to be extremely important. This Privacy Policy document describes in detail the types of personal information that is collected and recorded by Rent Your Ride when using our platform to communicate with other Rent Your Ride users or us on any device, or when personal information is otherwise provided to us. If you do not agree to any part of this Privacy Policy please refrain from using our platform and deactivate your Rent Your Ride account. By providing Personal Information to us, you agree to the terms and conditions of this Privacy Policy.',
+    text: 'Mobi Ride Share Ltd. operating as Rent Your Ride (hereinafter, “Rent Your Ride”, “we”, “us” or “our”) wants to make sure you know we consider the privacy of our users to be extremely important. This Privacy Policy document describes in detail the types of personal information that is collected and recorded by Rent Your Ride when using our platform to communicate with other Rent Your Ride users or us on any device, or when personal information is otherwise provided to us. If you do not agree to any part of this Privacy Policy please refrain from using our platform and delete your Rent Your Ride account as described below. By providing Personal Information to us, you agree to the terms and conditions of this Privacy Policy.',
   },
 
   { type: 'section', title: 'Changes to the Privacy Policy' },
@@ -188,7 +188,7 @@ export const PRIVACY_POLICY_BLOCKS: ContentBlock[] = [
   },
   {
     type: 'p',
-    text: 'You may be contacted by RYR or Third Party Service Providers via telephone, email, or postal mail regarding your account, the resolution of any disagreements, disputes or Claims, to collect any amounts owed to RYR or other Users, to trouble shoot any problems with your RYR Account, to record surveys and questionnaires sent to you, or to service your RYR Account. We may analyze communications between you and other Users on the RYR Platform to screen or prevent fraud, illegal or prohibited activities on our platform. We want to ensure the RYR Platform is safe for anyone to use. Personal Information may be saved after account deactivation to aid in any investigation, collect money owed, resolve any disagreements, process Claims, prevent fraudulent activities, and take any legal actions necessary and in accordance with applicable laws and our Terms of Service.',
+    text: 'You may be contacted by RYR or Third Party Service Providers via telephone, email, or postal mail regarding your account, the resolution of any disagreements, disputes or Claims, to collect any amounts owed to RYR or other Users, to trouble shoot any problems with your RYR Account, to record surveys and questionnaires sent to you, or to service your RYR Account. We may analyze communications between you and other Users on the RYR Platform to screen or prevent fraud, illegal or prohibited activities on our platform. We want to ensure the RYR Platform is safe for anyone to use. If you request account deletion, we deactivate your account immediately and permanently remove your personal profile information after 30 days unless you cancel by signing in during that period. Limited records may be retained as required by law or to aid in any investigation, collect money owed, resolve any disagreements, process Claims, prevent fraudulent activities, and take any legal actions necessary and in accordance with applicable laws and our Terms of Service.',
   },
 
   {
@@ -270,12 +270,12 @@ export const PRIVACY_POLICY_BLOCKS: ContentBlock[] = [
   },
   {
     type: 'p',
-    text: 'If you would like to change or remove any information in your Rent Your Ride account you can accomplish this by logging into your Rent Your Ride account and visiting your profile. If you would like to deactivate or delete your account with Rent Your Ride entirely you can do so by contacting us at support@rentyourride.ca or calling us at (866) 592-3028. Please keep in mind any forum postings or reviews on the platform may still be viewable by the public even after account deactivation.',
+    text: 'If you would like to change any information in your Rent Your Ride account you can do so by logging in and visiting your profile. To delete your account entirely, use Delete account in the RentYourRide app (Profile → Delete account) or on the website under Contact information. For security, you must sign in again before deletion starts. You do not need to call or email customer service to start or complete account deletion. You cannot delete an account while you have an active or upcoming trip or an outstanding balance. Deletion immediately deactivates your account (including Guest and Host profiles). You may cancel by signing in again within 30 days. After 30 days, your personal information is removed from your profile, listings, and payment methods; past trip records for other guests or hosts may remain without your personal details.',
   },
 
   { type: 'section', title: 'Questions and Contact Information' },
   {
     type: 'p',
-    text: 'If you would like to request access or correction to, amendment or deletion of any Personal Information we have about you, if you wish to register a complaint, or simply want more information contact our contact us at support@rentyourride.ca. Your opinion matters to us!',
+    text: 'If you would like to request access or correction to, or amendment of, Personal Information we have about you, if you wish to register a complaint, or simply want more information, contact us at support@rentyourride.ca. To delete your Rent Your Ride account, use Delete account in the app or on the website as described above. Your opinion matters to us!',
   },
 ];

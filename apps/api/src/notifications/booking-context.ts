@@ -1,59 +1,67 @@
 import { BookingEntity } from '../entities/booking.entity';
 import { UserEntity } from '../entities/user.entity';
+import { getTripBillingDays } from '../bookings/trip-billing-days';
 import { TemplateVariablesBuilder, PinpointSubstitutions } from './template-variables.builder';
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_TZ = 'America/Winnipeg';
 
-function getTripBillingDays(startMs: number, endMs: number): number {
-  const a = new Date(startMs);
-  const b = new Date(endMs);
-  const t1 = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
-  const t2 = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
-  const daySpan = Math.abs(t2 - t1) / MS_PER_DAY;
-  return Math.max(1, Math.floor(daySpan) + 1);
+type BookingDatesShape = {
+  start?: number;
+  end?: number;
+  startTime?: string;
+  endTime?: string;
+};
+
+function bookingDatesOf(booking: BookingEntity): BookingDatesShape {
+  return (booking.bookingDates ?? {}) as BookingDatesShape;
 }
 
-function formatStartDate(ms: number, tz = DEFAULT_TZ): string {
-  const d = new Date(ms);
-  const datePart = new Intl.DateTimeFormat('en-US', {
+function formatDatePart(ms: number, tz = DEFAULT_TZ): string {
+  return new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
     month: 'long',
     day: 'numeric',
     year: 'numeric',
-  }).format(d);
-  const timePart = new Intl.DateTimeFormat('en-US', {
+  }).format(new Date(ms));
+}
+
+function formatTimePart(ms: number, tz = DEFAULT_TZ): string {
+  return new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-  }).format(d);
-  return `${datePart}. Start Time ${timePart}`;
+  }).format(new Date(ms));
 }
 
-function formatEndDate(ms: number, tz = DEFAULT_TZ): string {
-  const d = new Date(ms);
-  const datePart = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(d);
-  const timePart = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(d);
-  return `${datePart}. End Time ${timePart}`;
+/** Prefer calendar startTime/endTime strings (mobile stores clock there; start/end are often midnight). */
+function resolveTimeLabel(ms: number, timeOverride?: string | null, tz = DEFAULT_TZ): string {
+  const booked = typeof timeOverride === 'string' ? timeOverride.trim() : '';
+  return booked || formatTimePart(ms, tz);
 }
 
-export function formatBookingStartDate(ms: number, tz = DEFAULT_TZ): string {
-  return formatStartDate(ms, tz);
+function formatStartDate(ms: number, timeOverride?: string | null, tz = DEFAULT_TZ): string {
+  return `${formatDatePart(ms, tz)}. Start Time ${resolveTimeLabel(ms, timeOverride, tz)}`;
 }
 
-export function formatBookingEndDate(ms: number, tz = DEFAULT_TZ): string {
-  return formatEndDate(ms, tz);
+function formatEndDate(ms: number, timeOverride?: string | null, tz = DEFAULT_TZ): string {
+  return `${formatDatePart(ms, tz)}. End Time ${resolveTimeLabel(ms, timeOverride, tz)}`;
+}
+
+export function formatBookingStartDate(
+  ms: number,
+  tz = DEFAULT_TZ,
+  timeOverride?: string | null,
+): string {
+  return formatStartDate(ms, timeOverride, tz);
+}
+
+export function formatBookingEndDate(
+  ms: number,
+  tz = DEFAULT_TZ,
+  timeOverride?: string | null,
+): string {
+  return formatEndDate(ms, timeOverride, tz);
 }
 
 function snap(booking: BookingEntity): Record<string, unknown> {
@@ -75,8 +83,13 @@ function vehicleModel(booking: BookingEntity): string {
 
 function coverImage(booking: BookingEntity): string {
   const s = snap(booking);
-  const photos = s.photos as Array<{ uri?: string }> | undefined;
-  return photos?.[0]?.uri ?? '';
+  if (typeof s.coverImageUri === 'string' && s.coverImageUri.trim()) {
+    return s.coverImageUri.trim();
+  }
+  const photos = s.photos as Array<{ uri?: string; imageUrl?: string }> | undefined;
+  const first = photos?.[0];
+  const raw = (first?.uri ?? first?.imageUrl ?? '').trim();
+  return raw;
 }
 
 function avatar(user?: UserEntity | null): string {
@@ -94,27 +107,26 @@ function extraVariables(booking: BookingEntity): PinpointSubstitutions {
     | undefined;
   for (const e of selected ?? []) {
     const amt = Number(e.amount ?? 0);
-    if (e.key === 'kms') vars['Booking.UnlimitedKms'] = [`$${amt}`];
-    if (e.key === 'fuel') vars['Booking.PrePaidFuel'] = [`$${amt}`];
-    if (e.key === 'clean') vars['Booking.PrePaidClean'] = [`$${amt}`];
+    const money = `$${(Number.isFinite(amt) ? amt : 0).toFixed(2)}`;
+    if (e.key === 'kms') vars['Booking.UnlimitedKms'] = [money];
+    if (e.key === 'fuel') vars['Booking.PrePaidFuel'] = [money];
+    if (e.key === 'clean') vars['Booking.PrePaidClean'] = [money];
   }
   return vars;
 }
 
 function tripDays(booking: BookingEntity): number {
-  const dates = booking.bookingDates as { start?: number; end?: number };
+  const dates = bookingDatesOf(booking);
   if (dates.start == null || dates.end == null) return 1;
   return getTripBillingDays(dates.start, dates.end);
 }
 
 function startMs(booking: BookingEntity): number {
-  const dates = booking.bookingDates as { start?: number };
-  return Number(dates.start ?? Date.now());
+  return Number(bookingDatesOf(booking).start ?? Date.now());
 }
 
 function endMs(booking: BookingEntity): number {
-  const dates = booking.bookingDates as { end?: number };
-  return Number(dates.end ?? Date.now());
+  return Number(bookingDatesOf(booking).end ?? Date.now());
 }
 
 function purePrice(booking: BookingEntity): number {
@@ -154,7 +166,8 @@ export class BookingNotificationContext {
   }
 
   startLabel(): string {
-    return formatStartDate(startMs(this.booking), this.tz);
+    const dates = bookingDatesOf(this.booking);
+    return formatStartDate(startMs(this.booking), dates.startTime, this.tz);
   }
 
   vehicleLabel(): string {
@@ -162,7 +175,8 @@ export class BookingNotificationContext {
   }
 
   endLabel(): string {
-    return formatEndDate(endMs(this.booking), this.tz);
+    const dates = bookingDatesOf(this.booking);
+    return formatEndDate(endMs(this.booking), dates.endTime, this.tz);
   }
 
   baseBookingVars(): PinpointSubstitutions {
@@ -236,6 +250,15 @@ export class BookingNotificationContext {
       .build();
   }
 
+  checkOutHostVars(): PinpointSubstitutions {
+    return new TemplateVariablesBuilder()
+      .init()
+      .mergeWith(this.baseBookingVars())
+      .setVariable('Renter.LastName', this.guest.lastName ?? '')
+      .setVariable('Renter.Avatar', avatar(this.guest))
+      .build();
+  }
+
   tripReminderGuestVars(): PinpointSubstitutions {
     return new TemplateVariablesBuilder()
       .init()
@@ -288,7 +311,7 @@ export class BookingNotificationContext {
       .setVariable('Host.FirstName', this.host.firstName ?? '')
       .setVariable('Vehicle.Model', vehicleModel(this.booking))
       .setVariable('Vehicle.CoverImage', coverImage(this.booking))
-      .setVariable('H', message)
+      .setVariable('Host.MessageFromHost', message)
       .build();
   }
 
@@ -298,7 +321,7 @@ export class BookingNotificationContext {
       .setVariable('Renter.FirstName', this.guest.firstName ?? '')
       .setVariable('Vehicle.Model', vehicleModel(this.booking))
       .setVariable('Vehicle.CoverImage', coverImage(this.booking))
-      .setVariable('H', message)
+      .setVariable('Renter.MessageFromRenter', message)
       .build();
   }
 }

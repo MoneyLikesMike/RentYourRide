@@ -3,6 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import { ADDITIONAL_USAGE_POLICY_BLOCKS } from '../content/additionalUsagePolicyContent';
 import { BOOKING_TIME_RULES_BLOCKS } from '../content/bookingTimeRulesContent';
 import { CANCELATION_POLICY_BLOCKS } from '../content/cancelationPolicyContent';
+import {
+  GUEST_GUIDELINE_SECTIONS,
+  HOST_GUIDELINE_SECTIONS,
+  type GuidelineSection,
+} from '../content/communityGuidelinesContent';
 import { DAMAGE_POLICY_BLOCKS } from '../content/damagePolicyContent';
 import { DRIVING_PARKING_TICKETS_POLICY_BLOCKS } from '../content/drivingParkingTicketsPolicyContent';
 import { OUT_OF_APP_POLICY_BLOCKS } from '../content/outOfAppPolicyContent';
@@ -46,6 +51,7 @@ type LegalSection = {
   heading?: string;
   body?: string;
   blocks?: ContentBlock[];
+  guidelines?: GuidelineSection[];
 };
 
 type LegalGroup = {
@@ -276,9 +282,70 @@ const GROUPS: LegalGroup[] = [
       },
     ],
   },
+  {
+    id: 'community-guidelines',
+    title: 'Community Guidelines',
+    sections: [
+      {
+        id: 'host-guidelines',
+        title: 'Host Guidelines',
+        heading: 'Host Guidelines',
+        guidelines: HOST_GUIDELINE_SECTIONS,
+      },
+      {
+        id: 'guest-guidelines',
+        title: 'Guest Guidelines',
+        heading: 'Guest Guidelines',
+        guidelines: GUEST_GUIDELINE_SECTIONS,
+      },
+    ],
+  },
 ];
 
 const ALL_SECTIONS = GROUPS.flatMap((g) => g.sections);
+
+function GuidelineBlocks({ sections }: { sections: GuidelineSection[] }) {
+  return (
+    <div className="guidelines-body">
+      {sections.map((section, i) => {
+        if (section.type === 'title') {
+          return (
+            <h3 key={i} className="guidelines-title">
+              {section.text}
+            </h3>
+          );
+        }
+        if (section.type === 'bullet') {
+          return (
+            <p key={i} className="guidelines-copy">
+              <span className="guidelines-lead">• {section.lead}</span>
+              {section.rest}
+            </p>
+          );
+        }
+        if (section.type === 'item') {
+          return (
+            <p key={i} className="guidelines-copy guidelines-copy--item">
+              {section.text}
+            </p>
+          );
+        }
+        if (section.type === 'emphasis') {
+          return (
+            <p key={i} className="guidelines-emphasis">
+              {linkifySupportEmail(section.text)}
+            </p>
+          );
+        }
+        return (
+          <p key={i} className="guidelines-copy">
+            {linkifySupportEmail(section.text)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 function LegalBlocks({ blocks }: { blocks: ContentBlock[] }) {
   return (
@@ -443,7 +510,7 @@ export default function TermsConditionsPage() {
     <div className="content-page">
       <PageMeta
         title="Rent Your Ride Legal | Terms, Privacy & Policies"
-        description="Rent Your Ride terms of service, privacy policy, and rental policies for hosts and guests."
+        description="Rent Your Ride terms of service, privacy policy, host and guest guidelines, and rental policies."
         canonical={`${SITE_ORIGIN}/terms-conditions`}
         jsonLd={breadcrumbLd([{ name: 'Legal', path: '/terms-conditions' }])}
       />
@@ -477,7 +544,9 @@ export default function TermsConditionsPage() {
             <h2 className="content-page-heading">
               {active.heading ?? active.title}
             </h2>
-            {active.blocks ? (
+            {active.guidelines ? (
+              <GuidelineBlocks sections={active.guidelines} />
+            ) : active.blocks ? (
               <LegalBlocks blocks={active.blocks} />
             ) : (
               (active.body ?? PLACEHOLDER).split('\n\n').map((para, i) => (

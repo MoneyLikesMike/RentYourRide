@@ -283,6 +283,99 @@
   word-break: break-word;
 }
 
+.messages-bubble-photo {
+  display: block;
+  max-width: min(16rem, 100%);
+  max-height: 14rem;
+  border-radius: 0.75rem;
+  object-fit: cover;
+  margin: 0.35rem 0 0.15rem;
+  background: #e8eef0;
+}
+
+.messages-read-receipt {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ababab;
+  text-align: right;
+}
+
+.messages-thread-header {
+  flex-shrink: 0;
+  padding: 0 0 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 0.75rem;
+}
+
+.messages-thread-header-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.messages-thread-counterpart {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #17252a;
+}
+
+.messages-thread-listing {
+  margin: 0.15rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4cb6b1;
+  text-decoration: none;
+}
+
+a.messages-thread-listing:hover {
+  text-decoration: underline;
+}
+
+.messages-lock-banner {
+  margin: 0.65rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 177, 49, 0.16);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #785014;
+}
+
+.messages-photo-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.messages-attach {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-right: 0.5rem;
+  border: 1px solid #a3a3a3;
+  border-radius: 50%;
+  background: #fff;
+  color: #4cb6b1;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.messages-attach.is-locked {
+  color: #c5c5c5;
+  border-color: #d8d8d8;
+}
+
 .messages-composer {
   position: relative;
   display: flex;

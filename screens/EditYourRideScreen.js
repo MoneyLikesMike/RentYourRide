@@ -54,7 +54,7 @@ const EDIT_CARDS = [
   },
   {
     key: 'photos',
-    label: 'PHOTOS',
+    label: 'PHOTOS & VIDEO',
     icon: require('../assets/icons/photo.png'),
     screen: 'PhotoManagementScreen',
     fullWidth: false,

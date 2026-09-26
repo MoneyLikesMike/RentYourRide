@@ -1,7 +1,7 @@
 import type { ContentBlock } from '../pages/legalContentTypes';
 
 export const BOOKING_TIME_RULES_BLOCKS: ContentBlock[] = [
-  { type: 'updated', text: 'Last updated: July 28, 2026' },
+  { type: 'updated', text: 'Last updated: August 28, 2026' },
 
   { type: 'section', title: 'Notice Times' },
   {
@@ -59,7 +59,7 @@ export const BOOKING_TIME_RULES_BLOCKS: ContentBlock[] = [
   { type: 'section', title: 'Charges' },
   {
     type: 'p',
-    text: 'A Rent Your Ride trip day is 24 hours. We charge a single-day trip minimum for the first day only. After that, Rent Your Ride charges by the hour. The same rule applies to trip extensions.',
+    text: 'A Rent Your Ride trip day is 24 hours. Trips are charged in whole days only: any time up to 24 hours counts as 1 day, and each additional 24-hour period (or part of one) counts as another full day. The same rule applies to trip extensions.',
   },
   {
     type: 'table',
@@ -68,23 +68,29 @@ export const BOOKING_TIME_RULES_BLOCKS: ContentBlock[] = [
       [
         'Day-rate vehicle at $100/day',
         '18 hours',
-        '1 day minimum ($100)',
+        '1 day ($100)',
       ],
       [
         'Day-rate vehicle at $100/day',
         '1 day + 12 hours',
-        '1 day + 12 hours ($150)',
+        '2 days ($200)',
       ],
       [
         'Trip extension',
         'A couple of hours',
-        '1 day minimum charge',
+        '1 day ($100)',
       ],
       [
         'Trip extension',
         '1 day + 12 hours',
-        '1 day + hourly rate',
+        '2 days ($200)',
       ],
     ],
+  },
+
+  { type: 'section', title: 'Payment methods' },
+  {
+    type: 'p',
+    text: 'The cardholder name on your payment card must match the legal name on your verified driver\'s license. Bookings are blocked when the names do not match. Use the same name from your license when adding or editing a card.',
   },
 ];

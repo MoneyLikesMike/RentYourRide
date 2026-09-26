@@ -6,6 +6,8 @@ import PageMeta, { breadcrumbLd, SITE_ORIGIN } from '../components/PageMeta';
 import SiteHeader, {
   CONTACT_CHAT_URL,
   CONTACT_MAILTO,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_TEL,
 } from '../components/SiteHeader';
 import TextDecorator from '../components/TextDecorator';
 import {
@@ -350,6 +352,14 @@ export default function ContactPage() {
                 support@rentyourride.ca
               </span>
               <span className="help-contact-cta">Send an email ›</span>
+            </a>
+
+            <a className="help-contact-card" href={CONTACT_TEL}>
+              <span className="help-contact-label">Call us</span>
+              <span className="help-contact-detail">
+                {CONTACT_PHONE_DISPLAY}
+              </span>
+              <span className="help-contact-cta">Tap to call ›</span>
             </a>
           </div>
 

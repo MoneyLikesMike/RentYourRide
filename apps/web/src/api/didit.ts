@@ -16,6 +16,17 @@ export async function createDiditLicenseSession(
   });
 }
 
+/** Clear sticky in_progress after the user cancels Didit mid-flow. */
+export async function abandonDiditLicenseSession(): Promise<{
+  ok?: boolean;
+  licenseVerificationStatus?: string;
+}> {
+  return apiFetch('v1/verification/didit/abandon', {
+    method: 'POST',
+    json: {},
+  });
+}
+
 export const DIDIT_RETURN_PATH_KEY = 'ryr.diditReturnPath';
 
 export function diditWebCallbackUrl(): string {

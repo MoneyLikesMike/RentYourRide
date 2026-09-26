@@ -115,10 +115,15 @@ const AvailabilitySetupScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     if (route.params?.calendarData) {
-      setSavedCalendarData(route.params.calendarData);
+      const cal = route.params.calendarData;
+      setSavedCalendarData(cal);
+      setDraftListing({
+        calendarData: cal,
+        availability: calendarDataToApiRanges(cal),
+      });
       navigation.setParams({ calendarData: undefined });
     }
-  }, [route.params?.calendarData]);
+  }, [route.params?.calendarData, navigation, setDraftListing]);
 
   useEffect(() => {
     const availability = route.params?.availabilityData;

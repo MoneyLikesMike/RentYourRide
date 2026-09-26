@@ -9,7 +9,9 @@ import { useAuth } from '../context/AuthContext';
 import { useAccountSetupSteps } from '../hooks/useAccountSetupSteps';
 import AccountSetupProgressCard from '../components/AccountSetupProgressCard';
 import { navigateRootStack } from '../utils/navigateRootStack';
-import { ensureIdentityVerified } from '../utils/verificationGates';
+import { ensureIdentityVerified, ensureHostProfilePhoto } from '../utils/verificationGates';
+import { openCrispChat } from '../services/crispChat';
+import { COMPANY_PHONE_TEL } from '../constants/companyContact';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -39,13 +41,7 @@ export default function AccountManagementScreen({ navigation }) {
       .join(' ') || 'Guest';
 
   const openUserProfile = () => {
-    // Nested stack under Profile tab: tab-level navigate is reliable when the stack dispatch doesn’t resolve siblings.
-    const tabNav = navigation.getParent();
-    if (tabNav?.navigate) {
-      tabNav.navigate('ProfileScreen', { screen: 'UserProfileScreen' });
-    } else {
-      navigation.navigate('UserProfileScreen');
-    }
+    navigation.navigate('UserProfileScreen');
   };
 
   return (
@@ -127,6 +123,9 @@ export default function AccountManagementScreen({ navigation }) {
               if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to list' }))) {
                 return;
               }
+              if (!(await ensureHostProfilePhoto(navigation))) {
+                return;
+              }
               if (canUseListingsHub) {
                 navigation.navigate('ListingsScreen');
               } else {
@@ -154,18 +153,32 @@ export default function AccountManagementScreen({ navigation }) {
             <Image source={require('../assets/icons/arrow-button.png')} style={styles.supportGroupArrow} />
           </TouchableOpacity>
           <View style={styles.supportGroupDivider} />
-          {/* Contact Us */}
+          {/* Contact Us — native Crisp live chat */}
           <TouchableOpacity
             style={styles.supportGroupButton}
-            onPress={() => {
-              const subject = encodeURIComponent('Rent Your Ride - Support');
-              const body = encodeURIComponent(
-                'Hello,\n\nI need help with Rent Your Ride. Please find my message below:\n\n\n\nThank you,',
-              );
-              Linking.openURL(`mailto:support@rentyourride.ca?subject=${subject}&body=${body}`);
-            }}
+            onPress={() => openCrispChat({ topic: 'support' })}
           >
-            <Text style={styles.supportGroupText}>CONTACT US</Text>
+            <Text style={styles.supportGroupText}>LIVE CHAT</Text>
+            <Image source={require('../assets/icons/arrow-button.png')} style={styles.supportGroupArrow} />
+          </TouchableOpacity>
+          <View style={styles.supportGroupDivider} />
+          {/* Call company support line */}
+          <TouchableOpacity
+            style={styles.supportGroupButton}
+            onPress={() => Linking.openURL(COMPANY_PHONE_TEL)}
+          >
+            <Text style={styles.supportGroupText}>CALL US</Text>
+            <Image source={require('../assets/icons/arrow-button.png')} style={styles.supportGroupArrow} />
+          </TouchableOpacity>
+        </View>
+        {/* Account Header */}
+        <Text style={styles.supportHeader}>ACCOUNT</Text>
+        <View style={styles.accountGroupContainer}>
+          <TouchableOpacity
+            style={styles.supportGroupButton}
+            onPress={() => navigation.navigate('DeleteAccountScreen')}
+          >
+            <Text style={styles.supportGroupText}>DELETE ACCOUNT</Text>
             <Image source={require('../assets/icons/arrow-button.png')} style={styles.supportGroupArrow} />
           </TouchableOpacity>
         </View>
@@ -489,7 +502,7 @@ const styles = StyleSheet.create({
   },
   supportGroupContainer: {
     width: 344 * scale,
-    height: 95.5 * scale,
+    height: 143.25 * scale,
     backgroundColor: '#fff',
     borderRadius: 10 * scale,
     shadowColor: '#000',
@@ -533,6 +546,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgb(235,235,235)',
     alignSelf: 'center',
+  },
+  accountGroupContainer: {
+    width: 344 * scale,
+    height: 47.75 * scale,
+    backgroundColor: '#fff',
+    borderRadius: 10 * scale,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 3,
+    marginBottom: 8 * scale,
+    alignSelf: 'center',
+    justifyContent: 'center',
   },
   menuBar: {
     flexDirection: 'row',

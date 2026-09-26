@@ -25,7 +25,7 @@ import {
 import { draftToListingBody } from '../utils/listingDraftPayload';
 import { syncListingPhotos } from '../utils/listingPhotos';
 import { isRemoteListingId } from '../utils/listingId';
-import { ensureIdentityVerified } from '../utils/verificationGates';
+import { ensureIdentityVerified, ensureHostProfilePhoto } from '../utils/verificationGates';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
@@ -43,6 +43,9 @@ const ReadyToStartEarningScreen = ({ navigation }) => {
   const handleListMyRide = async () => {
     if (!termsAccepted) return;
     if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to list' }))) {
+      return;
+    }
+    if (!(await ensureHostProfilePhoto(navigation))) {
       return;
     }
     const city = draft?.city ?? 'Winnipeg';
@@ -80,14 +83,16 @@ const ReadyToStartEarningScreen = ({ navigation }) => {
         if (listingId) {
           await syncListingPhotos(listingId, publishDraft.photos ?? []);
           row = await listingsApi.hostPatchListing(listingId, draftToListingBody(publishDraft));
-          if (blockedRanges?.length) {
-            await listingsApi.hostListingAvailability(listingId, blockedRanges);
-          }
+          // Always persist blocked dates (including clearing to []).
+          await listingsApi.hostListingAvailability(listingId, blockedRanges || []);
         } else {
           row = await listingsApi.hostCreateListing(draftToListingBody(publishDraft));
           listingId = row?.id;
           if (listingId && publishDraft.photos?.length) {
             await syncListingPhotos(listingId, publishDraft.photos);
+          }
+          if (listingId && Array.isArray(blockedRanges)) {
+            await listingsApi.hostListingAvailability(listingId, blockedRanges);
           }
         }
         if (listingId) {
@@ -122,7 +127,7 @@ const ReadyToStartEarningScreen = ({ navigation }) => {
   };
 
   const openTerms = () => {
-    Linking.openURL('https://rentyourride.com/terms').catch(() => {});
+    Linking.openURL('https://app.rentyourride.ca/terms-conditions?section=terms-of-service').catch(() => {});
   };
 
   return (

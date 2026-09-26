@@ -35,6 +35,7 @@ export function useSavePaymentCard() {
       }
 
       await paymentsApi.setDefaultPaymentMethod(paymentMethodId);
+      await paymentsApi.reportPaymentMethodAdded(paymentMethodId);
       return paymentMethodId;
     },
     [confirmSetupIntent],

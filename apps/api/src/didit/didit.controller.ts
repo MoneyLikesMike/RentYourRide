@@ -34,6 +34,14 @@ export class DiditController {
     return this.didit.createLicenseSession(user.id, body?.callback);
   }
 
+  /** Cancel an incomplete Didit session so the user can retry license upload. */
+  @Post('verification/didit/abandon')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  async abandonSession(@ReqUser() user: { id: string }) {
+    return this.didit.abandonIncompleteLicenseSession(user.id);
+  }
+
   @Post('webhooks/didit')
   async webhook(@Req() req: RawBodyRequest<Request>) {
     const raw = req.rawBody?.toString('utf8') ?? '';

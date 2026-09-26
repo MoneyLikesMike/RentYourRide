@@ -2,8 +2,9 @@ import React, { createContext, useContext, useState, useMemo, useEffect, useCall
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import * as paymentsApi from '../services/paymentsApi';
+import { STORAGE_PAYMENT_METHODS } from '../constants/storageKeys';
 
-const STORAGE_KEY = '@ryr_payment_methods_v1';
+const LEGACY_STORAGE_KEY = '@ryr_payment_methods_v1';
 
 const PaymentMethodsContext = createContext(null);
 
@@ -15,27 +16,68 @@ function isStripePaymentMethodId(id) {
   return typeof id === 'string' && id.startsWith('pm_');
 }
 
+function storageKeyForUser(userId) {
+  return userId ? `${STORAGE_PAYMENT_METHODS}:${userId}` : null;
+}
+
+function mapRemoteMethods(remote) {
+  return (Array.isArray(remote) ? remote : []).map((m) => ({
+    id: m.id,
+    type: 'card',
+    brand: m.brand || 'card',
+    last4: m.last4 || '0000',
+    isDefault: !!m.isDefault,
+  }));
+}
+
+function defaultIdFromMapped(mapped) {
+  const preferred = mapped.find((m) => m.isDefault);
+  return preferred?.id ?? mapped[0]?.id ?? null;
+}
+
 export function PaymentMethodsProvider({ children }) {
-  const { isAuthenticated, isReady } = useAuth();
+  const { isAuthenticated, isReady, user } = useAuth();
+  const userId = user?.id || null;
   const [state, setState] = useState({ methods: [], defaultMethodId: null });
   const [hydrated, setHydrated] = useState(false);
 
-  const persist = useCallback(async (nextMethods, nextDefault) => {
+  const persist = useCallback(async (uid, nextMethods, nextDefault) => {
+    const key = storageKeyForUser(uid);
+    if (!key) return;
     try {
       await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ methods: nextMethods, defaultMethodId: nextDefault })
+        key,
+        JSON.stringify({ methods: nextMethods, defaultMethodId: nextDefault }),
       );
     } catch (_) {
       /* ignore */
     }
   }, []);
 
+  const clearState = useCallback(() => {
+    setState({ methods: [], defaultMethodId: null });
+  }, []);
+
+  // Drop the old device-wide cache that leaked cards across accounts.
+  useEffect(() => {
+    AsyncStorage.removeItem(LEGACY_STORAGE_KEY).catch(() => {});
+  }, []);
+
+  // Reset + hydrate for the signed-in user only.
   useEffect(() => {
     let cancelled = false;
+    setHydrated(false);
+    clearState();
+
+    if (!isReady) return undefined;
+    if (!isAuthenticated || !userId) {
+      setHydrated(true);
+      return undefined;
+    }
+
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(storageKeyForUser(userId));
         if (cancelled || !raw) return;
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed.methods)) {
@@ -51,107 +93,101 @@ export function PaymentMethodsProvider({ children }) {
         if (!cancelled) setHydrated(true);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isReady, isAuthenticated, userId, clearState]);
 
+  // Always sync from Stripe for this user — empty list clears stale local cards.
   useEffect(() => {
-    if (!hydrated || !isAuthenticated || !isReady) return;
+    if (!hydrated || !isAuthenticated || !isReady || !userId) return undefined;
     let cancelled = false;
     (async () => {
       try {
         const remote = await paymentsApi.listPaymentMethods();
-        if (cancelled || !Array.isArray(remote) || remote.length === 0) return;
-        const mapped = remote.map((m) => ({
-          id: m.id,
-          type: 'card',
-          brand: m.brand || 'card',
-          last4: m.last4 || '0000',
-        }));
-        setState({
-          methods: mapped,
-          defaultMethodId: mapped[0]?.id ?? null,
-        });
-        persist(mapped, mapped[0]?.id ?? null);
+        if (cancelled || !Array.isArray(remote)) return;
+        const mapped = mapRemoteMethods(remote);
+        const nextDefault = defaultIdFromMapped(mapped);
+        setState({ methods: mapped, defaultMethodId: nextDefault });
+        await persist(userId, mapped, nextDefault);
       } catch (_) {
-        /* keep AsyncStorage snapshot */
+        /* keep per-user snapshot */
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [hydrated, isAuthenticated, isReady, persist]);
+  }, [hydrated, isAuthenticated, isReady, userId, persist]);
 
   const refreshFromApi = useCallback(async () => {
-    if (!isAuthenticated || !isReady) return;
+    if (!isAuthenticated || !isReady || !userId) return;
     try {
       const remote = await paymentsApi.listPaymentMethods();
-      if (!Array.isArray(remote) || remote.length === 0) return;
-      const mapped = remote.map((m) => ({
-        id: m.id,
-        type: 'card',
-        brand: m.brand || 'card',
-        last4: m.last4 || '0000',
-      }));
-      setState({
-        methods: mapped,
-        defaultMethodId: mapped[0]?.id ?? null,
-      });
-      persist(mapped, mapped[0]?.id ?? null);
+      if (!Array.isArray(remote)) return;
+      const mapped = mapRemoteMethods(remote);
+      const nextDefault = defaultIdFromMapped(mapped);
+      setState({ methods: mapped, defaultMethodId: nextDefault });
+      await persist(userId, mapped, nextDefault);
     } catch (_) {
       /* keep local */
     }
-  }, [isAuthenticated, isReady, persist]);
+  }, [isAuthenticated, isReady, userId, persist]);
 
   const addPaymentMethod = useCallback(
     async (payload) => {
       if (payload?.paymentMethodId && isAuthenticated && isReady) {
-        try {
-          await paymentsApi.setDefaultPaymentMethod(payload.paymentMethodId);
-          await refreshFromApi();
-          return payload.paymentMethodId;
-        } catch (_) {
-          /* fall through to local */
-        }
+        await paymentsApi.reportPaymentMethodAdded(payload.paymentMethodId);
+        await paymentsApi.setDefaultPaymentMethod(payload.paymentMethodId);
+        await refreshFromApi();
+        return payload.paymentMethodId;
       }
       const id = makeId();
       const entry = { id, ...payload };
       setState((s) => {
         const next = [...s.methods, entry];
         const nextDefault = s.methods.length === 0 ? id : s.defaultMethodId;
-        persist(next, nextDefault);
+        persist(userId, next, nextDefault);
         return { methods: next, defaultMethodId: nextDefault };
       });
       return id;
     },
-    [isAuthenticated, isReady, persist, refreshFromApi],
+    [isAuthenticated, isReady, persist, refreshFromApi, userId],
   );
 
   const updatePaymentMethod = useCallback(
     (id, partial) => {
       setState((s) => {
         const next = s.methods.map((m) => (m.id === id ? { ...m, ...partial } : m));
-        persist(next, s.defaultMethodId);
+        persist(userId, next, s.defaultMethodId);
         return { ...s, methods: next };
       });
     },
-    [persist]
+    [persist, userId],
   );
 
   const removePaymentMethod = useCallback(
-    (id) => {
+    async (id) => {
+      if (isAuthenticated && isReady && isStripePaymentMethodId(id)) {
+        try {
+          await paymentsApi.detachPaymentMethod(id);
+          await refreshFromApi();
+          return;
+        } catch (_) {
+          /* fall through to local remove */
+        }
+      }
       setState((s) => {
         const next = s.methods.filter((m) => m.id !== id);
         let nextDefault = s.defaultMethodId;
         if (s.defaultMethodId === id) {
           nextDefault = next[0]?.id ?? null;
         }
-        persist(next, nextDefault);
+        persist(userId, next, nextDefault);
         return { methods: next, defaultMethodId: nextDefault };
       });
     },
-    [persist]
+    [isAuthenticated, isReady, persist, refreshFromApi, userId],
   );
 
   const setDefaultPaymentMethod = useCallback(
@@ -166,11 +202,11 @@ export function PaymentMethodsProvider({ children }) {
         }
       }
       setState((s) => {
-        persist(s.methods, id);
+        persist(userId, s.methods, id);
         return { ...s, defaultMethodId: id };
       });
     },
-    [isAuthenticated, isReady, persist, refreshFromApi],
+    [isAuthenticated, isReady, persist, refreshFromApi, userId],
   );
 
   const value = useMemo(
@@ -193,7 +229,7 @@ export function PaymentMethodsProvider({ children }) {
       removePaymentMethod,
       setDefaultPaymentMethod,
       refreshFromApi,
-    ]
+    ],
   );
 
   return <PaymentMethodsContext.Provider value={value}>{children}</PaymentMethodsContext.Provider>;

@@ -46,7 +46,13 @@ export default function SocialAuthButtons({ isSignUp = false, style }) {
   const onApple = useCallback(async () => {
     setBusy('apple');
     try {
-      const { isNewUser } = await signInWithApple();
+      const { isNewUser, deletionCancelled } = await signInWithApple();
+      if (deletionCancelled) {
+        Alert.alert(
+          'Account restored',
+          'Signing in cancelled your scheduled account deletion. Your account is active again.',
+        );
+      }
       afterSocialAuth(isNewUser);
     } catch (err) {
       handleError(err);
@@ -58,7 +64,13 @@ export default function SocialAuthButtons({ isSignUp = false, style }) {
   const onGoogle = useCallback(async () => {
     setBusy('google');
     try {
-      const { isNewUser } = await signInWithGoogle();
+      const { isNewUser, deletionCancelled } = await signInWithGoogle();
+      if (deletionCancelled) {
+        Alert.alert(
+          'Account restored',
+          'Signing in cancelled your scheduled account deletion. Your account is active again.',
+        );
+      }
       afterSocialAuth(isNewUser);
     } catch (err) {
       handleError(err);

@@ -5,6 +5,7 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import AppNavigator from './navigation/AppNavigator';
 import LaunchSplashVideo from './components/LaunchSplashVideo';
+import AppErrorBoundary from './components/AppErrorBoundary';
 import DismissKeyboard from './components/DismissKeyboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FavoritesProvider } from './context/FavoritesContext';
@@ -13,7 +14,8 @@ import { UserProfileProvider } from './context/UserProfileContext';
 import { PaymentMethodsProvider } from './context/PaymentMethodsContext';
 import { GuestBookingsProvider } from './context/GuestBookingsContext';
 import { MessagingProvider } from './context/MessagingContext';
-import { getStripePublishableKey } from './constants/stripe';
+import CrispSession from './components/CrispSession';
+import { getStripePublishableKey, getStripeMerchantIdentifier, isApplePayConfigured } from './constants/stripe';
 import {
   useFonts,
   Nunito_300Light,
@@ -56,6 +58,7 @@ function AppProviders() {
           <GuestBookingsProvider>
             <FavoritesProvider>
               <MessagingProvider>
+                <CrispSession />
                 <PushRegistration />
                 <AppNavigator />
               </MessagingProvider>
@@ -69,10 +72,13 @@ function AppProviders() {
 
 function MainApp() {
   const stripeKey = getStripePublishableKey();
+  const merchantIdentifier = getStripeMerchantIdentifier();
   const tree = (
     <SafeAreaProvider>
       <DismissKeyboard>
-        <AppProviders />
+        <AppErrorBoundary>
+          <AppProviders />
+        </AppErrorBoundary>
       </DismissKeyboard>
     </SafeAreaProvider>
   );
@@ -80,7 +86,12 @@ function MainApp() {
   return (
     <AuthProvider>
       {stripeKey ? (
-        <StripeProvider publishableKey={stripeKey}>{tree}</StripeProvider>
+        <StripeProvider
+          publishableKey={stripeKey}
+          merchantIdentifier={isApplePayConfigured() ? merchantIdentifier : undefined}
+        >
+          {tree}
+        </StripeProvider>
       ) : (
         tree
       )}

@@ -1,15 +1,57 @@
 import React, { useState } from 'react';
 import { uiScale } from '../utils/uiScale';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { startEmailChange } from '../services/usersApi';
+import { emailTypoUserMessage } from '../utils/emailDomainTypos';
 
-const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const scale = uiScale;
 
 export default function ChangeEmailScreen({ navigation, route }) {
   const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const onDone = async () => {
+    if (busy) return;
+    const next = email.trim();
+    if (!next || !next.includes('@')) {
+      Alert.alert('Invalid email', 'Enter a valid email address.');
+      return;
+    }
+    const typo = emailTypoUserMessage(next);
+    if (typo) {
+      Alert.alert('Check email domain', typo);
+      return;
+    }
+    setBusy(true);
+    try {
+      await startEmailChange(next);
+      navigation.goBack();
+      setTimeout(() => {
+        Alert.alert(
+          'Check your email',
+          `We sent a confirmation link to ${next}. Open it to finish changing your email.`,
+        );
+      }, 350);
+    } catch (e) {
+      Alert.alert('Could not start email change', e?.message || 'Try again later.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <View style={styles.overlay}>
@@ -18,45 +60,41 @@ export default function ChangeEmailScreen({ navigation, route }) {
         style={styles.modal}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Exit Button */}
         <TouchableOpacity style={styles.exitButton} onPress={() => navigation.goBack()}>
           <View style={styles.exitXContainer}>
             <View style={styles.exitXLine} />
             <View style={[styles.exitXLine, styles.exitXLineReverse]} />
           </View>
         </TouchableOpacity>
-        {/* Header */}
         <Text style={styles.header}>Change email address</Text>
-        {/* Paragraph */}
         <Text style={styles.paragraph}>
           We will send a link to your new email address to verify it.
         </Text>
-        {/* Email Label */}
         <Text style={styles.label}>Email</Text>
-        {/* Email Input */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
             value={email}
             onChangeText={setEmail}
-            placeholder={route?.params?.currentEmail || 'Oldemail@gmail.com'}
+            placeholder={route?.params?.currentEmail || 'you@example.com'}
             placeholderTextColor={'rgb(191,191,191)'}
             autoCapitalize="none"
             keyboardType="email-address"
+            autoCorrect={false}
+            editable={!busy}
           />
         </View>
-        {/* Done Button */}
         <View style={styles.bottomContainer}>
           <TouchableOpacity
-            style={styles.doneButton}
-            onPress={() => {
-              Alert.alert(
-                'Coming soon',
-                'Email changes are not available on the dev API yet. Contact support if you need help.',
-              );
-            }}
+            style={[styles.doneButton, busy && styles.doneButtonDisabled]}
+            onPress={() => void onDone()}
+            disabled={busy}
           >
-            <Text style={styles.doneButtonText}>Done</Text>
+            {busy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.doneButtonText}>Done</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -190,6 +228,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  doneButtonDisabled: {
+    opacity: 0.7,
+  },
   doneButtonText: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 16,
@@ -199,4 +240,4 @@ const styles = StyleSheet.create({
     width: 170,
     height: 22,
   },
-}); 
+});

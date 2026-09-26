@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
@@ -25,13 +26,16 @@ function statusLabel(me) {
   if (me?.licenseVerified) return 'Verified';
   const s = (me?.licenseVerificationStatus || '').trim();
   if (s === 'pending_review') return 'In review';
-  if (s === 'in_progress') return 'In review';
+  if (s === 'in_progress' || s === 'awaiting_user') return 'Not finished';
   return 'Submitted';
 }
 
 export default function LicenseVerificationPendingScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Tab bar is hidden on this screen (CustomTabBar); pad for home indicator only.
+  const bottomPad = Math.max(insets.bottom, 16) + 24 * scale;
 
   const refresh = useCallback(async () => {
     try {
@@ -55,7 +59,14 @@ export default function LicenseVerificationPendingScreen({ navigation }) {
   };
 
   const verified = !!me?.licenseVerified;
+  const status = (me?.licenseVerificationStatus || '').trim();
+  const incompleteAttempt =
+    !verified && (status === 'in_progress' || status === 'awaiting_user' || status === '');
   const label = statusLabel(me);
+
+  const handleTryAgain = () => {
+    navigation.navigate('LicenseVerificationScreen');
+  };
 
   return (
     <View style={styles.container}>
@@ -75,7 +86,10 @@ export default function LicenseVerificationPendingScreen({ navigation }) {
         <View style={styles.headerRightSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.illustrationWrap}>
           <Image
             source={require('../assets/icons/licenseVerification.png')}
@@ -87,7 +101,11 @@ export default function LicenseVerificationPendingScreen({ navigation }) {
         <View style={styles.titleRow}>
           <View style={styles.titleAccent} />
           <Text style={styles.heading}>
-            {verified ? 'Your license is verified' : "We're still reviewing your license"}
+            {verified
+              ? 'Your license is verified'
+              : incompleteAttempt
+                ? 'Verification was not finished'
+                : "We're still reviewing your license"}
           </Text>
         </View>
 
@@ -101,14 +119,22 @@ export default function LicenseVerificationPendingScreen({ navigation }) {
             <Text style={styles.body}>
               {verified
                 ? 'You are cleared to rent and list on Rent Your Ride. Contact support if your license details change.'
-                : "You look good! Please give us a moment to verify your ID. We will send you an email once you're verified or if we need more information."}
+                : incompleteAttempt
+                  ? 'You left license verification before it was submitted. Tap Try again to upload your license.'
+                  : "You look good! Please give us a moment to verify your ID. We will send you an email once you're verified or if we need more information."}
             </Text>
           </>
         )}
 
-        <TouchableOpacity style={styles.continueButton} onPress={handleContinue} activeOpacity={0.85}>
-          <Text style={styles.continueButtonText}>Continiue</Text>
-        </TouchableOpacity>
+        {incompleteAttempt ? (
+          <TouchableOpacity style={styles.continueButton} onPress={handleTryAgain} activeOpacity={0.85}>
+            <Text style={styles.continueButtonText}>Try again</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.continueButton} onPress={handleContinue} activeOpacity={0.85}>
+            <Text style={styles.continueButtonText}>Continue</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </View>
   );
@@ -144,7 +170,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 32 * scale,
     paddingTop: 40 * scale,
-    paddingBottom: 40 * scale,
   },
   illustrationWrap: {
     alignItems: 'center',

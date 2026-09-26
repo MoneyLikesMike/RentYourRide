@@ -71,6 +71,40 @@ export async function forgotPassword(email: string): Promise<{ ok: boolean }> {
   });
 }
 
+/** Complete password recovery from the email link (`/reset-password?token=…`). */
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>('v1/auth/password/reset', {
+    method: 'POST',
+    json: { token: token.trim(), newPassword },
+    auth: false,
+  });
+}
+
+/** One-click link from the verification email (no session required). */
+export async function verifyEmailWithToken(
+  token: string,
+): Promise<{ ok?: boolean; user?: unknown }> {
+  return apiFetch('v1/auth/verify-email', {
+    method: 'POST',
+    json: { token: token.trim() },
+    auth: false,
+  });
+}
+
+/** Confirm pending email change from inbox link (no session required). */
+export async function confirmEmailChange(
+  token: string,
+): Promise<{ ok?: boolean; user?: { email?: string; emailVerified?: boolean } }> {
+  return apiFetch('v1/auth/confirm-email-change', {
+    method: 'POST',
+    json: { token: token.trim() },
+    auth: false,
+  });
+}
+
 export async function refreshSession(
   refreshToken: string,
 ): Promise<RefreshPayload> {

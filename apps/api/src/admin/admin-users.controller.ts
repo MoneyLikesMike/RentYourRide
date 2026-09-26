@@ -90,8 +90,9 @@ export class AdminUsersController {
 
   @Post(':id/verify-email')
   @HttpCode(200)
+  /** Admin "resend verification email" — matches legacy (does not force-verify). */
   verifyEmail(@Param('id', ParseUUIDPipe) id: string) {
-    return this.auth.setEmailVerifiedAdmin(id);
+    return this.auth.resendEmailVerificationAdmin(id);
   }
 
   @Post(':id/notes')

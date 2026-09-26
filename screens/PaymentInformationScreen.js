@@ -15,36 +15,14 @@ import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { usePaymentMethods } from '../context/PaymentMethodsContext';
-import { brandLabel } from '../utils/paymentMethodUtils';
+import CardBrandBadge from '../components/CardBrandBadge';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = uiScale;
 
 function BrandBadge({ method }) {
-  if (method.type === 'paypal') {
-    return (
-      <View style={[styles.badge, styles.badgePaypal]}>
-        <Text style={styles.badgeText}>PayPal</Text>
-      </View>
-    );
-  }
-  const b = method.brand || 'other';
-  const bg =
-    b === 'visa'
-      ? '#1A1F71'
-      : b === 'mastercard'
-        ? '#000000'
-        : b === 'amex'
-          ? '#006FCF'
-          : b === 'discover'
-            ? '#FF6000'
-            : '#4A4A4A';
-  return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
-      <Text style={styles.badgeText}>{brandLabel(b).toUpperCase()}</Text>
-    </View>
-  );
+  return <CardBrandBadge brand={method.brand} type={method.type} style={styles.methodBrand} />;
 }
 
 function methodSubtitle(method) {
@@ -422,22 +400,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16 * scale,
     paddingHorizontal: 4 * scale,
   },
-  badge: {
-    width: 56 * scale,
-    height: 36 * scale,
-    borderRadius: 4 * scale,
-    alignItems: 'center',
-    justifyContent: 'center',
+  methodBrand: {
     marginRight: 14 * scale,
-  },
-  badgePaypal: {
-    backgroundColor: '#003087',
-  },
-  badgeText: {
-    fontFamily: FONTS.NUNITO_BOLD,
-    fontSize: 9 * scale,
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
   },
   methodTextCol: {
     flex: 1,

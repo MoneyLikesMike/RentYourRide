@@ -47,9 +47,12 @@ declare global {
 
 const SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
 
-/** Same default web client as mobile (`constants/socialAuth.js`). */
+/**
+ * Default = testing / fedev web client. Production builds override via
+ * VITE_GOOGLE_CLIENT_ID → Production Web Client (…toiv…).
+ */
 const DEFAULT_GOOGLE_WEB_CLIENT_ID =
-  '72018389432-1u5ekal6enkntlov1q2rdjn2kij823qr.apps.googleusercontent.com';
+  '524622562399-sito90jpj9crnik6l14h77i3tbb1h3p8.apps.googleusercontent.com';
 
 let scriptPromise: Promise<void> | null = null;
 let pending:

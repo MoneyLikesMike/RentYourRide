@@ -48,6 +48,8 @@ export function placeSelectionToSearchQuery(data, details) {
   return {
     query: parsed.formatted || data?.description || '',
     city: parsed.city || (data?.description || '').split(',')[0]?.trim() || '',
+    province: parsed.region || '',
+    region: parsed.region || '',
     country: parsed.country || '',
     countryCode: parsed.countryCode || '',
     postalCode: parsed.postalCode || '',

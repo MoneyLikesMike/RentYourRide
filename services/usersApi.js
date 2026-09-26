@@ -12,6 +12,13 @@ export async function patchPassword(body) {
   return apiFetch(`/v1/users/me/password`, { method: 'PATCH', json: body });
 }
 
+export async function startEmailChange(email) {
+  return apiFetch(`/v1/auth/change-email`, {
+    method: 'POST',
+    json: { email: String(email || '').trim() },
+  });
+}
+
 export async function getNotificationSettings() {
   return apiFetch(`/v1/users/me/notification-settings`, { method: 'GET' });
 }
@@ -39,4 +46,15 @@ export async function uploadAvatar(file) {
     type: file.type || 'image/jpeg',
   });
   return apiFetch(`/v1/users/me/avatar`, { method: 'POST', formData: form });
+}
+
+export async function getDeletionEligibility() {
+  return apiFetch(`/v1/users/me/deletion-eligibility`, { method: 'GET' });
+}
+
+export async function deleteMyAccount(input = {}) {
+  return apiFetch(`/v1/users/me`, {
+    method: 'DELETE',
+    json: { confirm: true, ...input },
+  });
 }

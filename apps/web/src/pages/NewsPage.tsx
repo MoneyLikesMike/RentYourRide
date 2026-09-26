@@ -11,8 +11,8 @@ export default function NewsPage() {
   return (
     <div className="content-page">
       <PageMeta
-        title="News & Updates | Rent Your Ride"
-        description="Product news, app updates and travel tips from the Rent Your Ride team."
+        title="Follow Our Journey | Rent Your Ride News"
+        description="Stay on the road to more experiences with Rent Your Ride’s company updates, platform updates, partnerships and press releases."
         canonical={`${SITE_ORIGIN}/news`}
         jsonLd={breadcrumbLd([{ name: 'News', path: '/news' }])}
       />
@@ -21,9 +21,12 @@ export default function NewsPage() {
       <div className="content-page-body content-page-body--learn">
         <header className="learn-intro">
           <h1 className="content-page-title">
-            News &amp; <TextDecorator title="Updates" width="100%" />
+            Follow Our <TextDecorator title="Journey" width="100%" />
           </h1>
-          <p className="learn-lead">Everything new at Rent Your Ride.</p>
+          <p className="learn-lead">
+            Stay on the road to more experiences with Rent Your Ride&apos;s
+            company updates, platform updates, partnerships and press releases.
+          </p>
         </header>
 
         <ul className="news-list">

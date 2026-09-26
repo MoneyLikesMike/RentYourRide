@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image, ScrollView } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import GuestBookingCard from '../components/GuestBookingCard';
@@ -20,10 +20,16 @@ const scale = uiScale;
 export default function RentalRequestScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { pendingRequests } = useGuestBookings();
+  const { pendingRequests, refreshBookingsFromApi } = useGuestBookings();
   const { firstName, lastName } = useUserProfile();
   const { listings } = useListings();
   const [activeTab, setActiveTab] = useState('guest');
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshBookingsFromApi?.();
+    }, [refreshBookingsFromApi]),
+  );
 
   const guestOutboundPending = useMemo(
     () => filterBookingsForGuest(pendingRequests, user?.id),

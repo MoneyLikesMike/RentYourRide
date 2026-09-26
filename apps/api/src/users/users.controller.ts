@@ -1,18 +1,22 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  Inject,
   Patch,
   Post,
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  forwardRef,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { mkdirSync } from 'fs';
 import { uploadsSubdir } from '../common/uploads-path';
@@ -21,6 +25,7 @@ import { UsersService } from './users.service';
 import { ConfigService } from '@nestjs/config';
 import { PushTokenService } from '../notifications/push-token.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { DiditService } from '../didit/didit.service';
 
 export class PatchMeDto {
   @IsOptional()
@@ -49,6 +54,14 @@ export class PatchMeDto {
 
   @IsOptional()
   @IsString()
+  addressProvince?: string;
+
+  @IsOptional()
+  @IsString()
+  addressPostalCode?: string;
+
+  @IsOptional()
+  @IsString()
   addressCountry?: string;
 
   @IsOptional()
@@ -73,6 +86,23 @@ export class PatchNotificationDto {
   settings: NotificationSettingsDto;
 }
 
+export class DeleteAccountDto {
+  @IsBoolean()
+  confirm: boolean;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @IsOptional()
+  @IsString()
+  googleIdToken?: string;
+
+  @IsOptional()
+  @IsString()
+  appleIdentityToken?: string;
+}
+
 export class ChangePasswordDto {
   @IsString()
   currentPassword: string;
@@ -92,12 +122,36 @@ export class UsersController {
     private readonly config: ConfigService,
     private readonly pushTokens: PushTokenService,
     private readonly notifications: NotificationsService,
+    @Inject(forwardRef(() => DiditService))
+    private readonly didit: DiditService,
   ) {}
 
   @Get('me')
   async me(@ReqUser() user) {
+    try {
+      await this.didit.reconcileUserLicense(user.id);
+    } catch {
+      /* keep stored license status if Didit is unreachable */
+    }
     const fresh = await this.users.requireById(user.id);
     return fresh.toPublicDto();
+  }
+
+  @Get('me/deletion-eligibility')
+  async deletionEligibility(@ReqUser() user) {
+    return this.users.getDeletionEligibility(user.id);
+  }
+
+  @Delete('me')
+  async deleteMe(@ReqUser() user, @Body() body: DeleteAccountDto) {
+    if (!body?.confirm) {
+      throw new BadRequestException('Confirm account deletion to continue.');
+    }
+    return this.users.requestDeletion(user.id, {
+      password: body.password,
+      googleIdToken: body.googleIdToken,
+      appleIdentityToken: body.appleIdentityToken,
+    });
   }
 
   @Patch('me')
