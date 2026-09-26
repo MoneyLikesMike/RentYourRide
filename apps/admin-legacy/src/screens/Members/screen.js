@@ -19,7 +19,27 @@ const MembersScreen = ({ maxCount, getMembers, members }) => {
     return (
       <div className="table-row" key={t.id}>
         {TableCellTypes.linkProfile(t.fullName, t.id)}
-        {TableCellTypes.spanEmail(t.email)}
+        <span className="header-title">
+          {t.email || "-"}
+          {t.emailDomainTypo ? (
+            <span
+              className="ryr-email-typo"
+              title={`Possible email typo. Did you mean ${t.emailDomainTypo.suggestedEmail}?`}
+              style={{
+                marginLeft: 6,
+                padding: "1px 6px",
+                borderRadius: 10,
+                background: "#fff4e5",
+                color: "#b26a00",
+                border: "1px solid #ffb74d",
+                fontSize: 11,
+                whiteSpace: "nowrap"
+              }}
+            >
+              {`\u26a0 \u2192 ${t.emailDomainTypo.suggestion}`}
+            </span>
+          ) : null}
+        </span>
         {TableCellTypes.date(t.signUpDate, t.signUpDate)}
         {TableCellTypes.spanIsVerified(t.isActive)}
       </div>
@@ -54,6 +74,33 @@ const MembersScreen = ({ maxCount, getMembers, members }) => {
   return (
     <div className="content-wrapper members">
       <h1 className="caption">Members</h1>
+      <label
+        className="ryr-email-typo-filter"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          margin: "0 0 12px",
+          cursor: "pointer",
+          fontSize: 14
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={!!membersState.sort.emailTypo}
+          onChange={ev => {
+            // Stored in sort state because Table spreads state.sort into every getValues call.
+            const sort = {
+              ...membersState.sort,
+              page: 1,
+              emailTypo: ev.target.checked ? true : undefined
+            };
+            setState({ sort });
+            getMembers(sort);
+          }}
+        />
+        Email typos only
+      </label>
       {members && (
         <Table
           searching={true}
