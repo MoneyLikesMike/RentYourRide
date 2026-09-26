@@ -127,7 +127,12 @@ aws elbv2 delete-listener --listener-arn "$HTTP_LISTENER"
 
 ## Status (2026-09-26)
 
-Applied live on prod + dev ALBs (CLI above). Grok / RYRA-425 confirmed redirects work.
+1. Applied live on prod + dev ALBs via CLI; Grok / RYRA-425 confirmed redirects work.
+2. CoreStack CDK for the redirect now lives in-repo at `infra/cdk/` (imported from
+   `RentYourRideLegacy/Infrastructure-old`, Azure Artifacts lockfile scrubbed).
+3. Prod CoreStack deployed with `cdk deploy` — CFN now owns
+   `RYRALBSetupRYRALBRedirect80To443…` (port 80 → HTTPS 301). Re-verified
+   `curl -I http://rentyourride.ca` → 301.
 
 ## Persist in CoreStack CDK (required before next stack deploy)
 
