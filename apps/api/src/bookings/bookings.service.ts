@@ -27,6 +27,10 @@ import {
   manualAvailabilityToDayRanges,
   toDayRangeMs,
 } from './booking-date-ranges';
+import {
+  bookingSnapshotAccess,
+  redactListingSnapshotForViewer,
+} from './booking-snapshot-access';
 import { getTripBillingDays } from './trip-billing-days';
 
 export { getTripBillingDays } from './trip-billing-days';
@@ -46,6 +50,27 @@ function statusLabel(status: BookingStatus): string | null {
     default:
       return null;
   }
+}
+
+/** Present a booking to an API viewer with listingSnapshot redacted as needed. */
+function presentBooking(booking: BookingEntity, viewerUserId: string) {
+  const base = booking.toMobileDto();
+  const viewerIsHost = booking.hostUserId === viewerUserId;
+  const startMs = Number(
+    (booking.bookingDates as { start?: number } | null)?.start,
+  );
+  const access = bookingSnapshotAccess({
+    viewerIsHost,
+    status: booking.status,
+    tripStartMs: Number.isFinite(startMs) ? startMs : null,
+  });
+  return {
+    ...base,
+    listingSnapshot: redactListingSnapshotForViewer(
+      base.listingSnapshot as Record<string, unknown>,
+      access,
+    ),
+  };
 }
 
 function parsePercent(value: unknown): number {
@@ -234,7 +259,7 @@ export class BookingsService {
           where: { idempotencyKey: key },
         });
         if (existingByKey) {
-          return { kind: 'existing' as const, dto: existingByKey.toMobileDto() };
+          return { kind: 'existing' as const, dto: presentBooking(existingByKey, guestId) };
         }
       }
 
@@ -261,7 +286,7 @@ export class BookingsService {
           Number(row.bookingDates?.end) === endMs,
       );
       if (exactDuplicate) {
-        return { kind: 'existing' as const, dto: exactDuplicate.toMobileDto() };
+        return { kind: 'existing' as const, dto: presentBooking(exactDuplicate, guestId) };
       }
 
       const bookingConflict = openRows.find((row) => {
@@ -398,7 +423,17 @@ export class BookingsService {
         idempotencyKey: key,
         stripePaymentIntentId,
         instantBooking,
-        listingSnapshot: body.listingSnapshot ?? listing.toDetailDto(listing.host),
+        listingSnapshot: {
+          // Always server-built so clients cannot inject PII they no longer receive publicly.
+          ...listing.toDetailDto(listing.host),
+          // Preserve any non-sensitive client display fields the app already sent.
+          ...(body.listingSnapshot && typeof body.listingSnapshot === 'object'
+            ? {
+                title: (body.listingSnapshot as Record<string, unknown>).title,
+                photos: (body.listingSnapshot as Record<string, unknown>).photos,
+              }
+            : {}),
+        },
         bookingDates,
         pickupAddress: (body.pickupAddress as string) || listing.pickupAddress,
         dropoffAddress: (body.dropoffAddress as string) || null,
@@ -428,7 +463,7 @@ export class BookingsService {
       } else {
         this.notifications.bookingCreated(result.row.id);
       }
-      return result.row.toMobileDto();
+      return presentBooking(result.row, guestId);
     });
   }
 
@@ -451,7 +486,7 @@ export class BookingsService {
 
     qb.orderBy('b.created_at', 'DESC');
     const rows = await qb.getMany();
-    return rows.map((r) => r.toMobileDto());
+    return rows.map((r) => presentBooking(r, userId));
   }
 
   async getOne(userId: string, id: string) {
@@ -463,7 +498,7 @@ export class BookingsService {
     if (b.guestUserId !== userId && b.hostUserId !== userId) {
       throw new ForbiddenException();
     }
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async cancel(userId: string, id: string) {
@@ -500,7 +535,7 @@ export class BookingsService {
         : 'Trip was cancelled by the host.',
       { event: 'cancelled', by: cancelledBy },
     );
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async acceptHost(userId: string, id: string) {
@@ -539,7 +574,7 @@ export class BookingsService {
       { event: 'accepted' },
     );
     this.notifications.bookingApproved(b.id);
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async declineHost(userId: string, id: string) {
@@ -572,7 +607,7 @@ export class BookingsService {
       { event: 'declined' },
     );
     this.notifications.bookingDenied(b.id);
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async patchLifecycle(userId: string, id: string, patch: Record<string, unknown>) {
@@ -590,7 +625,7 @@ export class BookingsService {
     // status change that waits on the host.
     if (justCheckedIn) this.notifications.bookingCheckedIn(b.id);
     if (justCheckedOut) this.notifications.bookingCheckedOut(b.id);
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async transitionStatus(
@@ -623,7 +658,7 @@ export class BookingsService {
     if (next === 'completed' && prev === 'checkout_pending') {
       this.notifications.reviewReminder(b.id);
     }
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   /** Legacy: Connect transfer when both parties finish check-in (status → active). */
@@ -681,7 +716,7 @@ export class BookingsService {
     const prev = (b.lifecycle?.[key] as string[]) ?? [];
     b.lifecycle = { ...(b.lifecycle ?? {}), [key]: [...prev, ...uris] };
     await this.bookingsRepo.save(b);
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   async submitReview(
@@ -710,7 +745,7 @@ export class BookingsService {
     } else {
       this.notifications.reviewByHost(b.id);
     }
-    return b.toMobileDto();
+    return presentBooking(b, userId);
   }
 
   private async assertSucceededPaymentIntent(
@@ -826,7 +861,7 @@ export class BookingsService {
       { event: 'extension_requested', extensionId: savedExt.id },
     );
     this.notifications.extensionCreated(savedExt.id);
-    return booking.toMobileDto();
+    return presentBooking(booking, guestId);
   }
 
   async respondExtension(hostId: string, bookingId: string, approved: boolean) {
@@ -894,7 +929,7 @@ export class BookingsService {
       this.notifications.extensionDenied(ext.id);
     }
 
-    return booking.toMobileDto();
+    return presentBooking(booking, hostId);
   }
 
   private async requireBookingForExtension(

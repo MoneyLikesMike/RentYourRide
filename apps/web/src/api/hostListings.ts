@@ -1,17 +1,19 @@
 import { apiFetch } from './http';
 import type { ListingDetail, ListingExtras } from './listings';
+import { isListingVideo } from './listings';
 import {
   apiRangesToCalendarData,
   calendarDataToApiRanges,
   type ListRideCalendarData,
 } from '../utils/listingAvailability';
+import { isVideoFile } from '../utils/listingMedia';
 
 export type HostListingBody = {
   city?: string;
   title?: string;
   description?: string;
   vehicleType?: string;
-  photos?: Array<{ uri?: string; url?: string }>;
+  photos?: Array<{ uri?: string; url?: string; type?: 'image' | 'video' | string }>;
   pricePerDay?: number;
   weeklyDiscount?: string | null;
   monthlyDiscount?: string | null;
@@ -91,13 +93,63 @@ export async function deleteHostListing(id: string): Promise<void> {
 export async function uploadHostListingPhoto(
   id: string,
   file: File,
+  mediaType?: 'image' | 'video',
 ): Promise<{ uri: string; listing: ListingDetail }> {
   const form = new FormData();
   form.append('file', file);
+  const type =
+    mediaType || (isVideoFile(file) ? 'video' : 'image');
+  form.append('mediaType', type);
   return apiFetch(`v1/host/listings/${encodeURIComponent(id)}/photos`, {
     method: 'POST',
     body: form,
   });
+}
+
+/**
+ * Sync draft media to a listing: remove dropped items, upload new Files, pin
+ * video first. Matches mobile `syncListingPhotos` ordering.
+ */
+export async function syncHostListingMedia(
+  listingId: string,
+  draft: Pick<ListRideDraft, 'photos' | 'video'>,
+): Promise<Array<{ uri: string; type: 'image' | 'video' }>> {
+  const keepers: Array<{ uri: string; type: 'image' | 'video' }> = [];
+  if (typeof draft.video === 'string' && draft.video) {
+    keepers.push({ uri: draft.video, type: 'video' });
+  }
+  for (const photo of draft.photos) {
+    if (typeof photo === 'string' && photo) {
+      keepers.push({ uri: photo, type: 'image' });
+    }
+  }
+  // Drop removed media (including an old video) before uploading a replacement.
+  await patchHostListing(listingId, { photos: keepers });
+
+  const final: Array<{ uri: string; type: 'image' | 'video' }> = [];
+  if (draft.video) {
+    if (typeof draft.video === 'string') {
+      final.push({ uri: draft.video, type: 'video' });
+    } else {
+      const uploaded = await uploadHostListingPhoto(
+        listingId,
+        draft.video,
+        'video',
+      );
+      final.push({ uri: uploaded.uri, type: 'video' });
+    }
+  }
+  for (const photo of draft.photos) {
+    if (!photo) continue;
+    if (typeof photo === 'string') {
+      final.push({ uri: photo, type: 'image' });
+    } else {
+      const uploaded = await uploadHostListingPhoto(listingId, photo, 'image');
+      final.push({ uri: uploaded.uri, type: 'image' });
+    }
+  }
+  await patchHostListing(listingId, { photos: final });
+  return final;
 }
 
 export async function decodeVin(vin: string): Promise<VinDecodeResult> {
@@ -148,8 +200,10 @@ export type ListRideDraft = {
   checkInInstructions: string;
   checkOutInstructions: string;
   carFeatures: string[];
-  /** Slot-ordered listing photos; null = empty. File = new upload; string = existing URL. */
+  /** Slot-ordered listing photos (images only); null = empty. File = new upload; string = existing URL. */
   photos: Array<File | string | null>;
+  /** Optional short clip (max 1). File = new upload; string = existing URL. */
+  video: File | string | null;
   /** Host blocked dates + hours (CalendarScreen parity). */
   calendarData: ListRideCalendarData | null;
 };
@@ -196,6 +250,7 @@ export function emptyListRideDraft(): ListRideDraft {
     checkOutInstructions: '',
     carFeatures: [],
     photos: [null, null, null, null, null, null],
+    video: null,
     calendarData: null,
   };
 }
@@ -283,7 +338,13 @@ export function listingToDraft(listing: ListingDetail): ListRideDraft {
   const countryGuess =
     parts.length >= 2 ? parts[parts.length - 1] : '';
 
-  const photoUrls = (listing.photos ?? [])
+  const media = listing.photos ?? [];
+  const videoEntry = media.find((p) => isListingVideo(p));
+  const videoUri = videoEntry
+    ? videoEntry.uri || videoEntry.url || null
+    : null;
+  const photoUrls = media
+    .filter((p) => !isListingVideo(p))
     .map((p) => p.uri || p.url || '')
     .filter(Boolean);
   const photos: Array<File | string | null> = [
@@ -348,6 +409,7 @@ export function listingToDraft(listing: ListingDetail): ListRideDraft {
       ? [...listing.carFeatures]
       : [],
     photos,
+    video: videoUri,
     calendarData: apiRangesToCalendarData(listing.availability),
   };
 }

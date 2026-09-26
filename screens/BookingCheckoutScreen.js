@@ -505,6 +505,8 @@ export default function BookingCheckoutScreen({ navigation, route }) {
               pickupAddress: listing.pickupAddress,
               hostName: listing.hostName,
               hostPhotoUri: listing.hostPhotoUri,
+              // Contact / VIN / plate come from the booking API after confirm
+              // (server listingSnapshot) — public listing no longer returns them.
               hostEmail: listing.hostEmail,
               hostPhone: listing.hostPhone,
               year: listing.year ?? listing.vehicleData?.year,

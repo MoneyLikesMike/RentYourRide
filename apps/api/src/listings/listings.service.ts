@@ -14,6 +14,7 @@ import { assertIdentityVerified } from '../common/user-verification';
 import {
   DATE_BLOCKING_BOOKING_STATUSES,
 } from '../bookings/booking-date-ranges';
+import { toPublicListingDto } from './public-listing.dto';
 
 @Injectable()
 export class ListingsService {
@@ -206,7 +207,7 @@ export class ListingsService {
   }
 
   async toPublicDetailDto(listing: ListingEntity) {
-    const dto = listing.toDetailDto(listing.host);
+    const dto = toPublicListingDto(listing);
     const blockedRanges = await this.getBlockedRanges(listing.id, listing);
     return {
       ...dto,

@@ -8,6 +8,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/listings/public-listing.dto.spec.ts src/bookings/booking-snapshot-access.spec.ts",
     "db:tunnel": "aws ssm start-session --profile dev --region us-east-2 --target i-0e2ec07b03f5f9973 --document-name AWS-StartPortForwardingSessionToRemoteHost --parameters '{\"host\":[\"corestack-ryrdbsetuppostgresinstancec9b075df-uyfsvjmscu4e.cpeg8o0w4fhk.us-east-2.rds.amazonaws.com\"],\"portNumber\":[\"5432\"],\"localPortNumber\":[\"15432\"]}'",
     "legacy:flag-social-users": "node scripts/flag-legacy-social-only-users.mjs",
     "legacy:send-password-reset": "node scripts/send-migration-password-reset.mjs",
@@ -49,6 +50,7 @@
     "@types/multer": "^1.4.12",
     "@types/node": "^22.10.5",
     "@types/passport-jwt": "^4.0.1",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.3"
   }
 }

@@ -23,7 +23,7 @@ App version on TF for this feature: check `app.json` (`3.0.7` / build **40** in 
 ## Web (same listing)
 
 1. **Detail** (`ListingDetailPage`): detects `type: 'video'` / video extensions; main stage shows muted poster-like `<video preload="metadata">` + play affordance; lightbox uses `controls` + `playsInline` + **muted** (Safari autoplay policy).
-2. **Host list-on-web:** still **images only** — punch-listed.
+2. **Host list-on-web:** List / edit your ride → **Photos & video** — optional **Add video** (MP4/MOV, ≤1 min / 60 MB). Pinned first on save; cover remains the first photo.
 
 ## Manual test matrix
 
@@ -33,6 +33,7 @@ App version on TF for this feature: check `app.json` (`3.0.7` / build **40** in 
 | Huge file / long clip | Alert: under 60 MB / 1 minute; no upload |
 | Airplane mode mid-upload | Save error; listing not half-published as “success” |
 | Web + iOS Safari | Open listing with video; muted inline; unmute via controls in lightbox |
+| Web host add video | List/edit ride → Add video → publish/save → detail shows Video |
 | Photos only | Unchanged |
 
 ## Punch list / follow-ups
@@ -41,7 +42,7 @@ App version on TF for this feature: check `app.json` (`3.0.7` / build **40** in 
 |------|--------|
 | Poster frame generation (`thumbnailUri`) | Open — client field exists; nothing generates posters |
 | Android picker / record | Open — iOS TF only verified in product today |
-| Web host video upload | Open — `accept="image/*"` on list-your-ride |
+| Web host video upload | Done — ListYourRide step 5 + `syncHostListingMedia` |
 | Server-side duration probe | Open — client + picker only; API enforces size/MIME/count |
 | Disk orphan cleanup on photo remove | Open — PATCH drops URIs; files may remain under `uploads/listings` |
 | Create-then-upload orphan draft | Open — listing can exist if user abandons after create |
@@ -53,4 +54,4 @@ App version on TF for this feature: check `app.json` (`3.0.7` / build **40** in 
 
 - Mobile: `screens/ShowOffYourRideScreen.js`, `PhotoManagementScreen.js`, `VehicleDetailScreen.js`, `ListingPhotoGalleryScreen.js`, `utils/listingPhotos.js`, `constants/listingMedia.js`
 - API: `apps/api/src/listings/host-listings.controller.ts` (`POST …/photos`)
-- Web: `apps/web/src/pages/ListingDetailPage.tsx`, `PhotoLightbox.tsx`, `api/listings.ts`
+- Web: `apps/web/src/pages/ListYourRidePage.tsx`, `ListingDetailPage.tsx`, `PhotoLightbox.tsx`, `api/hostListings.ts` (`syncHostListingMedia`), `utils/listingMedia.ts`, `api/listings.ts`
