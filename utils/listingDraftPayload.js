@@ -1,3 +1,5 @@
+import { calendarDataToApiRanges } from './listingAvailability';
+
 /**
  * Map list-ride draft fields to host create/patch body for the API.
  * Do not send `published` — create defaults unpublished; patches must preserve
@@ -23,6 +25,13 @@ export function draftToListingBody(draft) {
   if (draft.checkOutInstructions) extras.checkOutInstructions = draft.checkOutInstructions;
   if (draft.kmOverageFee != null) extras.kmOverageFee = draft.kmOverageFee;
 
+  const vehicleData =
+    draft.vehicleData && typeof draft.vehicleData === 'object' ? draft.vehicleData : null;
+  const vinRaw =
+    (typeof draft.vin === 'string' && draft.vin.trim()) ||
+    (vehicleData && typeof vehicleData.vin === 'string' && vehicleData.vin.trim()) ||
+    '';
+
   const body = {
     city: draft.city || 'Winnipeg',
     title: draft.title || 'My vehicle',
@@ -39,15 +48,19 @@ export function draftToListingBody(draft) {
     latitude: draft.latitude ?? null,
     longitude: draft.longitude ?? null,
     pickupAddress: draft.pickupAddress || `${draft.city || 'Winnipeg'}, MB`,
-    vin: draft.vin?.trim() ? draft.vin.trim() : null,
+    vin: vinRaw ? vinRaw.toUpperCase() : null,
     carFeatures: draft.carFeatures ?? [],
     extras,
     licensePlate: draft.licensePlate ?? null,
     licenseProvince: draft.licenseProvince ?? null,
-    vehicleData: draft.vehicleData ?? null,
+    vehicleData,
   };
-  if (Array.isArray(draft.availability) && draft.availability.length > 0) {
-    body.availability = draft.availability;
+  const availability =
+    Array.isArray(draft.availability) && draft.availability.length > 0
+      ? draft.availability
+      : calendarDataToApiRanges(draft.calendarData);
+  if (availability.length > 0) {
+    body.availability = availability;
   }
   return body;
 }

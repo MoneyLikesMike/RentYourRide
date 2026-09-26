@@ -9,7 +9,6 @@ import {
   ScrollView,
   Dimensions,
   TextInput,
-  Switch,
   Modal,
   Pressable,
   ActivityIndicator,
@@ -102,38 +101,48 @@ const ExtrasSetupScreen = ({ navigation }) => {
     }
   };
 
-  const renderExtraSection = (extra, sectionStyle) => (
-    <View style={[styles.section, sectionStyle]} key={extra.key}>
-      <View style={styles.labelRow}>
-        <Text style={styles.sectionLabel}>{extra.label}</Text>
-        <TouchableOpacity
-          style={styles.helpButton}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          onPress={() => setHelpModalContent({ title: extra.helpTitle, body: extra.helpBody })}
-        >
-          <Text style={styles.helpText}>?</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }} />
-        <Switch
-          value={getOn(extra.key)}
-          onValueChange={(v) => setOn(extra.key, v)}
-          trackColor={{ false: '#E0E0E0', true: COLORS.GREENY_BLUE_TWO }}
-          thumbColor="#fff"
-        />
+  const renderExtraSection = (extra, sectionStyle) => {
+    const isOn = getOn(extra.key);
+    return (
+      <View style={[styles.section, sectionStyle]} key={extra.key}>
+        <View style={styles.labelRow}>
+          <Text style={styles.sectionLabel}>{extra.label}</Text>
+          <TouchableOpacity
+            style={styles.helpButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => setHelpModalContent({ title: extra.helpTitle, body: extra.helpBody })}
+          >
+            <Text style={styles.helpText}>?</Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+            activeOpacity={0.7}
+            onPress={() => setOn(extra.key, !isOn)}
+          >
+            <Text style={[styles.addText, isOn && styles.addTextOn]}>
+              {isOn ? 'Added' : 'Add'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {isOn ? (
+          <>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Price"
+                placeholderTextColor="#A9A9A9"
+                value={getPrice(extra.key)}
+                onChangeText={(text) => handlePriceChange(extra.key, text)}
+                keyboardType="number-pad"
+              />
+            </View>
+            <Text style={styles.helperText}>Type in no decimals allowed</Text>
+          </>
+        ) : null}
       </View>
-      <View style={styles.inputWrapper}>
-        <TextInput
-          style={styles.input}
-          placeholder="Price"
-          placeholderTextColor="#A9A9A9"
-          value={getPrice(extra.key)}
-          onChangeText={(text) => handlePriceChange(extra.key, text)}
-          keyboardType="number-pad"
-        />
-      </View>
-      <Text style={styles.helperText}>Type in no decimals allowed</Text>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -263,6 +272,15 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 11,
     color: '#9B9B9B',
+  },
+  addText: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 14 * scale,
+    color: COLORS.GREENY_BLUE_TWO,
+  },
+  addTextOn: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    color: COLORS.GREENY_BLUE_TWO,
   },
   inputWrapper: {
     width: 331 * scale,

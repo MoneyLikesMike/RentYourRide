@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { uiScale } from '../utils/uiScale';
 import {
   View,
@@ -8,11 +8,15 @@ import {
   ScrollView,
   Dimensions,
   Platform,
+  Alert,
 } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useAccountSetupSteps } from '../hooks/useAccountSetupSteps';
+import { startEmailVerification } from '../services/authApi';
+import * as tokens from '../services/authTokens';
+import { useAuth } from '../context/AuthContext';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -70,8 +74,36 @@ function StepRow({ title, done, onPress, disabled }) {
 
 export default function VerificationStepsScreen({ navigation }) {
   const { incomplete, pending, verified } = useAccountSetupSteps();
+  const { user } = useAuth();
+  const [emailBusy, setEmailBusy] = useState(false);
+
+  const sendEmailVerification = async () => {
+    if (emailBusy) return;
+    setEmailBusy(true);
+    try {
+      const access = await tokens.getAccessToken();
+      if (!access) throw new Error('Sign in again to verify your email.');
+      const result = await startEmailVerification(access);
+      if (result?.alreadyVerified) {
+        Alert.alert('Already verified', 'Your email address is already verified.');
+        return;
+      }
+      Alert.alert(
+        'Check your email',
+        `Verification email sent to ${user?.email || 'the email on file'}. Open the link in that email to verify.`,
+      );
+    } catch (e) {
+      Alert.alert('Could not send email', e?.message || 'Try again later.');
+    } finally {
+      setEmailBusy(false);
+    }
+  };
 
   const openStep = (step) => {
+    if (step?.id === 'email') {
+      void sendEmailVerification();
+      return;
+    }
     if (!step?.screen) return;
     navigation.navigate(step.screen, step.params);
   };

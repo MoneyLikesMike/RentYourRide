@@ -19,6 +19,8 @@ export type MeUser = {
   emailVerified?: boolean;
   addressLine?: string | null;
   addressCity?: string | null;
+  addressProvince?: string | null;
+  addressPostalCode?: string | null;
   addressCountry?: string | null;
   licenseNumber?: string | null;
   licenseVerified?: boolean;
@@ -29,6 +31,7 @@ export type MeUser = {
   creditsBalance?: number;
   notificationSettings?: Partial<NotificationSettings>;
   createdAt?: string | null;
+  hasPassword?: boolean;
   googleConnected?: boolean;
   appleConnected?: boolean;
 };
@@ -40,6 +43,8 @@ export type PatchMeInput = {
   phone?: string;
   addressLine?: string;
   addressCity?: string;
+  addressProvince?: string;
+  addressPostalCode?: string;
   addressCountry?: string;
   licenseNumber?: string;
 };
@@ -76,6 +81,17 @@ export async function startEmailVerification(): Promise<{
   return apiFetch('v1/auth/start-email-verification', {
     method: 'POST',
     json: {},
+  });
+}
+
+export async function startEmailChange(email: string): Promise<{
+  ok?: boolean;
+  emailSent?: boolean;
+  pendingEmail?: string;
+}> {
+  return apiFetch('v1/auth/change-email', {
+    method: 'POST',
+    json: { email: email.trim() },
   });
 }
 
@@ -118,6 +134,40 @@ export async function patchNotificationSettings(
   return apiFetch<NotificationSettings>('v1/users/me/notification-settings', {
     method: 'PATCH',
     json: { settings },
+  });
+}
+
+export type AccountDeletionBlocker = {
+  code: 'ACTIVE_TRIPS' | 'OUTSTANDING_BALANCE';
+  title: string;
+  detail: string;
+  count?: number;
+  amountCents?: number;
+};
+
+export type AccountDeletionEligibility = {
+  canDelete: boolean;
+  blockers: AccountDeletionBlocker[];
+  gracePeriodDays?: number;
+  hasPassword?: boolean;
+  googleConnected?: boolean;
+  appleConnected?: boolean;
+};
+
+export async function getDeletionEligibility(): Promise<AccountDeletionEligibility> {
+  return apiFetch<AccountDeletionEligibility>('v1/users/me/deletion-eligibility', {
+    method: 'GET',
+  });
+}
+
+export async function deleteMyAccount(input: {
+  password?: string;
+  googleIdToken?: string;
+  appleIdentityToken?: string;
+}): Promise<{ ok: boolean; permanentlyDeletesAt?: string }> {
+  return apiFetch('v1/users/me', {
+    method: 'DELETE',
+    json: { confirm: true, ...input },
   });
 }
 

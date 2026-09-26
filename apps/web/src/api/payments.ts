@@ -12,6 +12,7 @@ export type StripePaymentMethod = {
   cardholderName?: string | null;
   country?: string | null;
   postalCode?: string | null;
+  cardholderMatchesLicense?: boolean | null;
 };
 
 export async function createSetupIntent(): Promise<{
@@ -34,14 +35,10 @@ export async function listPaymentMethods(): Promise<StripePaymentMethod[]> {
 export async function reportPaymentMethodAdded(
   paymentMethodId: string,
 ): Promise<void> {
-  try {
-    await apiFetch('v1/payments/methods/added', {
-      method: 'POST',
-      json: { paymentMethodId },
-    });
-  } catch {
-    // The card is already saved — a missed notification must not fail the flow.
-  }
+  await apiFetch('v1/payments/methods/added', {
+    method: 'POST',
+    json: { paymentMethodId },
+  });
 }
 
 export async function setDefaultPaymentMethod(

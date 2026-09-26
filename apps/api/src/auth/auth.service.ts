@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
   ServiceUnavailableException,
+  NotFoundException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -27,8 +28,14 @@ import {
 import { JwtPayload } from './strategies/jwt.strategy';
 import { SmsService } from './sms.service';
 import { GoogleAuthService } from './google-auth.service';
+import {
+  assertAllowedPhoneForOtp,
+  phoneOtpRateLimiter,
+} from './phone-otp-policy';
 import { AppleAuthService } from './apple-auth.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MailerliteService } from '../mailerlite/mailerlite.service';
+import { UsersService } from '../users/users.service';
 
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const ACCESS_TTL = '15m';
@@ -55,6 +62,8 @@ export class AuthService {
     private readonly googleAuth: GoogleAuthService,
     private readonly appleAuth: AppleAuthService,
     private readonly notifications: NotificationsService,
+    private readonly mailerlite: MailerliteService,
+    private readonly users: UsersService,
   ) {}
 
   private jwtSecret(): string {
@@ -91,6 +100,11 @@ export class AuthService {
     });
     await this.usersRepo.save(user);
     await this.issueEmailVerification(user);
+    this.mailerlite.upsertSubscriberAsync({
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    });
     return this.issueLoginPayload(user, true);
   }
 
@@ -100,14 +114,14 @@ export class AuthService {
     lastName?: string;
   }) {
     const profile = await this.googleAuth.verifyIdToken(body.idToken);
-    const { user, isNewUser } = await this.findOrCreateOAuthUser({
+    const { user, isNewUser, deletionCancelled } = await this.findOrCreateOAuthUser({
       email: profile.email,
       firstName: body.firstName?.trim() || profile.firstName,
       lastName: body.lastName?.trim() || profile.lastName,
       googleSub: profile.sub,
       avatarUrl: profile.picture,
     });
-    return this.issueLoginPayload(user, isNewUser);
+    return this.issueLoginPayload(user, isNewUser, deletionCancelled);
   }
 
   async loginWithApple(body: {
@@ -120,13 +134,13 @@ export class AuthService {
     const email =
       profile.email ||
       (body.email?.trim() ? body.email.trim().toLowerCase() : null);
-    const { user, isNewUser } = await this.findOrCreateOAuthUser({
+    const { user, isNewUser, deletionCancelled } = await this.findOrCreateOAuthUser({
       email,
       firstName: body.firstName?.trim(),
       lastName: body.lastName?.trim(),
       appleSub: profile.sub,
     });
-    return this.issueLoginPayload(user, isNewUser);
+    return this.issueLoginPayload(user, isNewUser, deletionCancelled);
   }
 
   private async findOrCreateOAuthUser(opts: {
@@ -136,7 +150,7 @@ export class AuthService {
     googleSub?: string;
     appleSub?: string;
     avatarUrl?: string;
-  }): Promise<{ user: UserEntity; isNewUser: boolean }> {
+  }): Promise<{ user: UserEntity; isNewUser: boolean; deletionCancelled?: boolean }> {
     let user: UserEntity | null = null;
 
     if (opts.googleSub) {
@@ -150,6 +164,10 @@ export class AuthService {
     }
 
     if (user) {
+      if (user.deletedAt) {
+        throw new UnauthorizedException('This account has been deleted');
+      }
+      const deletionCancelled = await this.users.restoreIfPendingDeletion(user);
       let dirty = false;
       if (opts.googleSub && !user.googleSub) {
         user.googleSub = opts.googleSub;
@@ -174,7 +192,7 @@ export class AuthService {
       if (dirty) {
         await this.usersRepo.save(user);
       }
-      return { user, isNewUser: false };
+      return { user, isNewUser: false, deletionCancelled };
     }
 
     if (!opts.email) {
@@ -206,6 +224,11 @@ export class AuthService {
     await this.usersRepo.save(created);
     // Match password signup + legacy: new social accounts must verify email too.
     await this.issueEmailVerification(created);
+    this.mailerlite.upsertSubscriberAsync({
+      email: created.email,
+      firstName: created.firstName,
+      lastName: created.lastName,
+    });
     return { user: created, isNewUser: true };
   }
 
@@ -216,14 +239,18 @@ export class AuthService {
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    if (user.isActive === false) {
+    if (user.deletedAt) {
+      throw new UnauthorizedException('This account has been deleted');
+    }
+    if (user.isActive === false && !user.deletionRequestedAt) {
       throw new UnauthorizedException('Account is deactivated');
     }
     const matches = await compareBcryptPassword(password, user.passwordHash);
     if (!matches) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    return this.issueLoginPayload(user);
+    const deletionCancelled = await this.users.restoreIfPendingDeletion(user);
+    return this.issueLoginPayload(user, false, deletionCancelled);
   }
 
   async adminLogin(email: string, password: string) {
@@ -234,7 +261,11 @@ export class AuthService {
     return payload;
   }
 
-  private async issueLoginPayload(user: UserEntity, isNewUser = false) {
+  private async issueLoginPayload(
+    user: UserEntity,
+    isNewUser = false,
+    deletionCancelled = false,
+  ) {
     const accessToken = await this.signAccess(user);
     const refreshPlain = randomRefreshToken();
     const rt = this.refreshRepo.create({
@@ -245,6 +276,7 @@ export class AuthService {
     await this.refreshRepo.save(rt);
     return {
       isNewUser,
+      deletionCancelled: deletionCancelled || undefined,
       user: {
         id: user.id,
         email: user.email,
@@ -286,8 +318,11 @@ export class AuthService {
     if (!row || row.expiresAt < new Date()) {
       throw new UnauthorizedException('Invalid refresh token');
     }
-    await this.refreshRepo.delete(row.id);
     const user = row.user;
+    if (!user || user.isActive === false || user.deletedAt) {
+      throw new UnauthorizedException('This account has been deleted');
+    }
+    await this.refreshRepo.delete(row.id);
     const accessToken = await this.signAccess(user);
     const refreshPlain = randomRefreshToken();
     const next = this.refreshRepo.create({
@@ -357,8 +392,19 @@ export class AuthService {
     return flag === '1' || flag === 'true';
   }
 
-  async startPhoneVerification(userId: string, phoneNumber: string) {
+  async startPhoneVerification(
+    userId: string,
+    phoneNumber: string,
+    clientIp?: string | null,
+  ) {
     const normalized = this.normalizePhoneNumber(phoneNumber);
+    assertAllowedPhoneForOtp(normalized);
+    phoneOtpRateLimiter.assertCanSend({
+      userId,
+      phoneE164: normalized,
+      ip: clientIp,
+    });
+
     const user = await this.usersRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -388,10 +434,21 @@ export class AuthService {
       if (smsResult.devLogged && this.config.get<string>('NODE_ENV') !== 'production') {
         this.log.warn(`[auth] phone OTP for ${normalized}: ${code}`);
       }
+      if (smsResult.reason === 'sns_spend_limit') {
+        throw new ServiceUnavailableException(
+          'Could not send verification text — SMS spending limit reached for this month. Please try again later or contact support.',
+        );
+      }
       throw new ServiceUnavailableException(
         'Could not send verification text message. Phone SMS may not be configured on this server.',
       );
     }
+
+    phoneOtpRateLimiter.recordSend({
+      userId,
+      phoneE164: normalized,
+      ip: clientIp,
+    });
 
     return {
       ok: true,
@@ -432,7 +489,7 @@ export class AuthService {
 
   private async issueEmailVerification(
     user: UserEntity,
-  ): Promise<{ linkToken: string; code: string } | null> {
+  ): Promise<{ linkToken: string; code: string; emailSent: boolean } | null> {
     if (user.emailVerified) return null;
     await this.emailVerifyRepo.delete({ userId: user.id });
     const plain = randomResetToken();
@@ -451,13 +508,18 @@ export class AuthService {
         purpose: 'otp',
       }),
     ]);
-    await this.notifications.verifyEmail(user, plain, code);
-    if (this.config.get<string>('NODE_ENV') !== 'production') {
-      this.log.warn(
-        `[auth] email verification for ${user.email}: link=${plain} code=${code}`,
+    const emailSent = await this.notifications.verifyEmail(user, plain, code);
+    if (!emailSent) {
+      this.log.error(
+        `[auth] VerifyEmail Pinpoint delivery failed for ${user.email}`,
       );
     }
-    return { linkToken: plain, code };
+    if (this.config.get<string>('NODE_ENV') !== 'production') {
+      this.log.warn(
+        `[auth] email verification for ${user.email}: link=${plain} code=${code} emailSent=${emailSent}`,
+      );
+    }
+    return { linkToken: plain, code, emailSent };
   }
 
   async startEmailVerification(userId: string) {
@@ -470,9 +532,15 @@ export class AuthService {
     const expose =
       this.smsExposeCodeEnabled() ||
       this.config.get<string>('NODE_ENV') !== 'production';
+    if (issued && !issued.emailSent && !expose) {
+      throw new ServiceUnavailableException(
+        'Could not send verification email. Please try again in a minute, and check spam/junk if it still does not arrive.',
+      );
+    }
     return {
       ok: true,
       alreadyVerified: false,
+      emailSent: issued?.emailSent ?? false,
       ...(expose && issued?.code ? { devCode: issued.code } : {}),
     };
   }
@@ -527,11 +595,150 @@ export class AuthService {
     return { ok: true, user: row.user.toPublicDto() };
   }
 
+  /**
+   * Admin dashboard "resend verification email".
+   * Legacy: POST admin/users/:id/verify-email → startEmailVerification (send mail).
+   * Does not mark the address verified.
+   */
+  async resendEmailVerificationAdmin(userId: string) {
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.emailVerified) {
+      return {
+        ...user.toPublicDto(),
+        alreadyVerified: true,
+        emailSent: false,
+      };
+    }
+    const issued = await this.issueEmailVerification(user);
+    return {
+      ...user.toPublicDto(),
+      alreadyVerified: false,
+      emailSent: issued?.emailSent ?? false,
+    };
+  }
+
+  /** Force-mark email verified (not used by the resend button). */
   async setEmailVerifiedAdmin(userId: string) {
     const user = await this.usersRepo.findOne({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException('User not found');
+    if (!user) throw new NotFoundException('User not found');
     user.emailVerified = true;
     await this.usersRepo.save(user);
     return user.toPublicDto();
+  }
+
+  /**
+   * Start email change: store pending address + token, email confirmation link
+   * to the *new* address. Email is not swapped until confirmEmailChange.
+   */
+  async startEmailChange(userId: string, rawEmail: string) {
+    const email = String(rawEmail || '')
+      .trim()
+      .toLowerCase();
+    if (!email || !email.includes('@')) {
+      throw new BadRequestException('Enter a valid email address');
+    }
+
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    if (user.email.trim().toLowerCase() === email) {
+      throw new BadRequestException('That is already your email address');
+    }
+
+    const taken = await this.usersRepo.findOne({ where: { email } });
+    if (taken && taken.id !== user.id) {
+      throw new ConflictException('That email is already in use');
+    }
+
+    await this.emailVerifyRepo.delete({
+      userId: user.id,
+      purpose: 'email_change',
+    });
+
+    const plain = randomResetToken();
+    await this.emailVerifyRepo.save(
+      this.emailVerifyRepo.create({
+        userId: user.id,
+        tokenHash: hashOpaque(plain),
+        expiresAt: new Date(Date.now() + EMAIL_VERIFY_TTL_MS),
+        purpose: 'email_change',
+        pendingEmail: email,
+      }),
+    );
+
+    const emailSent = await this.notifications.confirmEmailChange(
+      user,
+      email,
+      plain,
+    );
+    if (!emailSent) {
+      this.log.error(
+        `[auth] Email-change Pinpoint delivery failed for ${email} (user ${user.id})`,
+      );
+    }
+    const expose =
+      this.smsExposeCodeEnabled() ||
+      this.config.get<string>('NODE_ENV') !== 'production';
+    if (!emailSent && !expose) {
+      throw new ServiceUnavailableException(
+        'Could not send confirmation email. Please try again in a minute, and check spam/junk if it still does not arrive.',
+      );
+    }
+    if (expose) {
+      this.log.warn(
+        `[auth] email change for user ${user.id} → ${email}: token=${plain} emailSent=${emailSent}`,
+      );
+    }
+    return {
+      ok: true,
+      emailSent,
+      pendingEmail: email,
+      ...(expose ? { devToken: plain } : {}),
+    };
+  }
+
+  /** Apply pending email from confirmation link / Ok on success screen. */
+  async confirmEmailChange(token: string) {
+    const cleaned = String(token || '').trim();
+    if (!cleaned) {
+      throw new BadRequestException('Missing confirmation token');
+    }
+    const hash = hashOpaque(cleaned);
+    const row = await this.emailVerifyRepo.findOne({
+      where: { tokenHash: hash, purpose: 'email_change' },
+      relations: ['user'],
+    });
+    if (!row || row.expiresAt < new Date()) {
+      throw new UnauthorizedException(
+        'Invalid or expired email change link. Request a new one from account settings.',
+      );
+    }
+    const pending = (row.pendingEmail || '').trim().toLowerCase();
+    if (!pending || !pending.includes('@')) {
+      throw new BadRequestException('This email change link is incomplete');
+    }
+
+    const user = row.user;
+    if (!user) throw new UnauthorizedException('User not found');
+
+    if (user.email.trim().toLowerCase() !== pending) {
+      const taken = await this.usersRepo.findOne({ where: { email: pending } });
+      if (taken && taken.id !== user.id) {
+        throw new ConflictException('That email is already in use');
+      }
+      user.email = pending;
+    }
+    user.emailVerified = true;
+    await this.usersRepo.save(user);
+    await this.emailVerifyRepo.delete({ userId: user.id });
+
+    this.mailerlite.upsertSubscriberAsync({
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    });
+
+    return { ok: true, user: user.toPublicDto() };
   }
 }

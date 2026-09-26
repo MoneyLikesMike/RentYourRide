@@ -74,6 +74,27 @@ export function splitBookingBuckets(all: BookingDto[]) {
 
 const H24_MS = 24 * 60 * 60 * 1000;
 
+function hasEnteredTripLifecycle(booking: BookingDto): boolean {
+  const status = booking?.status;
+  if (
+    status === 'checkin_pending' ||
+    status === 'active' ||
+    status === 'checkout_pending' ||
+    status === 'extended' ||
+    status === 'extension_pending' ||
+    status === 'extension_declined'
+  ) {
+    return true;
+  }
+  return (
+    booking?.guestCheckedInAt != null ||
+    booking?.hostCheckedInAt != null ||
+    booking?.guestTripStartedAt != null ||
+    booking?.hostTripStartedAt != null ||
+    booking?.rentalAgreementSignedAt != null
+  );
+}
+
 export function getTripBoundsMs(
   booking: BookingDto,
 ): { startMs: number; endMs: number } | null {
@@ -110,7 +131,9 @@ export function getTripCardStatus(
   if (booking?.status === 'completed' || nowMs >= endMs + H24_MS) {
     return { key: 'completed', label: '' };
   }
-  if (nowMs >= endMs - H24_MS) {
+  // Short trips (≤24h) sit inside the ending window for their whole duration —
+  // only show "Ending soon" / checkout after check-in has started.
+  if (nowMs >= endMs - H24_MS && hasEnteredTripLifecycle(booking)) {
     return { key: 'ending_soon', label: 'Ending soon' };
   }
   if (
@@ -122,7 +145,7 @@ export function getTripCardStatus(
   if (nowMs >= startMs - H24_MS && nowMs < startMs) {
     return { key: 'beginning_soon', label: 'Beginning soon' };
   }
-  if (nowMs >= startMs && nowMs < endMs - H24_MS) {
+  if (nowMs >= startMs && nowMs < endMs) {
     return { key: 'in_progress', label: 'In progress' };
   }
   if (nowMs < startMs - H24_MS) {
@@ -155,17 +178,19 @@ export function getTripCardPrimaryAction(
   if (statusKey === 'completed' || hasPartyCheckedOut(booking, isHost)) {
     return { type: null };
   }
+  if (
+    (statusKey === 'ending_soon' ||
+      statusKey === 'beginning_soon' ||
+      statusKey === 'in_progress') &&
+    !hasCheckedIn(booking, isHost)
+  ) {
+    return { type: 'check_in' };
+  }
   if (statusKey === 'ending_soon') {
     return { type: 'checkout' };
   }
-  if (statusKey === 'beginning_soon' || statusKey === 'in_progress') {
-    if (!hasCheckedIn(booking, isHost)) {
-      return { type: 'check_in' };
-    }
-    if (statusKey === 'in_progress' && !isHost) {
-      return { type: 'extend' };
-    }
-    return { type: null };
+  if (statusKey === 'in_progress' && !isHost) {
+    return { type: 'extend' };
   }
   return { type: null };
 }

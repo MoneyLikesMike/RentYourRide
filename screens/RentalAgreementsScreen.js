@@ -145,9 +145,10 @@ export default function RentalAgreementsScreen() {
     <View style={styles.emptyStateContainer}>
       <Image source={require('../assets/icons/EmptyRoad.png')} style={styles.emptyIcon} />
       <Text style={styles.emptyHeader}>You have no rental agreements</Text>
-      <Text style={styles.emptyParagraph}>Completed check-out agreements appear here after a trip ends.</Text>
-      <View style={{ height: 60 }} />
-      <TouchableOpacity style={[styles.rentButton, { marginTop: -120 }]} onPress={() => navigation.navigate('HomeScreen')}>
+      <Text style={styles.emptyParagraph}>
+        Completed check-out agreements appear here after a trip ends.
+      </Text>
+      <TouchableOpacity style={styles.rentButton} onPress={() => navigation.navigate('HomeScreen')}>
         <Text style={styles.rentButtonText}>Rent a ride</Text>
       </TouchableOpacity>
     </View>
@@ -160,8 +161,7 @@ export default function RentalAgreementsScreen() {
       <Text style={styles.emptyParagraphHost}>
         When you complete check-out as a host, your signed rental agreement will show here.
       </Text>
-      <View style={{ height: 60 }} />
-      <TouchableOpacity style={[styles.rentButton, { marginTop: -80 }]} onPress={() => navigation.navigate('GetPaidStack')}>
+      <TouchableOpacity style={styles.rentButton} onPress={() => navigation.navigate('GetPaidStack')}>
         <Text style={styles.rentButtonText}>List a ride</Text>
       </TouchableOpacity>
     </View>
@@ -328,11 +328,11 @@ const styles = StyleSheet.create({
     color: COLORS.GREENY_BLUE_TWO,
   },
   emptyStateContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    width: '100%',
-    marginTop: -120,
+    paddingHorizontal: 24 * scale,
+    paddingBottom: 32 * scale,
   },
   emptyIcon: {
     width: 176 * scale,
@@ -345,12 +345,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: 'rgb(14,38,43)',
     textAlign: 'center',
-    width: 272,
-    height: 48,
+    maxWidth: 272 * scale,
     marginBottom: 16 * scale,
     lineHeight: 24,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
   },
   emptyParagraph: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
@@ -358,8 +355,9 @@ const styles = StyleSheet.create({
     color: 'rgb(171,171,171)',
     textAlign: 'center',
     letterSpacing: -0.2,
-    width: 259,
+    maxWidth: 293 * scale,
     marginBottom: 32 * scale,
+    lineHeight: 22,
   },
   rentButton: {
     width: 193 * scale,
@@ -383,12 +381,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: 'rgb(14,38,43)',
     textAlign: 'center',
-    width: 272,
-    height: 48,
+    maxWidth: 272 * scale,
     marginBottom: 16 * scale,
     lineHeight: 24,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
   },
   emptyParagraphHost: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
@@ -396,8 +391,9 @@ const styles = StyleSheet.create({
     color: 'rgb(171,171,171)',
     textAlign: 'center',
     letterSpacing: -0.2,
-    width: 299,
+    maxWidth: 299 * scale,
     marginBottom: 32 * scale,
+    lineHeight: 22,
   },
   headerTextFlexWrapper: {
     flex: 1,

@@ -1,8 +1,11 @@
 import { Alert } from 'react-native';
 import { isRemoteBookingId } from './bookingId';
+import { navigateInNearestStack } from './navigateRootStack';
 
 /**
  * Navigate to the in-app chat for a booking, with guards for unsynced local trips.
+ * Prefers pushing ChatThread on the current stack so Back returns to the caller
+ * (e.g. booking details) instead of jumping to the Chat tab.
  */
 export function openBookingChat(navigation, bookingId) {
   if (!bookingId) {
@@ -19,9 +22,13 @@ export function openBookingChat(navigation, bookingId) {
     );
     return;
   }
+  const params = { bookingId };
+  if (navigateInNearestStack(navigation, 'ChatThreadScreen', params)) {
+    return;
+  }
   navigation.navigate('ChatScreen', {
     screen: 'ChatThreadScreen',
-    params: { bookingId },
+    params,
   });
 }
 

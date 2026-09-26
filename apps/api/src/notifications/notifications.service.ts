@@ -11,7 +11,13 @@ import { TemplateName } from './template-names';
 import { TemplateVariablesBuilder } from './template-variables.builder';
 import { ExpoPushService } from './expo-push.service';
 import { PushTokenService } from './push-token.service';
+import { SmsCopy } from './sms-copy';
 import { BookingExtensionEntity } from '../entities/booking-extension.entity';
+import {
+  adminBaseUrl,
+  lines,
+  vehicleLabel,
+} from '../ops/ops-report.util';
 
 type Recipient = Pick<
   UserEntity,
@@ -107,7 +113,7 @@ export class NotificationsService {
         );
       }
     }
-    await Promise.all(jobs);
+    await Promise.allSettled(jobs);
   }
 
   private async loadBooking(bookingId: string): Promise<BookingNotificationContext | null> {
@@ -115,34 +121,58 @@ export class NotificationsService {
       where: { id: bookingId },
       relations: ['guest', 'host', 'listing'],
     });
-    if (!booking) return null;
-    return BookingNotificationContext.fromEntity(booking);
+    if (!booking) {
+      this.log.warn(`loadBooking: booking not found id=${bookingId}`);
+      return null;
+    }
+    const ctx = BookingNotificationContext.fromEntity(booking);
+    if (!ctx) {
+      this.log.warn(
+        `loadBooking: missing guest/host relations id=${bookingId}`,
+      );
+    }
+    return ctx;
   }
 
-  /** Guest: email+push. Host: email+push+sms. */
+  /** Guest: email+sms+push. Host: email+push+sms. */
   bookingCreated(bookingId: string): void {
     this.run(
       (async () => {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
-        const renterSms =
-          "You sent a reservation request. This is not a confirmed booking yet. You'll get a response within 24 hours";
-        const hostSms = `${ctx.guest.firstName} would like to book your ride. Let them know if it works for you.`;
-        await this.notifyUser(ctx.guest, {
-          email: {
-            template: TemplateName.YouSentAReservationRequest,
-            vars: ctx.createRequestGuestVars(),
-          },
-          push: { body: renterSms },
-        });
-        await this.notifyUser(ctx.host, {
-          sms: hostSms,
-          email: {
-            template: TemplateName.BookingRequest,
-            vars: ctx.createRequestHostVars(),
-          },
-          push: {},
-        });
+        const renterSms = SmsCopy.bookingCreatedGuest();
+        const hostSms = SmsCopy.bookingCreatedHost(ctx.guest.firstName ?? 'Guest');
+        // Isolate channels so one Pinpoint failure cannot skip the other party.
+        try {
+          await this.notifyUser(ctx.guest, {
+            sms: renterSms,
+            email: {
+              template: TemplateName.YouSentAReservationRequest,
+              vars: ctx.createRequestGuestVars(),
+            },
+            push: { body: renterSms },
+          });
+        } catch (err) {
+          this.log.warn(
+            `bookingCreated guest notify failed id=${bookingId}`,
+            err instanceof Error ? err.stack : err,
+          );
+        }
+        try {
+          await this.notifyUser(ctx.host, {
+            sms: hostSms,
+            email: {
+              template: TemplateName.BookingRequest,
+              vars: ctx.createRequestHostVars(),
+            },
+            push: {},
+          });
+        } catch (err) {
+          this.log.warn(
+            `bookingCreated host notify failed id=${bookingId}`,
+            err instanceof Error ? err.stack : err,
+          );
+        }
       })(),
     );
   }
@@ -153,10 +183,16 @@ export class NotificationsService {
       (async () => {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
-        const renterSms =
-          `You have successfully confirmed a booking with ${ctx.host.firstName} booking request for ${ctx.startLabel()} - ${ctx.endLabel()}. Get ready to experience Rent Your Ride!`;
-        const hostSms =
-          `You have successfully confirmed ${ctx.guest.firstName} booking request for ${ctx.startLabel()} - ${ctx.endLabel()}`;
+        const renterSms = SmsCopy.bookingApprovedGuest(
+          ctx.host.firstName ?? 'Host',
+          ctx.startLabel(),
+          ctx.endLabel(),
+        );
+        const hostSms = SmsCopy.bookingApprovedHost(
+          ctx.guest.firstName ?? 'Guest',
+          ctx.startLabel(),
+          ctx.endLabel(),
+        );
         await this.notifyUser(ctx.guest, {
           sms: renterSms,
           email: {
@@ -177,44 +213,63 @@ export class NotificationsService {
     );
   }
 
-  /** Guest: email+sms+push. Host: email only. */
+  /** Guest: email+sms+push. Host: email+sms+push. */
   bookingDenied(bookingId: string): void {
     this.run(
       (async () => {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
-        await this.notifyUser(ctx.guest, {
-          sms: `Your booking request doesn't work for the host`,
-          email: {
-            template: TemplateName.YourBookingRequestWasDenied,
-            vars: ctx.baseBookingVars(),
-          },
-          push: {},
-        });
-        await this.notifyUser(ctx.host, {
-          email: {
-            template: TemplateName.YouDeniedABookingRequest,
-            vars: ctx.baseBookingVars(),
-          },
-        });
+        const guestSms = SmsCopy.bookingDeniedGuest(ctx.host.firstName ?? 'Host');
+        const hostSms = SmsCopy.bookingDeniedHost(ctx.guest.firstName ?? 'Guest');
+        try {
+          await this.notifyUser(ctx.guest, {
+            sms: guestSms,
+            email: {
+              template: TemplateName.YourBookingRequestWasDenied,
+              vars: ctx.baseBookingVars(),
+            },
+            push: {},
+          });
+        } catch (err) {
+          this.log.warn(
+            `bookingDenied guest notify failed id=${bookingId}`,
+            err instanceof Error ? err.stack : err,
+          );
+        }
+        try {
+          await this.notifyUser(ctx.host, {
+            sms: hostSms,
+            email: {
+              template: TemplateName.YouDeniedABookingRequest,
+              vars: ctx.baseBookingVars(),
+            },
+            push: {},
+          });
+        } catch (err) {
+          this.log.warn(
+            `bookingDenied host notify failed id=${bookingId}`,
+            err instanceof Error ? err.stack : err,
+          );
+        }
       })(),
     );
   }
 
-  /** Guest: email only. Host: email+sms+push. */
+  /** Guest: email+sms. Host: email+sms+push. */
   bookingCheckedIn(bookingId: string): void {
     this.run(
       (async () => {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
         await this.notifyUser(ctx.guest, {
+          sms: SmsCopy.bookingCheckedInGuest(ctx.host.firstName ?? 'Host'),
           email: {
             template: TemplateName.YoureCheckedInGuest,
             vars: ctx.checkInGuestVars(),
           },
         });
         await this.notifyUser(ctx.host, {
-          sms: `${ctx.guest.firstName} has successfully checked in for their trip with your ride`,
+          sms: SmsCopy.bookingCheckedInHost(ctx.guest.firstName ?? 'Guest'),
           email: {
             template: TemplateName.GuestHasCheckedInUsingYourRide,
             vars: ctx.checkInHostVars(),
@@ -225,23 +280,24 @@ export class NotificationsService {
     );
   }
 
-  /** Guest: email only. Host: email+sms+push. */
+  /** Guest: email+sms. Host: email+sms+push. */
   bookingCheckedOut(bookingId: string): void {
     this.run(
       (async () => {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
         await this.notifyUser(ctx.guest, {
+          sms: SmsCopy.bookingCheckedOutGuest(ctx.host.firstName ?? 'Host'),
           email: {
             template: TemplateName.YoureCheckedOutGuest,
             vars: ctx.baseBookingVars(),
           },
         });
         await this.notifyUser(ctx.host, {
-          sms: `${ctx.guest.firstName} has successfully checked out and has ended their trip using your vehicle`,
+          sms: SmsCopy.bookingCheckedOutHost(ctx.guest.firstName ?? 'Guest'),
           email: {
             template: TemplateName.GuestCheckedOutOfYourRide,
-            vars: ctx.baseBookingVars(),
+            vars: ctx.checkOutHostVars(),
           },
           push: {},
         });
@@ -311,17 +367,16 @@ export class NotificationsService {
     );
   }
 
-  /** Guest + host: email+push (no SMS). */
+  /** Guest + host: email+sms+push. */
   tripBeginningSoon(bookingId: string): void {
     this.run(
       (async () => {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
-        const guestSms =
-          `Your trip is beginning soon. Don't forget to confirm any trip details with your host!`;
-        const hostSms =
-          `Your trip is beginning soon. Don't forget to confirm any trip details with your guest!`;
+        const guestSms = SmsCopy.tripBeginningSoonGuest();
+        const hostSms = SmsCopy.tripBeginningSoonHost();
         await this.notifyUser(ctx.guest, {
+          sms: guestSms,
           email: {
             template: TemplateName.YourTripIsBeginningSoonGuest,
             vars: ctx.tripReminderGuestVars(),
@@ -329,6 +384,7 @@ export class NotificationsService {
           push: { body: guestSms },
         });
         await this.notifyUser(ctx.host, {
+          sms: hostSms,
           email: {
             template: TemplateName.TripBeginningSoonHost,
             vars: ctx.tripReminderHostVars(),
@@ -345,8 +401,8 @@ export class NotificationsService {
       (async () => {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
-        const guestSms = `Your trip is ending soon. Don't forget to coordinate the drop off location and time with ${ctx.host.firstName}.`;
-        const hostSms = `Your trip is ending soon. Don't forget to coordinate the drop off location and time with ${ctx.guest.firstName}.`;
+        const guestSms = SmsCopy.tripEndingSoonGuest(ctx.host.firstName ?? 'Host');
+        const hostSms = SmsCopy.tripEndingSoonHost(ctx.guest.firstName ?? 'Guest');
         await this.notifyUser(ctx.guest, {
           sms: guestSms,
           email: {
@@ -374,7 +430,7 @@ export class NotificationsService {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
         await this.notifyUser(ctx.guest, {
-          sms: message,
+          sms: SmsCopy.newMessageFromHost(ctx.host.firstName ?? 'Host', message),
           email: {
             template: TemplateName.NewMessageFromHost,
             vars: ctx.newMessageGuestVars(message),
@@ -392,7 +448,7 @@ export class NotificationsService {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
         await this.notifyUser(ctx.host, {
-          sms: message,
+          sms: SmsCopy.newMessageFromGuest(ctx.guest.firstName ?? 'Guest', message),
           email: {
             template: TemplateName.NewMessageFromGuest,
             vars: ctx.newMessageHostVars(message),
@@ -403,6 +459,7 @@ export class NotificationsService {
     );
   }
 
+  /** License outcome — always email/SMS/push (legacy auth notifications ignored prefs). */
   licenseApproved(userId: string): void {
     this.run(
       (async () => {
@@ -411,16 +468,20 @@ export class NotificationsService {
         const vars = new TemplateVariablesBuilder()
           .init()
           .setVariable('User.FirstName', user.firstName ?? '')
+          .setVariable('Url.BookARide', `${this.webOrigin()}/`)
+          .setVariable('Url.ListARide', `${this.webOrigin()}/list-your-ride`)
           .build();
         await this.notifyUser(user, {
-          sms: 'We approved your license and ID. You can book or list a ride.',
+          sms: SmsCopy.licenseApproved(),
           email: { template: TemplateName.LicenseApproved, vars },
           push: {},
+          transactional: true,
         });
       })(),
     );
   }
 
+  /** License outcome — always email/SMS/push (legacy auth notifications ignored prefs). */
   licenseDenied(userId: string): void {
     this.run(
       (async () => {
@@ -431,9 +492,10 @@ export class NotificationsService {
           .setVariable('User.FirstName', user.firstName ?? '')
           .build();
         await this.notifyUser(user, {
-          sms: 'We have declined your license and ID. Please make sure your license is valid and the image is clear before you upload it.',
+          sms: SmsCopy.licenseDenied(),
           email: { template: TemplateName.LicenseDenied, vars },
           push: {},
+          transactional: true,
         });
       })(),
     );
@@ -449,7 +511,7 @@ export class NotificationsService {
           .setVariable('Host.FirstName', user.firstName ?? '')
           .build();
         await this.notifyUser(user, {
-          sms: 'We approved your listing. You can now start earning extra cash from your ride.',
+          sms: SmsCopy.listingApproved(),
           email: { template: TemplateName.ListingApproved, vars },
           push: {},
         });
@@ -467,7 +529,7 @@ export class NotificationsService {
           .setVariable('Host.FirstName', user.firstName ?? '')
           .build();
         await this.notifyUser(user, {
-          sms: 'We have declined your listing. Please make sure your vehicle fits within our guidelines.',
+          sms: SmsCopy.listingDenied(),
           email: { template: TemplateName.ListingDenied, vars },
           push: {},
         });
@@ -484,25 +546,78 @@ export class NotificationsService {
         });
         if (!listing?.host) return;
         const host = listing.host;
-        const adminBase =
-          this.config.get<string>('ADMIN_BASE_URL')?.replace(/\/$/, '') ??
-          'https://admindev.rentyourride.ca';
-        const body = `
-${host.firstName} want to lease his vehicle
-      info:
-  first name: ${host.firstName},
-  last name: ${host.lastName},
-  address: ${host.addressCountry ?? ''} ${host.addressCity ?? ''} ${host.addressLine ?? ''},
-  email: ${host.email},
-  phone number: ${host.phone ?? ''},
-  profile link: ${adminBase}/members/profile/info/${host.id},
-`;
-        await this.pinpoint.sendSimpleAdminEmail('new listing', body.trim());
+        const adminBase = adminBaseUrl(this.config);
+        const vd = (listing.vehicleData ?? {}) as Record<string, unknown>;
+        const vehicle = vehicleLabel(vd, listing.title);
+        const photoCount = Array.isArray(listing.photos) ? listing.photos.length : 0;
+        const features = Array.isArray(listing.carFeatures)
+          ? listing.carFeatures.join(', ')
+          : '';
+        const body = [
+          `${host.firstName} wants to list a vehicle`,
+          '',
+          'Host',
+          lines([
+            ['first name', host.firstName],
+            ['last name', host.lastName],
+            ['email', host.email],
+            ['phone', host.phone],
+            [
+              'address',
+              [
+                host.addressLine,
+                host.addressCity,
+                host.addressProvince,
+                host.addressCountry,
+              ]
+                .filter(Boolean)
+                .join(', '),
+            ],
+            ['profile link', `${adminBase}/members/profile/info/${host.id}`],
+          ]),
+          '',
+          'Listing',
+          lines([
+            ['listing id', listing.id],
+            ['title', listing.title],
+            ['vehicle', vehicle],
+            ['year', vd.year as string | undefined],
+            ['make', vd.make as string | undefined],
+            ['model', vd.model as string | undefined],
+            ['trim', vd.trim as string | undefined],
+            ['vehicle type', listing.vehicleType],
+            ['VIN', listing.vin],
+            ['license plate', listing.licensePlate],
+            ['license province', listing.licenseProvince],
+            ['city', listing.city],
+            ['pickup address', listing.pickupAddress],
+            ['price per day', `$${listing.pricePerDay}`],
+            ['weekly discount', listing.weeklyDiscount],
+            ['monthly discount', listing.monthlyDiscount],
+            ['delivery price', listing.deliveryPrice != null ? `$${listing.deliveryPrice}` : null],
+            ['daily km', listing.dailyKm],
+            ['instant booking', listing.instantBooking],
+            ['published', listing.published],
+            ['active', listing.active],
+            ['photos', photoCount],
+            ['features', features],
+            ['listing link', `${adminBase}/members/profile/car/info/${listing.id}`],
+            ['created at', listing.createdAt?.toISOString?.() ?? String(listing.createdAt)],
+          ]),
+        ].join('\n');
+        await this.pinpoint.sendSimpleAdminEmail(
+          `new listing — ${vehicle || listing.title}`,
+          body.trim(),
+        );
       })(),
     );
   }
 
-  /** Transactional — always email. */
+  /**
+   * Transactional — always email.
+   * Link opens the website reset page (same pattern as verify-email). Branch
+   * deep links are retired — they only showed the "Get the App" download screen.
+   */
   passwordRecovery(user: Recipient, token: string): void {
     this.run(
       (async () => {
@@ -511,7 +626,7 @@ ${host.firstName} want to lease his vehicle
           .setVariable('User.FirstName', user.firstName ?? '')
           .setVariable(
             'Auth.PasswordRecoveryLink',
-            `https://rentyourride.app.link?passwordRecoveryVerificationToken=${token}`,
+            `${this.webOrigin()}/reset-password?token=${encodeURIComponent(token)}`,
           )
           .build();
         await this.notifyUser(user, {
@@ -522,17 +637,32 @@ ${host.firstName} want to lease his vehicle
     );
   }
 
-  newPaymentMethod(userId: string): void {
+  newPaymentMethod(
+    userId: string,
+    card?: {
+      brand?: string;
+      createdAt?: string;
+      creationLocation?: string;
+      fromDevice?: string;
+    },
+  ): void {
     this.run(
       (async () => {
         const user = await this.users.findOne({ where: { id: userId } });
         if (!user) return;
         const vars = new TemplateVariablesBuilder()
           .init()
-          .setVariable('Renter.FirstName', user.firstName ?? '')
+          .setVariable('User.FirstName', user.firstName ?? '')
+          .setVariable('Card.Brand', card?.brand ?? 'Card')
+          .setVariable('Card.CreatedAt', card?.createdAt ?? new Date().toUTCString())
+          .setVariable(
+            'Card.CreationLocation',
+            card?.creationLocation ?? 'Rent Your Ride',
+          )
+          .setVariable('Card.FromDevice', card?.fromDevice ?? 'Mobile App')
           .build();
         await this.notifyUser(user, {
-          sms: 'We noticed a new payment method was added to your account.',
+          sms: SmsCopy.paymentMethodAdded(),
           email: { template: TemplateName.AccountActivityNewPaymentMethod, vars },
           push: {},
         });
@@ -540,9 +670,23 @@ ${host.firstName} want to lease his vehicle
     );
   }
 
+  /** Public marketing / customer website origin (no trailing slash). */
+  private webOrigin(): string {
+    const raw =
+      this.config.get<string>('PUBLIC_WEB_ORIGIN')?.trim() ||
+      this.config.get<string>('WEB_PUBLIC_ORIGIN')?.trim() ||
+      '';
+    if (raw) return raw.replace(/\/$/, '');
+    // Customer SPA hosts (password reset / verify-email links).
+    return 'https://app.rentyourride.ca';
+  }
+
   /**
    * Transactional — always email. Auth awaits this result so registration no
    * longer loses delivery failures inside the generic background dispatcher.
+   *
+   * Link opens the website verify page (Airbnb/Turo-style one-click). Mobile
+   * still benefits: verifying in the browser marks the account verified for the app too.
    */
   async verifyEmail(
     user: Recipient,
@@ -555,12 +699,39 @@ ${host.firstName} want to lease his vehicle
       .setVariable('User.Email', user.email)
       .setVariable(
         'Auth.EmailVerificationLink',
-        `https://rentyourride.app.link?emailVerificationToken=${token}`,
+        `${this.webOrigin()}/verify-email?token=${encodeURIComponent(token)}`,
       )
       .setVariable('Auth.EmailVerificationCode', code ?? '')
       .build();
     return this.pinpoint.sendTemplateEmail(
       user.email,
+      TemplateName.VerifyEmail,
+      vars,
+    );
+  }
+
+  /**
+   * Transactional — confirm a pending email change.
+   * Reuses VerifyEmail Pinpoint template; link opens the change-confirm page
+   * (web + custom-scheme deep link into the app).
+   */
+  async confirmEmailChange(
+    user: Recipient,
+    newEmail: string,
+    token: string,
+  ): Promise<boolean> {
+    const vars = new TemplateVariablesBuilder()
+      .init()
+      .setVariable('User.FirstName', user.firstName ?? '')
+      .setVariable('User.Email', newEmail)
+      .setVariable(
+        'Auth.EmailVerificationLink',
+        `${this.webOrigin()}/confirm-email-change?token=${encodeURIComponent(token)}`,
+      )
+      .setVariable('Auth.EmailVerificationCode', '')
+      .build();
+    return this.pinpoint.sendTemplateEmail(
+      newEmail,
       TemplateName.VerifyEmail,
       vars,
     );
@@ -597,9 +768,8 @@ ${host.firstName} want to lease his vehicle
         if (!ctx) return;
         const startLabel = formatBookingEndDate(Number(ext.previousEndMs));
         const endLabel = formatBookingEndDate(Number(ext.newEndMs));
-        const guestSms =
-          "You sent a trip extension request. This is not a confirmed booking yet. You'll get a response within 24 hours";
-        const hostSms = `${ctx.guest.firstName} likes your ride and would like to extend their booking with you. Let them know if it works for you`;
+        const guestSms = SmsCopy.extensionCreatedGuest();
+        const hostSms = SmsCopy.extensionCreatedHost(ctx.guest.firstName ?? 'Guest');
         const guestVars = new TemplateVariablesBuilder()
           .init()
           .setVariable('Renter.FirstName', ctx.guest.firstName ?? '')
@@ -637,7 +807,9 @@ ${host.firstName} want to lease his vehicle
         if (!ext) return;
         const ctx = BookingNotificationContext.fromEntity(ext.booking);
         if (!ctx) return;
-        const guestSms = `Your trip extension is confirmed through ${formatBookingEndDate(Number(ext.newEndMs))}`;
+        const guestSms = SmsCopy.extensionApprovedGuest(
+          formatBookingEndDate(Number(ext.newEndMs)),
+        );
         const vars = new TemplateVariablesBuilder()
           .init()
           .setVariable('Renter.FirstName', ctx.guest.firstName ?? '')
@@ -655,7 +827,7 @@ ${host.firstName} want to lease his vehicle
     );
   }
 
-  /** Host: email only. */
+  /** Guest: email+sms. Host: email+sms. */
   extensionDenied(extensionId: string): void {
     this.run(
       (async () => {
@@ -663,13 +835,30 @@ ${host.firstName} want to lease his vehicle
         if (!ext) return;
         const ctx = BookingNotificationContext.fromEntity(ext.booking);
         if (!ctx) return;
-        const vars = new TemplateVariablesBuilder()
+        const startLabel = formatBookingEndDate(Number(ext.previousEndMs));
+        const endLabel = formatBookingEndDate(Number(ext.newEndMs));
+        const guestVars = new TemplateVariablesBuilder()
           .init()
-          .setVariable('Renter.FirstName', ctx.guest.firstName ?? '')
-          .setVariable('Host.FirstName', ctx.host.firstName ?? '')
+          .mergeWith(ctx.baseBookingVars())
+          .setVariable('Extension.StartDate', startLabel)
+          .setVariable('Extension.EndDate', endLabel)
           .build();
+        const hostVars = new TemplateVariablesBuilder()
+          .init()
+          .mergeWith(ctx.createRequestHostVars())
+          .setVariable('Extension.StartDate', startLabel)
+          .setVariable('Extension.EndDate', endLabel)
+          .build();
+        await this.notifyUser(ctx.guest, {
+          sms: SmsCopy.extensionDeniedGuest(ctx.host.firstName ?? 'Host'),
+          email: {
+            template: TemplateName.YourTripExtensionRequestWasDenied,
+            vars: guestVars,
+          },
+        });
         await this.notifyUser(ctx.host, {
-          email: { template: TemplateName.YouHaveDeniedATripExtenison, vars },
+          sms: SmsCopy.extensionDeniedHost(ctx.guest.firstName ?? 'Guest'),
+          email: { template: TemplateName.YouHaveDeniedATripExtenison, vars: hostVars },
         });
       })(),
     );

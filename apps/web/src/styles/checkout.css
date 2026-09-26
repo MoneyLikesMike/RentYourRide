@@ -413,6 +413,41 @@
 .checkout-add-card {
   margin-top: 0.75rem;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.checkout-add-card-name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.checkout-add-card-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #767676;
+  text-transform: uppercase;
+}
+
+.checkout-add-card-input {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #17252a;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+}
+
+.checkout-card-warning {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #f9493a;
 }
 
 .checkout-card-element {
@@ -728,6 +763,11 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: #17252a;
+}
+
+.checkout-new-host {
+  color: #4cb6b1;
+  font-weight: 700;
 }
 
 .checkout-stars {

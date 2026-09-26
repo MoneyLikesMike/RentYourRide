@@ -2,12 +2,19 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import * as authApi from '../api/auth';
-import { getAccessToken, getRefreshToken, getUserJson, setUserJson } from '../api/storage';
+import {
+  getAccessToken,
+  getRefreshToken,
+  getUserJson,
+  SESSION_CLEARED_EVENT,
+  setUserJson,
+} from '../api/storage';
 import type { AuthUser } from '../api/types';
 import { getMe, type MeUser } from '../api/users';
 import {
@@ -22,15 +29,15 @@ import {
 export interface AuthContextValue {
   isAuthenticated: boolean;
   user: AuthUser | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ deletionCancelled?: boolean } | void>;
   signUp: (input: {
     email: string;
     password: string;
     firstName: string;
     lastName: string;
   }) => Promise<void>;
-  signInWithApple: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<{ deletionCancelled?: boolean } | void>;
+  signInWithGoogle: () => Promise<{ deletionCancelled?: boolean } | void>;
   signOut: () => void;
   /** Refresh full profile from GET /v1/users/me and update local session. */
   refreshProfile: () => Promise<MeUser | null>;
@@ -57,6 +64,8 @@ function meToAuthUser(me: MeUser): AuthUser {
     phoneVerified: me.phoneVerified,
     addressLine: me.addressLine,
     addressCity: me.addressCity,
+    addressProvince: me.addressProvince,
+    addressPostalCode: me.addressPostalCode,
     addressCountry: me.addressCountry,
     licenseNumber: me.licenseNumber,
     licenseVerified: me.licenseVerified,
@@ -68,6 +77,12 @@ function meToAuthUser(me: MeUser): AuthUser {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionVersion, setSessionVersion] = useState(0);
   const bump = useCallback(() => setSessionVersion((v) => v + 1), []);
+
+  useEffect(() => {
+    const onCleared = () => bump();
+    window.addEventListener(SESSION_CLEARED_EVENT, onCleared);
+    return () => window.removeEventListener(SESSION_CLEARED_EVENT, onCleared);
+  }, [bump]);
 
   const user = useMemo(() => getUserJson(), [sessionVersion]);
   const isAuthenticated = useMemo(() => hasSession(), [sessionVersion]);
@@ -93,9 +108,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      await authApi.login(email, password);
+      const data = await authApi.login(email, password);
       bump();
       await refreshProfile();
+      return { deletionCancelled: !!data.deletionCancelled };
     },
     [bump, refreshProfile],
   );
@@ -117,9 +133,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithApple = useCallback(async () => {
     try {
       const apple = await signInWithAppleWeb();
-      await authApi.loginWithApple(apple);
+      const data = await authApi.loginWithApple(apple);
       bump();
       await refreshProfile();
+      return { deletionCancelled: !!data.deletionCancelled };
     } catch (err) {
       if (isAppleSignInCancellation(err)) return;
       throw err;
@@ -129,13 +146,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     try {
       const google = await signInWithGoogleWeb();
-      await authApi.loginWithGoogle({
+      const data = await authApi.loginWithGoogle({
         idToken: google.idToken,
         firstName: google.firstName,
         lastName: google.lastName,
       });
       bump();
       await refreshProfile();
+      return { deletionCancelled: !!data.deletionCancelled };
     } catch (err) {
       if (isGoogleSignInCancellation(err)) return;
       throw err;

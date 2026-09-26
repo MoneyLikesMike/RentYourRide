@@ -10,6 +10,7 @@ import {
   toE164,
 } from "../utils/phoneFormat";
 import PhoneCountrySelect from "./PhoneCountrySelect";
+import { OTP_ALLOWED_COUNTRY_CODES } from "../data/otpAllowedCountries";
 
 const CELL_COUNT = 6;
 
@@ -245,6 +246,7 @@ export default function PhoneVerificationModal({
                 <PhoneCountrySelect
                   countryCode={countryCode}
                   callingCode={callingCode}
+                  allowedCca2={OTP_ALLOWED_COUNTRY_CODES}
                   onChange={(country: CountryCallingCode) => {
                     setCountryCode(country.cca2);
                     setCallingCode(country.callingCode);

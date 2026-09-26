@@ -115,12 +115,14 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
     { name: 'Blue', value: '#0066CC' },
     { name: 'Red', value: '#DC143C' },
     { name: 'Brown', value: '#8B4513' },
+    { name: 'Beige', value: '#D8C3A5' },
     { name: 'Green', value: '#228B22' },
     { name: 'Gold', value: '#FFD700' },
     { name: 'Yellow', value: '#FFE135' },
     { name: 'Orange', value: '#FF8C00' },
     { name: 'Purple', value: '#800080' },
-    { name: 'Pink', value: '#FF69B4' }
+    { name: 'Pink', value: '#FF69B4' },
+    { name: 'Burgundy', value: '#800020' },
   ];
   const [fuelTypeOptions, setFuelTypeOptions] = useState(DEFAULT_FUEL_TYPE_OPTIONS);
   
@@ -214,6 +216,8 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
       setDraftListing({
         ...(title ? { title } : {}),
         ...(vehicleType ? { vehicleType } : {}),
+        ...(v?.vin ? { vin: String(v.vin).trim().toUpperCase() } : {}),
+        vehicleData: v,
       });
       applyVinVehicleFields(
         v,
@@ -323,6 +327,10 @@ const TellUsAboutYourRideScreen1 = ({ navigation, route }) => {
       ...(completedAddress ? { completedAddress } : {}),
       ...(vehicleData && typeof vehicleData === 'object'
         ? {
+            vin:
+              (vehicleData.vin && String(vehicleData.vin).trim().toUpperCase()) ||
+              draft.vin ||
+              null,
             vehicleData: {
               ...vehicleData,
               odometerReading,

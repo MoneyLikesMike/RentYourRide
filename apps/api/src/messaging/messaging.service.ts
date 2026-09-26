@@ -28,6 +28,7 @@ export interface ConversationDto {
   bookingSnapshot: {
     id: string;
     status: string;
+    listingId: string | null;
     listingTitle: string;
     listingCoverUri: string | null;
     guestUserId: string;
@@ -40,6 +41,10 @@ export interface ConversationDto {
     type: MessageType;
   } | null;
   unreadCount: number;
+  /** Counterpart's last-read cursor (ms) — used for read receipts. Always present when known. */
+  counterpartLastReadAt: number | null;
+  /** True when booking is past host accept (photos allowed). */
+  mediaUnlocked: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -67,6 +72,7 @@ export class MessagingService {
   ) {}
 
   private preview(text: string, type: MessageType): string {
+    if (type === 'image') return 'Photo';
     const clean = (text || '').replace(/\s+/g, ' ').trim();
     if (type === 'system') return clean;
     if (clean.length <= PREVIEW_LEN) return clean;
@@ -135,6 +141,9 @@ export class MessagingService {
         ? {
             id: booking.id,
             status: booking.status,
+            listingId:
+              booking.listingId ||
+              (typeof snap.id === 'string' ? snap.id : null),
             listingTitle: listingTitle || 'Rental',
             listingCoverUri: cover ?? null,
             guestUserId: booking.guestUserId,
@@ -152,9 +161,61 @@ export class MessagingService {
           }
         : null,
       unreadCount: unread,
+      counterpartLastReadAt: (() => {
+        const ts =
+          counterpart.id === conv.hostUserId
+            ? conv.hostLastReadAt
+            : conv.guestLastReadAt;
+        return ts ? ts.getTime() : null;
+      })(),
+      mediaUnlocked: this.isMediaUnlocked(booking?.status),
       createdAt: conv.createdAt.getTime(),
       updatedAt: conv.updatedAt.getTime(),
     };
+  }
+
+  /** Photos unlock after host accept (not pending / declined / cancelled). */
+  private isMediaUnlocked(status?: string | null): boolean {
+    const s = String(status || '').trim();
+    if (!s) return false;
+    return s !== 'pending_host' && s !== 'declined' && s !== 'cancelled';
+  }
+
+  private async requireConversationForUser(
+    userId: string,
+    conversationId: string,
+    withBooking = false,
+  ): Promise<ConversationEntity> {
+    const conv = await this.convRepo.findOne({
+      where: { id: conversationId },
+      relations: withBooking ? ['booking'] : undefined,
+    });
+    if (!conv) throw new NotFoundException('Conversation not found');
+    if (conv.guestUserId !== userId && conv.hostUserId !== userId) {
+      throw new ForbiddenException();
+    }
+    return conv;
+  }
+
+  private async assertMediaUnlocked(conv: ConversationEntity): Promise<void> {
+    let status: string | null = null;
+    if (conv.bookingId) {
+      if (conv.booking?.status) {
+        status = conv.booking.status;
+      } else {
+        const booking = await this.bookingsRepo.findOne({
+          where: { id: conv.bookingId },
+        });
+        status = booking?.status ?? null;
+      }
+    }
+    if (!this.isMediaUnlocked(status)) {
+      throw new ForbiddenException(
+        status === 'pending_host'
+          ? 'Photos unlock after the host accepts this trip.'
+          : 'Photos are only available on active trips.',
+      );
+    }
   }
 
   async listForUser(userId: string): Promise<ConversationDto[]> {
@@ -312,11 +373,7 @@ export class MessagingService {
     conversationId: string,
     text: string,
   ): Promise<MessageDto> {
-    const conv = await this.convRepo.findOne({ where: { id: conversationId } });
-    if (!conv) throw new NotFoundException('Conversation not found');
-    if (conv.guestUserId !== userId && conv.hostUserId !== userId) {
-      throw new ForbiddenException();
-    }
+    const conv = await this.requireConversationForUser(userId, conversationId);
     const clean = String(text || '').trim();
     if (!clean) throw new BadRequestException('Message cannot be empty');
     if (clean.length > MAX_TEXT) {
@@ -332,6 +389,39 @@ export class MessagingService {
         this.notifications.newMessageFromHost(conv.bookingId, clean);
       } else if (conv.guestUserId === userId) {
         this.notifications.newMessageFromGuest(conv.bookingId, clean);
+      }
+    }
+    return this.toMessageDto(saved);
+  }
+
+  /**
+   * Post-accept photo message. Pre-accept bookings are rejected.
+   * Image URL lives in metadata.imageUrl; text is a short preview label.
+   */
+  async sendImageMessage(
+    userId: string,
+    conversationId: string,
+    imageUrl: string,
+  ): Promise<MessageDto> {
+    const conv = await this.requireConversationForUser(
+      userId,
+      conversationId,
+      true,
+    );
+    await this.assertMediaUnlocked(conv);
+    const url = String(imageUrl || '').trim();
+    if (!url) throw new BadRequestException('Photo upload failed');
+    const saved = await this.postMessage(conv, {
+      senderUserId: userId,
+      type: 'image',
+      text: 'Photo',
+      metadata: { imageUrl: url },
+    });
+    if (conv.bookingId) {
+      if (conv.hostUserId === userId) {
+        this.notifications.newMessageFromHost(conv.bookingId, 'Sent a photo');
+      } else if (conv.guestUserId === userId) {
+        this.notifications.newMessageFromGuest(conv.bookingId, 'Sent a photo');
       }
     }
     return this.toMessageDto(saved);

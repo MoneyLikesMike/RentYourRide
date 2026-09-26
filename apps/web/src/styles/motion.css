@@ -1,0 +1,328 @@
+/* Interaction layer — same design, livelier response.
+   Colors, type, and layout stay put. Motion respects reduced-motion. */
+
+:root {
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-fast: 0.16s;
+  --motion-med: 0.28s;
+}
+
+::selection {
+  background: rgba(25, 172, 157, 0.22);
+  color: #17252a;
+}
+
+button,
+a,
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid #19ac9d;
+  outline-offset: 3px;
+}
+
+@keyframes ryr-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ryr-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ryr-fav-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.28);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .motion-reveal {
+    opacity: 0;
+  }
+
+  .motion-reveal.is-in {
+    animation: ryr-reveal 0.5s var(--motion-ease) forwards;
+  }
+
+  .header-wrapper {
+    position: sticky;
+    top: 0;
+    z-index: 80;
+    transition: box-shadow var(--motion-med) var(--motion-ease);
+  }
+
+  .header-wrapper.is-scrolled {
+    box-shadow: 0 10px 28px rgba(23, 37, 42, 0.08);
+  }
+
+  .logo-wrapper {
+    transition: transform var(--motion-fast) var(--motion-ease);
+  }
+
+  .logo-wrapper:hover,
+  .logo-wrapper:focus-visible {
+    transform: scale(1.04);
+  }
+
+  .navigation .link {
+    position: relative;
+    transition: color var(--motion-fast) ease;
+  }
+
+  .navigation .link:not(.message):not(.link--muted)::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.28rem;
+    height: 2px;
+    border-radius: 99px;
+    background: #3aafa9;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform var(--motion-fast) var(--motion-ease);
+  }
+
+  .navigation .link:not(.message):not(.link--muted):hover::after,
+  .navigation .link:not(.message):not(.link--muted):focus-visible::after {
+    transform: scaleX(1);
+  }
+
+  .header-menu-panel {
+    transform-origin: top right;
+    animation: ryr-menu-in 0.18s var(--motion-ease);
+  }
+
+  .header-profile-btn,
+  .messages-link,
+  .store-link,
+  .site-footer-store-link {
+    transition:
+      opacity var(--motion-fast) ease,
+      transform var(--motion-fast) var(--motion-ease),
+      background var(--motion-fast) ease;
+  }
+
+  .store-link:hover,
+  .site-footer-store-link:hover {
+    transform: translateY(-2px);
+  }
+
+  .store-link:active,
+  .site-footer-store-link:active {
+    transform: translateY(0) scale(0.97);
+  }
+
+  .search-ride-btn,
+  .cta-rent,
+  .cta-list,
+  .fyc-apply,
+  .phone-verify-continue,
+  .get-paid-gate-cta,
+  .auth-submit,
+  .checkout-pay,
+  .lyr-publish,
+  .go-back {
+    transition:
+      background-color var(--motion-fast) ease,
+      border-color var(--motion-fast) ease,
+      color var(--motion-fast) ease,
+      box-shadow var(--motion-fast) ease,
+      transform var(--motion-fast) var(--motion-ease);
+  }
+
+  .search-ride-btn:hover,
+  .cta-rent:hover,
+  .cta-list:hover,
+  .fyc-apply:hover,
+  .get-paid-gate-cta:hover {
+    transform: translateY(-1px);
+  }
+
+  .search-ride-btn:active,
+  .cta-rent:active,
+  .cta-list:active,
+  .fyc-apply:active,
+  .get-paid-gate-cta:active,
+  .auth-submit:active,
+  .checkout-pay:active,
+  .lyr-publish:active {
+    transform: translateY(0) scale(0.97);
+  }
+
+  .how-it-works-btn {
+    transition: color var(--motion-fast) ease, transform var(--motion-fast) ease;
+  }
+
+  .how-it-works-btn:hover {
+    transform: translateX(2px);
+  }
+
+  .how-it-works-btn:hover .how-play {
+    transform: scale(1.08);
+  }
+
+  .how-play {
+    transition: transform var(--motion-fast) var(--motion-ease);
+  }
+
+  .fyc-car-wrapper {
+    transition:
+      transform 0.22s var(--motion-ease),
+      box-shadow 0.22s var(--motion-ease);
+  }
+
+  .fyc-car-wrapper:hover,
+  .fyc-car-wrapper.is-hot {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 28px rgba(0, 40, 46, 0.14);
+  }
+
+  .fyc-car-img-wrap {
+    overflow: hidden;
+    border-radius: 0.5rem 0.5rem 0 0;
+  }
+
+  .fyc-car-img {
+    transition: transform 0.45s var(--motion-ease);
+  }
+
+  .fyc-car-wrapper:hover .fyc-car-img,
+  .fyc-car-wrapper.is-hot .fyc-car-img {
+    transform: scale(1.06);
+  }
+
+  .fyc-fav {
+    transition: transform var(--motion-fast) var(--motion-ease);
+  }
+
+  .fyc-fav:hover {
+    transform: scale(1.12);
+  }
+
+  .fyc-fav--on .fyc-fav-icon {
+    animation: ryr-fav-pop 0.38s var(--motion-ease);
+  }
+
+  .fyc-pin {
+    transition:
+      background 0.14s ease,
+      color 0.14s ease,
+      border-color 0.14s ease,
+      box-shadow 0.14s ease,
+      transform 0.18s var(--motion-ease);
+  }
+
+  .fyc-pin:hover,
+  .fyc-pin:focus-visible,
+  .fyc-pin.is-hot {
+    background: #19ac9d;
+    border-color: #19ac9d;
+    color: #fff;
+    transform: translate(-50%, -100%) scale(1.1);
+    box-shadow: 0 6px 16px rgba(25, 172, 157, 0.35);
+    z-index: 2;
+  }
+
+  .learn-card,
+  .help-contact-card,
+  .help-topic,
+  .trips-tile,
+  .trips-card,
+  .team-card {
+    transition:
+      transform 0.22s var(--motion-ease),
+      box-shadow 0.22s var(--motion-ease),
+      border-color 0.22s ease,
+      background 0.22s ease;
+  }
+
+  .learn-card:hover,
+  .help-contact-card:hover,
+  .help-topic:hover:not(:disabled),
+  .trips-tile:hover,
+  .trips-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 26px rgba(0, 40, 46, 0.1);
+  }
+
+  .news-card-image {
+    transition: transform 0.55s var(--motion-ease);
+  }
+
+  .main-photo {
+    transition: transform 0.45s var(--motion-ease);
+  }
+
+  .main-photo-button {
+    overflow: hidden;
+  }
+
+  .main-photo-button:hover .main-photo,
+  .main-photo-button:focus-visible .main-photo {
+    transform: scale(1.03);
+  }
+
+  .car-photo img {
+    transition: transform 0.35s var(--motion-ease), opacity 0.2s ease;
+  }
+
+  .car-photo:hover img {
+    transform: scale(1.06);
+  }
+
+  .site-footer-link {
+    transition: color var(--motion-fast) ease, transform var(--motion-fast) ease;
+  }
+
+  .site-footer-link:hover {
+    transform: translateX(2px);
+  }
+
+  .header-menu-item {
+    transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-reveal,
+  .motion-reveal.is-in {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .header-menu-panel,
+  .fyc-fav--on .fyc-fav-icon {
+    animation: none !important;
+  }
+
+  .header-wrapper,
+  .logo-wrapper,
+  .fyc-car-wrapper,
+  .fyc-car-img,
+  .learn-card,
+  .news-card-image,
+  .main-photo {
+    transition: none !important;
+  }
+}

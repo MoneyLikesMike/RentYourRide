@@ -95,6 +95,10 @@ export default function GooglePlacesAutocompleteField({
         onPress={(data, details = null) => {
           setApiError('');
           const selection = placeSelectionToSearchQuery(data, details);
+          const display = selection.query || data?.description || '';
+          if (display && ref.current?.setAddressText) {
+            ref.current.setAddressText(display);
+          }
           onPlaceSelected?.({ data, details, selection });
           setSessionToken(createSessionToken());
         }}

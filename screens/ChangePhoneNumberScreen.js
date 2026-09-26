@@ -1,21 +1,20 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   TextInput,
   ActivityIndicator,
   Alert,
   Image,
-  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CountryPicker, { getCallingCode } from 'react-native-country-picker-modal';
+import { OTP_ALLOWED_COUNTRY_CODES } from '../utils/otpAllowedCountries';
 import { TextInputMask } from 'react-native-masked-text';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
@@ -30,8 +29,6 @@ import {
 import { startPhoneVerification } from '../services/phoneVerificationApi';
 import { alertDevVerificationCode } from '../utils/phoneVerificationDev';
 
-const BASE_WIDTH = 375;
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const scale = uiScale;
 
 const DROPDOWN_ICON =
@@ -39,7 +36,6 @@ const DROPDOWN_ICON =
 
 export default function ChangePhoneNumberScreen({ navigation, onSave }) {
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef(null);
   const [countryCode, setCountryCode] = useState('CA');
   const [callingCode, setCallingCode] = useState('1');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -66,12 +62,6 @@ export default function ChangePhoneNumberScreen({ navigation, onSave }) {
     },
     [countryCode, isValid],
   );
-
-  const scrollPhoneFieldIntoView = useCallback(() => {
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ y: 140, animated: true });
-    });
-  }, []);
 
   const handleSave = async () => {
     const valid = isValidNationalPhone(phoneNumber, countryCode);
@@ -103,136 +93,128 @@ export default function ChangePhoneNumberScreen({ navigation, onSave }) {
   const useNaPhoneMask = countryCode === 'CA' || countryCode === 'US';
 
   return (
-    <KeyboardAvoidingView
-      style={styles.modal}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
-    >
-      <ScrollView
-        ref={scrollRef}
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 16) + 24 },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        showsVerticalScrollIndicator={false}
-        bounces={false}
+    <View style={styles.sheet}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
       >
-        <TouchableOpacity style={styles.exitButton} onPress={() => navigation.goBack()}>
-          <View style={styles.exitXContainer}>
-            <View style={styles.exitXLine} />
-            <View style={[styles.exitXLine, styles.exitXLineReverse]} />
-          </View>
-        </TouchableOpacity>
-
-        <Text style={styles.header}>Change phone number</Text>
-        <Text style={styles.paragraph}>
-          We will send a code to your new phone number to verify it
-        </Text>
-
-        <Text style={styles.label}>Phone number</Text>
-        <View style={styles.phoneRow}>
-          <TouchableOpacity
-            style={styles.countryBox}
-            onPress={() => setPickerVisible(true)}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Select country code"
-          >
-            <View style={styles.flagWrap}>
-              <Text style={styles.flagEmoji} allowFontScaling={false}>
-                {countryCodeToEmoji(countryCode)}
-              </Text>
+        <View
+          style={[
+            styles.content,
+            { paddingBottom: Math.max(insets.bottom, 16) + 24 },
+          ]}
+        >
+          <TouchableOpacity style={styles.exitButton} onPress={() => navigation.goBack()}>
+            <View style={styles.exitXContainer}>
+              <View style={styles.exitXLine} />
+              <View style={[styles.exitXLine, styles.exitXLineReverse]} />
             </View>
-            <Text style={styles.countryCodeText}>+{callingCode}</Text>
-            <Image source={{ uri: DROPDOWN_ICON }} style={styles.dropdownIcon} resizeMode="contain" />
           </TouchableOpacity>
 
-          <View style={styles.phoneInputBox}>
-            {useNaPhoneMask ? (
-              <TextInputMask
-                type="cel-phone"
-                options={{
-                  maskType: 'BRL',
-                  withDDD: true,
-                  dddMask: '(999) 999-9999',
-                }}
-                style={styles.phoneInput}
-                value={phoneNumber}
-                onChangeText={(text) => {
-                  setPhoneNumber(text);
-                  if (!isValid) setIsValid(true);
-                }}
-                onFocus={scrollPhoneFieldIntoView}
-                keyboardType="phone-pad"
-                textContentType="telephoneNumber"
-                returnKeyType="done"
-                placeholder="(613) 555-0137"
-                placeholderTextColor="rgb(191,191,191)"
-              />
-            ) : (
-              <TextInput
-                style={styles.phoneInput}
-                value={phoneNumber}
-                onChangeText={handlePhoneChange}
-                onFocus={scrollPhoneFieldIntoView}
-                keyboardType="phone-pad"
-                textContentType="telephoneNumber"
-                returnKeyType="done"
-                placeholder={placeholderForCountry(countryCode)}
-                placeholderTextColor="rgb(191,191,191)"
-                maxLength={20}
-              />
-            )}
+          <Text style={styles.header}>Change phone number</Text>
+          <Text style={styles.paragraph}>
+            We will send a code to your new phone number to verify it
+          </Text>
+
+          <Text style={styles.label}>Phone number</Text>
+          <View style={styles.phoneRow}>
+            <TouchableOpacity
+              style={styles.countryBox}
+              onPress={() => setPickerVisible(true)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Select country code"
+            >
+              <View style={styles.flagWrap}>
+                <Text style={styles.flagEmoji} allowFontScaling={false}>
+                  {countryCodeToEmoji(countryCode)}
+                </Text>
+              </View>
+              <Text style={styles.countryCodeText}>+{callingCode}</Text>
+              <Image source={{ uri: DROPDOWN_ICON }} style={styles.dropdownIcon} resizeMode="contain" />
+            </TouchableOpacity>
+
+            <View style={styles.phoneInputBox}>
+              {useNaPhoneMask ? (
+                <TextInputMask
+                  type="cel-phone"
+                  options={{
+                    maskType: 'BRL',
+                    withDDD: true,
+                    dddMask: '(999) 999-9999',
+                  }}
+                  style={styles.phoneInput}
+                  value={phoneNumber}
+                  onChangeText={(text) => {
+                    setPhoneNumber(text);
+                    if (!isValid) setIsValid(true);
+                  }}
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                  returnKeyType="done"
+                  placeholder="(613) 555-0137"
+                  placeholderTextColor="rgb(191,191,191)"
+                />
+              ) : (
+                <TextInput
+                  style={styles.phoneInput}
+                  value={phoneNumber}
+                  onChangeText={handlePhoneChange}
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                  returnKeyType="done"
+                  placeholder={placeholderForCountry(countryCode)}
+                  placeholderTextColor="rgb(191,191,191)"
+                  maxLength={20}
+                />
+              )}
+            </View>
           </View>
-        </View>
 
-        {!isValid && (
-          <Text style={styles.errorText}>Please enter a valid phone number</Text>
-        )}
-
-        <TouchableOpacity
-          style={[styles.doneButton, submitting && styles.doneButtonDisabled]}
-          onPress={handleSave}
-          disabled={submitting}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.doneButtonText}>Save</Text>
+          {!isValid && (
+            <Text style={styles.errorText}>Please enter a valid phone number</Text>
           )}
-        </TouchableOpacity>
-      </ScrollView>
+
+          <TouchableOpacity
+            style={[styles.doneButton, submitting && styles.doneButtonDisabled]}
+            onPress={handleSave}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.doneButtonText}>Save</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
 
       <CountryPicker
         countryCode={countryCode}
         visible={pickerVisible}
+        countryCodes={OTP_ALLOWED_COUNTRY_CODES}
         withFilter
         withFlag
         withCallingCode
         withEmoji
+        withAlphaFilter
         renderFlagButton={() => null}
         onSelect={handleCountrySelect}
         onClose={() => setPickerVisible(false)}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  modal: {
+  sheet: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: SCREEN_HEIGHT * 0.92,
     width: '100%',
+    overflow: 'hidden',
   },
-  scroll: {
-    flexGrow: 0,
-  },
-  scrollContent: {
+  content: {
     paddingHorizontal: 24,
     paddingTop: 24,
   },

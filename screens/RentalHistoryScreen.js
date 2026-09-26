@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { uiScale } from '../utils/uiScale';
 import {
   View,
   Text,
@@ -21,8 +22,7 @@ import * as bookingsApi from '../services/bookingsApi';
 import { filterBookingsForGuest, filterBookingsForHost } from '../utils/hostBookingFilter';
 import { isHistoryForPerspective } from '../utils/bookingCompletion';
 
-const BASE_WIDTH = 375;
-const scale = 1;
+const scale = uiScale;
 
 function mapBookingRow(b) {
   const life = b.lifecycle && typeof b.lifecycle === 'object' ? b.lifecycle : {};
@@ -123,9 +123,8 @@ export default function RentalHistoryScreen() {
       <Image source={require('../assets/icons/EmptyRoad.png')} style={styles.emptyIcon} />
       <Text style={styles.emptyHeader}>You have no rental history</Text>
       <Text style={styles.emptyParagraph}>Find the perfect vehicle for you.</Text>
-      <View style={{ height: 60 }} />
       <TouchableOpacity
-        style={[styles.rentButton, { marginTop: -120 }]}
+        style={styles.rentButton}
         onPress={() => navigation.navigate('HomeScreen')}
       >
         <Text style={styles.rentButtonText}>Rent a ride</Text>
@@ -141,9 +140,8 @@ export default function RentalHistoryScreen() {
         Don't worry, you'll have rental history soon! If you haven't become a host yet, list your ride
         and start earning!
       </Text>
-      <View style={{ height: 60 }} />
       <TouchableOpacity
-        style={[styles.rentButton, { marginTop: -80 }]}
+        style={styles.rentButton}
         onPress={() => navigation.navigate('GetPaidStack')}
       >
         <Text style={styles.rentButtonText}>List a ride</Text>
@@ -287,17 +285,18 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
+    alignItems: 'stretch',
   },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 32,
   },
   emptyStateContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    width: '100%',
-    marginTop: -120,
+    paddingHorizontal: 24 * scale,
+    paddingBottom: 32 * scale,
   },
   emptyIcon: {
     width: 176 * scale,
@@ -310,7 +309,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: 'rgb(14,38,43)',
     textAlign: 'center',
-    width: 272,
+    maxWidth: 272 * scale,
     marginBottom: 16 * scale,
     lineHeight: 24,
   },
@@ -320,8 +319,9 @@ const styles = StyleSheet.create({
     color: 'rgb(171,171,171)',
     textAlign: 'center',
     letterSpacing: -0.2,
-    width: 239,
+    maxWidth: 293 * scale,
     marginBottom: 32 * scale,
+    lineHeight: 22,
   },
   rentButton: {
     width: 193 * scale,
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: 'rgb(14,38,43)',
     textAlign: 'center',
-    width: 272,
+    maxWidth: 272 * scale,
     marginBottom: 16 * scale,
     lineHeight: 24,
   },
@@ -353,8 +353,9 @@ const styles = StyleSheet.create({
     color: 'rgb(171,171,171)',
     textAlign: 'center',
     letterSpacing: -0.2,
-    width: 299,
+    maxWidth: 299 * scale,
     marginBottom: 32 * scale,
+    lineHeight: 22,
   },
   headerTextFlexWrapper: {
     flex: 1,

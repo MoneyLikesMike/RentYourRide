@@ -15,6 +15,8 @@ type Props = {
   countryCode: string;
   callingCode: string;
   onChange: (country: CountryCallingCode) => void;
+  /** When set, only these ISO country codes appear (e.g. CA/US for OTP). */
+  allowedCca2?: readonly string[];
 };
 
 function findByCca2(cca2: string): CountryCallingCode | undefined {
@@ -58,23 +60,30 @@ export default function PhoneCountrySelect({
   countryCode,
   callingCode,
   onChange,
+  allowedCca2,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const catalog = useMemo(() => {
+    if (!allowedCca2?.length) return COUNTRY_CALLING_CODES;
+    const allow = new Set(allowedCca2.map((c) => c.toUpperCase()));
+    return COUNTRY_CALLING_CODES.filter((c) => allow.has(c.cca2));
+  }, [allowedCca2]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return COUNTRY_CALLING_CODES;
-    return COUNTRY_CALLING_CODES.filter(
+    if (!q) return catalog;
+    return catalog.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.cca2.toLowerCase().includes(q) ||
         c.callingCode.includes(q.replace(/^\+/, '')) ||
         `+${c.callingCode}`.includes(q),
     );
-  }, [query]);
+  }, [query, catalog]);
 
   useEffect(() => {
     if (!open) return;

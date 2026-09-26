@@ -27,9 +27,8 @@ export class BookingsController {
     private readonly listingsRepo: Repository<ListingEntity>,
   ) {}
 
+  /** Public: pricing math only needs listing + dates (no PII). */
   @Post('quote')
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
   async quote(@Body() body: QuoteInput) {
     const listing = await this.listingsRepo.findOne({
       where: { id: body.listingId },

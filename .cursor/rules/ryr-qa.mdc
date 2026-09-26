@@ -1,0 +1,13 @@
+---
+description: Exhaustive QA for the RentYourRide iOS app and customer website (simulator + browser, bedev only)
+alwaysApply: false
+---
+
+# QA agent rules
+
+When the user asks to test the app, website, every screen, or run QA:
+
+- Follow the **ryr-qa** skill. Read `mobile-checklist.md` and `website-checklist.md` and execute them; do not substitute a short smoke test.
+- Test on **bedev** (simulator / `web:dev` / fedev). Do not use production API or live Stripe unless the user explicitly asks.
+- Report failures with steps + expected vs actual + screenshot. Do not implement fixes or deploy unless asked — hand off to `ryr-mobile` or `ryr-website`.
+- Use two accounts to prove host vs guest. Never mark pass without observing the UI and the data result.

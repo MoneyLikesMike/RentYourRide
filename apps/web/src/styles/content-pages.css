@@ -728,9 +728,9 @@
 
 .help-contact-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
-  max-width: 34rem;
+  max-width: 48rem;
   margin: 0 auto 1.5rem;
 }
 
@@ -827,7 +827,8 @@
 }
 
 .learn-lead {
-  margin: 0;
+  margin: 0 auto;
+  max-width: 38rem;
   font-family: 'Nunito', sans-serif;
   font-size: 1.25rem;
   font-weight: 600;
@@ -951,10 +952,12 @@
 }
 
 .learn-section-lead {
-  margin: 0 0 1.75rem;
+  margin: 0 auto 1.75rem;
+  max-width: 38rem;
   font-family: 'Nunito', sans-serif;
   font-size: 1.0625rem;
   font-weight: 600;
+  line-height: 1.5;
   color: #7a8a8c;
   text-align: center;
 }
@@ -998,7 +1001,9 @@
 .news-card-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* Contain keeps designed cover art (text/edges) fully visible; cover was cropping. */
+  object-fit: contain;
+  object-position: center;
   display: block;
   transition: transform 0.4s ease;
 }
@@ -1076,7 +1081,7 @@
 }
 
 a.news-card-link:hover .news-card-image {
-  transform: scale(1.05);
+  transform: scale(1.02);
 }
 
 a.news-card-link:hover .news-card-more {
@@ -1937,6 +1942,51 @@ a.news-card-link:focus-visible {
   line-height: 1.5;
   color: #00282e;
   text-transform: uppercase;
+}
+
+.guidelines-body {
+  max-width: 42rem;
+}
+
+.guidelines-title {
+  margin: 1.75rem 0 0.85rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1.35;
+  color: #0e262b;
+  text-align: center;
+}
+
+.guidelines-title:first-child {
+  margin-top: 0.25rem;
+}
+
+.guidelines-copy {
+  margin: 0 0 0.95rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #7a8a8c;
+}
+
+.guidelines-copy--item {
+  margin-bottom: 0.35rem;
+}
+
+.guidelines-lead {
+  color: #0e262b;
+  font-weight: 700;
+}
+
+.guidelines-emphasis {
+  margin: 1.5rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.55;
+  color: #0e262b;
 }
 
 .terms-email-link {

@@ -10,7 +10,7 @@ import {
 import { UserEntity } from './user.entity';
 import { ConversationEntity } from './conversation.entity';
 
-export type MessageType = 'text' | 'system';
+export type MessageType = 'text' | 'system' | 'image';
 
 @Entity('messages')
 @Index(['conversationId', 'createdAt'])

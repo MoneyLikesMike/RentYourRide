@@ -301,7 +301,7 @@ const InformationScreen = ({ selectedUser, verifyEmail }) => {
                 </div>
               </div>
               {selectedUser?.about ? (
-                <div className="data-block">
+                <div className="data-block bio">
                   <span className="data-caption">BIO</span>
                   <span className="data">
                     {selectedUser?.about ? selectedUser.about : "-"}

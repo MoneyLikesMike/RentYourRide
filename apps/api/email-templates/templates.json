@@ -1,0 +1,44 @@
+[
+  {
+    "name": "YouDeniedABookingRequest",
+    "subject": "You Denied A Booking Request ⛔",
+    "htmlFile": "html/DenyBookingRequestTemplate/You Denied A Booking Request.html",
+    "textPart": "You denied a booking request."
+  },
+  {
+    "name": "YourTripExtensionRequestWasDenied",
+    "subject": "Your Trip Extension Request Was Denied ⛔",
+    "htmlFile": "html/DenyBookingExtensionTemplate/Your Trip Extension Request Was Denied.html",
+    "textPart": "Your trip extension request doesn't work for the host."
+  },
+  {
+    "name": "YouHaveDeniedATripExtenison",
+    "subject": "You Denied A Trip Extension Request ⛔",
+    "htmlFile": "html/DenyBookingExtensionTemplate/You Denied A Trip Extension Request.html",
+    "textPart": "You denied a trip extension request."
+  },
+  {
+    "name": "YoureCheckedInGuest",
+    "subject": "You're Checked In 😀",
+    "htmlFile": "html/CheckInBookingTemplate/Youre Checked In Guest.html",
+    "textPart": "You have successfully checked in for your trip."
+  },
+  {
+    "name": "GuestHasCheckedInUsingYourRide",
+    "subject": "{{Renter.FirstName}} Has Checked In Using Your Ride👍",
+    "htmlFile": "html/CheckInBookingTemplate/Guest Has Checked In Using Your Ride.html",
+    "textPart": "{{Renter.FirstName}} has checked in using your ride."
+  },
+  {
+    "name": "YoureCheckedOutGuest",
+    "subject": "You're Checked Out 👋",
+    "htmlFile": "html/CheckOutBookingTemplate/Youre Checked Out Guest.html",
+    "textPart": "You have successfully checked out and ended your trip."
+  },
+  {
+    "name": "GuestCheckedOutOfYourRide",
+    "subject": "{{Renter.FirstName}} Has Checked Out",
+    "htmlFile": "html/CheckOutBookingTemplate/Guest Checked Out Of Your Ride.html",
+    "textPart": "{{Renter.FirstName}} has checked out of your ride."
+  }
+]

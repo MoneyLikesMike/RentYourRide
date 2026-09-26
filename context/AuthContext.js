@@ -78,6 +78,7 @@ export function AuthProvider({ children }) {
     const data = await postJson('/v1/auth/login', { email: email.trim(), password });
     const c = await persistSession(data);
     setUser(c);
+    return data;
   }, []);
 
   const signUp = useCallback(async ({ email, password, firstName, lastName }) => {
@@ -100,7 +101,7 @@ export function AuthProvider({ children }) {
     });
     const c = await persistSession(data);
     setUser(c);
-    return { isNewUser: !!data.isNewUser, user: c };
+    return { isNewUser: !!data.isNewUser, deletionCancelled: !!data.deletionCancelled, user: c };
   }, []);
 
   const signInWithApple = useCallback(async () => {
@@ -113,15 +114,29 @@ export function AuthProvider({ children }) {
     });
     const c = await persistSession(data);
     setUser(c);
-    return { isNewUser: !!data.isNewUser, user: c };
+    return { isNewUser: !!data.isNewUser, deletionCancelled: !!data.deletionCancelled, user: c };
   }, []);
 
   const signOut = useCallback(async () => {
     await tokens.clearTokens();
     await AsyncStorage.removeItem(STORAGE_AUTH_USER).catch(() => {});
     await AsyncStorage.multiRemove(PROFILE_STORAGE_KEYS).catch(() => {});
+    // Also drop legacy device-wide payment cache (pre user-scoped keys).
+    await AsyncStorage.removeItem('@ryr_payment_methods_v1').catch(() => {});
     setUser(null);
     resetToWelcome();
+  }, []);
+
+  /** Merge fields from GET/PATCH /me (or confirm-email-change) into stored auth user. */
+  const applyUser = useCallback(async (apiUser) => {
+    const c = compactUser(apiUser);
+    if (!c) return null;
+    setUser((prev) => {
+      const merged = { ...(prev || {}), ...c };
+      AsyncStorage.setItem(STORAGE_AUTH_USER, JSON.stringify(merged)).catch(() => {});
+      return merged;
+    });
+    return c;
   }, []);
 
   const value = useMemo(
@@ -134,8 +149,9 @@ export function AuthProvider({ children }) {
       signInWithGoogle,
       signInWithApple,
       signOut,
+      applyUser,
     }),
-    [ready, user, signIn, signUp, signInWithGoogle, signInWithApple, signOut],
+    [ready, user, signIn, signUp, signInWithGoogle, signInWithApple, signOut, applyUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

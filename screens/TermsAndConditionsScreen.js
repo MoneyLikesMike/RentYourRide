@@ -8,10 +8,12 @@ const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = uiScale;
 
-const HOST_GUIDELINES_URL = 'https://rentyourride.com/host-guidelines';
-const GUEST_GUIDELINES_URL = 'https://rentyourride.com/guest-guidelines';
-const TERMS_URL = 'https://rentyourride.com/terms';
-const PRIVACY_URL = 'https://rentyourride.com/privacy';
+const TERMS_URL = 'https://app.rentyourride.ca/terms-conditions?section=terms-of-service';
+const PRIVACY_URL = 'https://app.rentyourride.ca/terms-conditions?section=privacy';
+
+function openUrl(url) {
+  Linking.openURL(url).catch(() => {});
+}
 
 export default function TermsAndConditionsScreen({ navigation }) {
   return (
@@ -40,17 +42,27 @@ export default function TermsAndConditionsScreen({ navigation }) {
       {/* First Paragraph */}
       <Text style={[styles.paragraph, styles.firstParagraph]}>
         Whether you're planning to be a host or traveller please commit to respecting and including everyone in the Rent Your Ride community. Please follow our{' '}
-        <Text style={styles.link} onPress={() => Linking.openURL(HOST_GUIDELINES_URL)}>Host Guidelines</Text>
+        <Text
+          style={styles.link}
+          onPress={() => navigation.navigate('CommunityGuidelinesScreen', { kind: 'host' })}
+        >
+          Host Guidelines
+        </Text>
         <Text style={styles.paragraph}>, and </Text>
-        <Text style={styles.link} onPress={() => Linking.openURL(GUEST_GUIDELINES_URL)}>Guest Guidelines</Text>
+        <Text
+          style={styles.link}
+          onPress={() => navigation.navigate('CommunityGuidelinesScreen', { kind: 'guest' })}
+        >
+          Guest Guidelines
+        </Text>
         .
       </Text>
       {/* Second Paragraph */}
       <Text style={[styles.paragraph, { marginBottom: 90 * scale }] }>
         By tapping I accept, I also accept Rent Your Ride's{' '}
-        <Text style={styles.link} onPress={() => Linking.openURL(TERMS_URL)}>Terms of Service</Text>
+        <Text style={styles.link} onPress={() => openUrl(TERMS_URL)}>Terms of Service</Text>
         <Text style={styles.paragraph}>, </Text>
-        <Text style={styles.link} onPress={() => Linking.openURL(PRIVACY_URL)}>Privacy Policy</Text>
+        <Text style={styles.link} onPress={() => openUrl(PRIVACY_URL)}>Privacy Policy</Text>
         .
       </Text>
       {/* Bottom Buttons */}

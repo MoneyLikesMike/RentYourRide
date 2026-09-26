@@ -17,6 +17,12 @@ import {
   type ListingDetail,
 } from '../api/listings';
 import ProfileLayout from '../components/ProfileLayout';
+import {
+  formatListingTripLabel,
+  formatNoReviewsLabel,
+  getListingDisplayRating,
+  listingHasGuestReviews,
+} from '../utils/listingRating';
 
 type Tab = 'Active' | 'Deactivated';
 
@@ -337,9 +343,15 @@ function YourRidesBody() {
                     </div>
                   </div>
                   <div className="your-rides-row your-rides-row--bottom">
-                    <Stars rating={ride.hostRating ?? 0} />
+                    {listingHasGuestReviews(ride) ? (
+                      <Stars rating={getListingDisplayRating(ride) ?? 0} />
+                    ) : (
+                      <span className="your-rides-new-host">
+                        {formatNoReviewsLabel(ride)}
+                      </span>
+                    )}
                     <span className="your-rides-trips">
-                      {ride.hostTrips ?? 0} trips
+                      {formatListingTripLabel(ride)}
                     </span>
                   </div>
                 </div>

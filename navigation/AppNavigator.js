@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { uiScale } from '../utils/uiScale';
+import { Linking } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { navigationRef } from './navigationRef';
@@ -12,34 +13,25 @@ import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import AuthScreen from '../screens/AuthScreen';
 import TermsAndConditionsScreen from '../screens/TermsAndConditionsScreen';
+import CommunityGuidelinesScreen from '../screens/CommunityGuidelinesScreen';
 import NotificationOnboardingScreen from '../screens/NotificationOnboardingScreen';
 import EmailVerificationScreen from '../screens/EmailVerificationScreen';
 import ExtendTripScreen from '../screens/ExtendTripScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import EmailChangeSuccessScreen from '../screens/EmailChangeSuccessScreen';
 import HomeScreen from '../screens/HomeScreen';
 import RentalManagerScreen from '../screens/RentalManagerScreen';
 import AccountManagementScreen from '../screens/AccountManagementScreen';
+import DeleteAccountScreen from '../screens/DeleteAccountScreen';
 import ContactInformationScreen from '../screens/ContactInformationScreen';
 import ChangeEmailScreen from '../screens/ChangeEmailScreen';
-import ChangePhoneNumberScreen from '../screens/ChangePhoneNumberScreen';
-import PhoneVerificationScreen from '../screens/PhoneVerificationScreen';
 import ChangeAddressScreen from '../screens/ChangeAddressScreen';
-import ChangeLicenseScreen from '../screens/ChangeLicenseScreen';
-import LicenseVerificationScreen from '../screens/LicenseVerificationScreen';
-import LicenseVerificationPendingScreen from '../screens/LicenseVerificationPendingScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import PaymentInformationScreen from '../screens/PaymentInformationScreen';
-import AddPaymentMethodScreen from '../screens/AddPaymentMethodScreen';
-import AddCardScreen from '../screens/AddCardScreen';
-import AddPayPalScreen from '../screens/AddPayPalScreen';
-import EmptyMessagesScreen from '../screens/EmptyMessagesScreen';
 import MessagesScreen from '../screens/MessagesScreen';
-import ChatThreadScreen from '../screens/ChatThreadScreen';
 import { useMessaging } from '../context/MessagingContext';
 import FavouritesScreen from '../screens/FavouritesScreen';
-import UserProfileScreen from '../screens/UserProfileScreen';
-import EditProfileScreen from '../screens/EditProfileScreen';
 import RentalRequestScreen from '../screens/RentalRequestScreen';
 import ActiveRentalsScreen from '../screens/ActiveRentalsScreen';
 import GuestBookingDetailsScreen from '../screens/GuestBookingDetailsScreen';
@@ -72,13 +64,9 @@ import PayoutEmptyStateScreen from '../screens/PayoutEmptyStateScreen';
 import GetPaidStack from './GetPaidStack';
 import EmptyVehicleSearchScreen from '../screens/EmptyVehicleSearchScreen';
 import SearchResultsScreen from '../screens/SearchResultsScreen';
-import VehicleDetailScreen from '../screens/VehicleDetailScreen';
-import CalendarScreen from '../screens/CalendarScreen';
-import BookingCheckoutScreen from '../screens/BookingCheckoutScreen';
-import BookingRequestConfirmationScreen from '../screens/BookingRequestConfirmationScreen';
 import ListRideStack from './ListRideStack';
+import { SharedBrowseScreens, SHARED_BROWSE_ROUTE_NAMES } from './SharedBrowseScreens';
 import ListingsScreen from '../screens/ListingsScreen';
-import VerificationStepsScreen from '../screens/VerificationStepsScreen';
 import ReferralsCreditsScreen from '../screens/ReferralsCreditsScreen';
 import InviteFriendScreen from '../screens/InviteFriendScreen';
 import ReferHostScreen from '../screens/ReferHostScreen';
@@ -98,11 +86,8 @@ function HomeStack() {
     <HomeStackNav.Navigator screenOptions={{ headerShown: false }}>
       <HomeStackNav.Screen name="HomeScreen" component={HomeScreen} />
       <HomeStackNav.Screen name="SearchResultsScreen" component={SearchResultsScreen} />
-      <HomeStackNav.Screen name="VehicleDetailScreen" component={VehicleDetailScreen} />
-      <HomeStackNav.Screen name="BookingCheckoutScreen" component={BookingCheckoutScreen} />
-      <HomeStackNav.Screen name="BookingRequestConfirmationScreen" component={BookingRequestConfirmationScreen} />
       <HomeStackNav.Screen name="EmptyVehicleSearchScreen" component={EmptyVehicleSearchScreen} />
-      <HomeStackNav.Screen name="CalendarScreen" component={CalendarScreen} />
+      {SharedBrowseScreens({ Stack: HomeStackNav, includeChatThread: true })}
     </HomeStackNav.Navigator>
   );
 }
@@ -111,22 +96,12 @@ function ProfileStack() {
   return (
     <ProfileStackNav.Navigator screenOptions={{ headerShown: false }}>
       <ProfileStackNav.Screen name="AccountManagementScreen" component={AccountManagementScreen} />
-      <ProfileStackNav.Screen name="VerificationStepsScreen" component={VerificationStepsScreen} />
-      <ProfileStackNav.Screen name="UserProfileScreen" component={UserProfileScreen} />
-      <ProfileStackNav.Screen name="EditProfileScreen" component={EditProfileScreen} />
+      <ProfileStackNav.Screen name="DeleteAccountScreen" component={DeleteAccountScreen} />
       <ProfileStackNav.Screen name="ContactInformationScreen" component={ContactInformationScreen} />
       <ProfileStackNav.Screen name="ChangeEmailScreen" component={ChangeEmailScreen} options={{ presentation: 'modal' }} />
-      <ProfileStackNav.Screen name="ChangePhoneNumberScreen" component={ChangePhoneNumberScreen} />
-      <ProfileStackNav.Screen name="PhoneVerificationScreen" component={PhoneVerificationScreen} />
       <ProfileStackNav.Screen name="ChangeAddressScreen" component={ChangeAddressScreen} />
-      <ProfileStackNav.Screen name="ChangeLicenseScreen" component={ChangeLicenseScreen} />
-      <ProfileStackNav.Screen name="LicenseVerificationScreen" component={LicenseVerificationScreen} />
-      <ProfileStackNav.Screen name="LicenseVerificationPendingScreen" component={LicenseVerificationPendingScreen} />
       <ProfileStackNav.Screen name="NotificationsScreen" component={NotificationsScreen} />
       <ProfileStackNav.Screen name="PaymentInformationScreen" component={PaymentInformationScreen} />
-      <ProfileStackNav.Screen name="AddPaymentMethodScreen" component={AddPaymentMethodScreen} />
-      <ProfileStackNav.Screen name="AddCardScreen" component={AddCardScreen} />
-      <ProfileStackNav.Screen name="AddPayPalScreen" component={AddPayPalScreen} />
       <ProfileStackNav.Screen name="FavouritesScreen" component={FavouritesScreen} />
       <ProfileStackNav.Screen name="ListingsScreen" component={ListingsScreen} />
       <ProfileStackNav.Screen name="ReferralsCreditsScreen" component={ReferralsCreditsScreen} />
@@ -134,6 +109,9 @@ function ProfileStack() {
       <ProfileStackNav.Screen name="ReferHostScreen" component={ReferHostScreen} />
       <ProfileStackNav.Screen name="TravelCreditScreen" component={TravelCreditScreen} />
       <ProfileStackNav.Screen name="TermsAndConditionsScreen" component={TermsAndConditionsScreen} />
+      <ProfileStackNav.Screen name="CommunityGuidelinesScreen" component={CommunityGuidelinesScreen} />
+      {/* Nested flows stay on this stack so Back returns here */}
+      {SharedBrowseScreens({ Stack: ProfileStackNav, includeChatThread: true })}
     </ProfileStackNav.Navigator>
   );
 }
@@ -172,6 +150,7 @@ function RentalManagerStack() {
       <RentalManagerStackNav.Screen name="CompletedRentalAgreementScreen" component={CompletedRentalAgreementScreen} />
       <RentalManagerStackNav.Screen name="RentalHistoryScreen" component={RentalHistoryScreen} />
       <RentalManagerStackNav.Screen name="PayoutsDashboardScreen" component={PayoutsDashboardScreen} />
+      {SharedBrowseScreens({ Stack: RentalManagerStackNav, includeChatThread: true })}
     </RentalManagerStackNav.Navigator>
   );
 }
@@ -182,7 +161,12 @@ function MessagingStack() {
   return (
     <MessagingStackNav.Navigator screenOptions={{ headerShown: false }}>
       <MessagingStackNav.Screen name="MessagesScreen" component={MessagesScreen} />
-      <MessagingStackNav.Screen name="ChatThreadScreen" component={ChatThreadScreen} />
+      <MessagingStackNav.Screen
+        name="ChatThreadScreen"
+        getComponent={() => require('../screens/ChatThreadScreen').default}
+      />
+      {/* ChatThread already registered above — don't duplicate */}
+      {SharedBrowseScreens({ Stack: MessagingStackNav, includeChatThread: false })}
     </MessagingStackNav.Navigator>
   );
 }
@@ -193,12 +177,11 @@ function CustomTabBar({ state, descriptors, navigation }) {
   const focusedRoute = state.routes[state.index];
   const focusedNestedName = getFocusedRouteNameFromRoute(focusedRoute) ?? focusedRoute.name;
   if (
+    SHARED_BROWSE_ROUTE_NAMES.includes(focusedNestedName) ||
     focusedNestedName === 'ChatThreadScreen' ||
     focusedNestedName === 'InviteFriendScreen' ||
     focusedNestedName === 'ReferHostScreen' ||
     focusedNestedName === 'TravelCreditScreen' ||
-    focusedNestedName === 'CalendarScreen' ||
-    focusedNestedName === 'BookingRequestConfirmationScreen' ||
     focusedNestedName === 'GuestBookingDetailsScreen' ||
     focusedNestedName === 'GuestCheckInScreen' ||
     focusedNestedName === 'GuestCheckoutScreen' ||
@@ -291,21 +274,69 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isReady } = useAuth();
+
+  useEffect(() => {
+    if (!isReady) return undefined;
+
+    const openFromUrl = (url) => {
+      if (!url || !navigationRef.isReady()) return;
+      try {
+        // Custom scheme: com.rentyourride.ios://confirm-email-change?token=
+        // HTTPS (if universal links / paste): …/confirm-email-change?token=
+        const normalized = url.replace(/^com\.rentyourride\.ios:\/*/i, 'https://app.rentyourride.ca/');
+        const parsed = new URL(normalized);
+        const path = parsed.pathname.replace(/\/$/, '');
+        const token = (
+          parsed.searchParams.get('token') ||
+          parsed.searchParams.get('passwordRecoveryVerificationToken') ||
+          parsed.searchParams.get('emailChangeToken') ||
+          ''
+        ).trim();
+        if (!token) return;
+        if (path === '/reset-password' || path.endsWith('/reset-password')) {
+          navigationRef.navigate('ResetPasswordScreen', { token });
+          return;
+        }
+        if (
+          path === '/confirm-email-change' ||
+          path.endsWith('/confirm-email-change')
+        ) {
+          navigationRef.navigate('EmailChangeSuccessScreen', { token });
+        }
+      } catch {
+        // ignore malformed urls
+      }
+    };
+
+    Linking.getInitialURL().then(openFromUrl).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => openFromUrl(url));
+    return () => sub.remove();
+  }, [isReady]);
+
+  if (!isReady) {
+    return null;
+  }
+
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        initialRouteName={'TermsAndConditionsScreen' /* TEMP iPad repro — revert */}
+        initialRouteName={isAuthenticated ? 'MainTabs' : 'Welcome'}
       >
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="AuthScreen" component={AuthScreen} />
         <Stack.Screen name="TermsAndConditionsScreen" component={TermsAndConditionsScreen} />
+        <Stack.Screen name="CommunityGuidelinesScreen" component={CommunityGuidelinesScreen} />
         <Stack.Screen name="NotificationOnboardingScreen" component={NotificationOnboardingScreen} />
         <Stack.Screen name="EmailVerificationScreen" component={EmailVerificationScreen} />
         <Stack.Screen name="ExtendTripScreen" component={ExtendTripScreen} />
         <Stack.Screen name="ForgotPasswordScreen" component={ForgotPasswordScreen} />
         <Stack.Screen name="ResetPasswordScreen" component={ResetPasswordScreen} />
+        <Stack.Screen
+          name="EmailChangeSuccessScreen"
+          component={EmailChangeSuccessScreen}
+        />
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="PayoutEmptyStateScreen" component={PayoutEmptyStateScreen} />
         <Stack.Screen name="GetPaidStack" component={GetPaidStack} />

@@ -1,85 +1,80 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { uiScale } from '../utils/uiScale';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   Alert,
-  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
-import { verifyEmail, startEmailVerification } from '../services/authApi';
+import { startEmailVerification } from '../services/authApi';
 import * as tokens from '../services/authTokens';
 
-const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
 
+/**
+ * Profile / setup email verification: send the same signup link email,
+ * then tell the user to open it. No paste-token / OTP entry.
+ */
 export default function EmailVerificationScreen({ navigation, route }) {
   const email = route.params?.email ?? '';
-  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const [resending, setResending] = useState(false);
+  const sentOnce = useRef(false);
 
-  const onVerify = async () => {
-    const token = code.trim();
-    if (token.length < 16) {
-      Alert.alert('Invalid link', 'Paste the verification token from your email.');
-      return;
-    }
+  const sendLink = async ({ announce } = { announce: true }) => {
     setBusy(true);
     try {
-      await verifyEmail(token);
-      Alert.alert('Email verified', 'Your email address is now verified.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      const access = await tokens.getAccessToken();
+      if (!access) throw new Error('Sign in again to verify your email.');
+      const result = await startEmailVerification(access);
+      if (result?.alreadyVerified) {
+        Alert.alert('Already verified', 'Your email address is already verified.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+        return;
+      }
+      if (announce) {
+        Alert.alert(
+          'Check your email',
+          `Verification email sent to ${email || 'the email on file'}. Open the link in that email to verify.`,
+        );
+      }
     } catch (e) {
-      Alert.alert('Verification failed', e?.message || 'Try again or request a new link.');
+      Alert.alert('Could not send email', e?.message || 'Try again later.');
     } finally {
       setBusy(false);
     }
   };
 
-  const onResend = async () => {
-    setResending(true);
-    try {
-      const access = await tokens.getAccessToken();
-      if (!access) throw new Error('Sign in again to resend verification email.');
-      await startEmailVerification(access);
-      Alert.alert('Email sent', 'Check your inbox for a new verification link.');
-    } catch (e) {
-      Alert.alert('Could not resend', e?.message || 'Try again later.');
-    } finally {
-      setResending(false);
-    }
-  };
+  useEffect(() => {
+    if (sentOnce.current) return;
+    sentOnce.current = true;
+    void sendLink({ announce: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>VERIFY EMAIL</Text>
       <Text style={styles.body}>
-        We sent a verification link to {email || 'your email'}. Open the link in your email app, or paste
-        the verification token below.
+        We sent a verification link to {email || 'your email'}. Open that email and
+        tap the link to verify — same as when you signed up.
       </Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Paste verification token"
-        placeholderTextColor="#999"
-        autoCapitalize="none"
-        autoCorrect={false}
-        value={code}
-        onChangeText={setCode}
-      />
-      <TouchableOpacity style={styles.primaryBtn} onPress={onVerify} disabled={busy}>
-        {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Verify email</Text>}
+      <TouchableOpacity
+        style={styles.primaryBtn}
+        onPress={() => void sendLink({ announce: true })}
+        disabled={busy}
+      >
+        {busy ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.primaryText}>Resend verification email</Text>
+        )}
       </TouchableOpacity>
-      <TouchableOpacity style={styles.secondaryBtn} onPress={onResend} disabled={resending}>
-        <Text style={styles.secondaryText}>{resending ? 'Sending…' : 'Resend verification email'}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.goBack()}>
+      <TouchableOpacity onPress={() => navigation.goBack()} disabled={busy}>
         <Text style={styles.skip}>Back</Text>
       </TouchableOpacity>
     </View>
@@ -87,7 +82,12 @@ export default function EmailVerificationScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 24 * scale, paddingTop: 48 * scale },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingHorizontal: 24 * scale,
+    paddingTop: 48 * scale,
+  },
   title: {
     fontFamily: FONTS.NUNITO_LIGHT,
     fontSize: 20 * scale,
@@ -101,16 +101,6 @@ const styles = StyleSheet.create({
     lineHeight: 22 * scale,
     marginBottom: 24 * scale,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontFamily: FONTS.NUNITO_REGULAR,
-    fontSize: 14,
-    marginBottom: 16 * scale,
-  },
   primaryBtn: {
     backgroundColor: COLORS.GREENY_BLUE_TWO,
     borderRadius: 25 * scale,
@@ -119,8 +109,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12 * scale,
   },
-  primaryText: { color: '#fff', fontFamily: FONTS.NUNITO_SEMIBOLD, fontSize: 16 * scale },
-  secondaryBtn: { alignItems: 'center', paddingVertical: 12 },
-  secondaryText: { color: COLORS.YELLOWISH_ORANGE, fontFamily: FONTS.NUNITO_SEMIBOLD },
-  skip: { textAlign: 'center', marginTop: 8, color: '#888', fontFamily: FONTS.NUNITO_REGULAR },
+  primaryText: {
+    color: '#fff',
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 16 * scale,
+  },
+  skip: {
+    textAlign: 'center',
+    marginTop: 8,
+    color: '#888',
+    fontFamily: FONTS.NUNITO_REGULAR,
+  },
 });

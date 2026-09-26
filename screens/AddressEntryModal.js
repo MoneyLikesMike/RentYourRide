@@ -5,7 +5,6 @@ import {
   Text,
   TouchableOpacity,
   Modal,
-  Dimensions,
   StyleSheet,
   Alert,
   ActivityIndicator,
@@ -16,11 +15,14 @@ import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocomplet
 import { resolveCurrentLocationAddress } from '../utils/currentLocation';
 import { forwardGeocode } from '../services/geocodeApi';
 
-const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
 
 function buildAddressQuery({ address, city, country }) {
   return [address, city, country].filter(Boolean).join(', ');
+}
+
+function formatAddressDisplay({ address, city, country }) {
+  return buildAddressQuery({ address, city, country });
 }
 
 const AddressEntryModal = ({ visible, onClose, onNext, initialAddress }) => {
@@ -33,41 +35,40 @@ const AddressEntryModal = ({ visible, onClose, onNext, initialAddress }) => {
   const [longitude, setLongitude] = useState(
     Number.isFinite(initialAddress?.longitude) ? initialAddress.longitude : null,
   );
-  const [editingField, setEditingField] = useState(null);
+  const [selectedDisplay, setSelectedDisplay] = useState('');
+  const [searchInitialValue, setSearchInitialValue] = useState('');
   const [showPinAccuracyModal, setShowPinAccuracyModal] = useState(false);
   const [resolvingLocation, setResolvingLocation] = useState(false);
   const [pinAddressData, setPinAddressData] = useState(null);
 
   React.useEffect(() => {
-    if (visible && initialAddress) {
-      setCountry(initialAddress.country || '');
-      setCity(initialAddress.city || '');
-      setAddress(initialAddress.address || '');
-      setLatitude(Number.isFinite(initialAddress.latitude) ? initialAddress.latitude : null);
-      setLongitude(Number.isFinite(initialAddress.longitude) ? initialAddress.longitude : null);
-    }
+    if (!visible || !initialAddress) return;
+    setCountry(initialAddress.country || '');
+    setCity(initialAddress.city || '');
+    setAddress(initialAddress.address || '');
+    setLatitude(Number.isFinite(initialAddress.latitude) ? initialAddress.latitude : null);
+    setLongitude(Number.isFinite(initialAddress.longitude) ? initialAddress.longitude : null);
+    const display = formatAddressDisplay(initialAddress);
+    setSelectedDisplay(display);
+    setSearchInitialValue(display);
   }, [visible, initialAddress]);
 
-  const handleEditField = (field) => {
-    setEditingField(field);
-  };
-
-  const applyPlaceSelection = (field, { selection }) => {
-    if (field === 'country') {
-      setCountry(selection.country || selection.query);
-    } else if (field === 'city') {
-      setCity(selection.city || selection.query.split(',')[0].trim());
-      if (selection.country) setCountry(selection.country);
-    } else if (field === 'address') {
-      setAddress(selection.street || selection.query);
-      if (selection.city) setCity(selection.city);
-      if (selection.country) setCountry(selection.country);
-    }
+  const applyPlaceSelection = ({ selection }) => {
+    const street = selection.street || selection.query.split(',')[0]?.trim() || selection.query;
+    setAddress(street);
+    setCity(selection.city || '');
+    setCountry(selection.country || '');
     if (Number.isFinite(selection.latitude) && Number.isFinite(selection.longitude)) {
       setLatitude(selection.latitude);
       setLongitude(selection.longitude);
     }
-    setEditingField(null);
+    const display = selection.query || formatAddressDisplay({
+      address: street,
+      city: selection.city,
+      country: selection.country,
+    });
+    setSelectedDisplay(display);
+    setSearchInitialValue(display);
   };
 
   const handleCurrentLocation = async () => {
@@ -81,7 +82,9 @@ const AddressEntryModal = ({ visible, onClose, onNext, initialAddress }) => {
       setLatitude(addressData.latitude);
       setLongitude(addressData.longitude);
     }
-    setEditingField(null);
+    const display = formatAddressDisplay(addressData);
+    setSelectedDisplay(display);
+    setSearchInitialValue(display);
   };
 
   const resolveCoordinatesForPin = async () => {
@@ -99,6 +102,10 @@ const AddressEntryModal = ({ visible, onClose, onNext, initialAddress }) => {
   };
 
   const handleAddressNext = async () => {
+    if (!buildAddressQuery({ address, city, country }).trim()) {
+      Alert.alert('Location', 'Please search for or use your current location.');
+      return;
+    }
     setResolvingLocation(true);
     try {
       const coords = await resolveCoordinatesForPin();
@@ -128,6 +135,9 @@ const AddressEntryModal = ({ visible, onClose, onNext, initialAddress }) => {
     setAddress(addressData.address);
     setLatitude(addressData.latitude);
     setLongitude(addressData.longitude);
+    const display = formatAddressDisplay(addressData);
+    setSelectedDisplay(display);
+    setSearchInitialValue(display);
     onNext(addressData);
   };
 
@@ -151,45 +161,15 @@ const AddressEntryModal = ({ visible, onClose, onNext, initialAddress }) => {
           : null,
       );
     }
-  };
-
-  const fieldTypes = {
-    country: 'country',
-    city: '(cities)',
-    address: 'address',
-  };
-
-  const renderField = (field, label, value) => {
-    const isEditing = editingField === field;
-    const hasValue = value && value.trim() !== '';
-
-    return (
-      <View style={styles.inputGroup}>
-        <View style={styles.fieldRow}>
-          <Text style={styles.inputLabel}>{label}</Text>
-          {!isEditing && !hasValue && (
-            <TouchableOpacity style={styles.editButton} onPress={() => handleEditField(field)}>
-              <Text style={styles.editButtonText}>Edit</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {isEditing ? (
-          <View style={styles.inputContainer}>
-            <GooglePlacesAutocompleteField
-              placeholder={`Enter ${label.toLowerCase()}`}
-              types={fieldTypes[field]}
-              onPlaceSelected={(result) => applyPlaceSelection(field, result)}
-              containerStyle={styles.placesField}
-            />
-          </View>
-        ) : hasValue ? (
-          <TouchableOpacity style={styles.completedFieldContainer} onPress={() => handleEditField(field)}>
-            <Text style={styles.completedFieldText}>{value}</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-    );
+    const display = formatAddressDisplay({
+      country: newAddressData.country ?? country,
+      city: newAddressData.city ?? city,
+      address: newAddressData.address ?? address,
+    });
+    if (display.trim()) {
+      setSelectedDisplay(display);
+      setSearchInitialValue(display);
+    }
   };
 
   return (
@@ -212,13 +192,25 @@ const AddressEntryModal = ({ visible, onClose, onNext, initialAddress }) => {
             <Text style={styles.currentLocationText}>Use current location</Text>
           </TouchableOpacity>
 
-          <Text style={styles.orText}>or enter your address</Text>
+          <Text style={styles.orText}>or search for your address</Text>
 
-          <View style={styles.addressFields}>
-            {renderField('country', 'COUNTRY', country)}
-            {renderField('city', 'CITY', city)}
-            {renderField('address', 'ADDRESS', address)}
+          <View style={styles.searchSection}>
+            <GooglePlacesAutocompleteField
+              key={searchInitialValue || 'address-search'}
+              placeholder="Search address"
+              types="address"
+              initialValue={searchInitialValue}
+              onPlaceSelected={applyPlaceSelection}
+              containerStyle={styles.placesField}
+            />
           </View>
+
+          {selectedDisplay ? (
+            <View style={styles.selectedAddressBox}>
+              <Text style={styles.selectedAddressLabel}>Selected address</Text>
+              <Text style={styles.selectedAddressText}>{selectedDisplay}</Text>
+            </View>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.nextButton, resolvingLocation && styles.nextButtonDisabled]}
@@ -322,68 +314,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.2,
     alignSelf: 'center',
-    marginBottom: 30 * scale,
+    marginBottom: 16 * scale,
   },
-  addressFields: {
-    marginBottom: 30 * scale,
-  },
-  inputGroup: {
-    marginBottom: 41 * scale,
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8 * scale,
-    paddingHorizontal: 0,
-  },
-  inputLabel: {
-    fontFamily: 'Nunito-SemiBold',
-    fontSize: 11 * scale,
-    color: '#000000',
-    letterSpacing: 0.2,
-    opacity: 0.7,
-    marginLeft: 10 * scale,
-  },
-  editButton: {
-    width: 80 * scale,
-    height: 20 * scale,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: -9 * scale,
-  },
-  editButtonText: {
-    fontFamily: 'Nunito-SemiBold',
-    fontSize: 15 * scale,
-    color: '#00B4AB',
-    letterSpacing: 0.2,
-    opacity: 0.7,
-  },
-  inputContainer: {
-    position: 'relative',
-    zIndex: 1,
+  searchSection: {
+    marginBottom: 16 * scale,
+    zIndex: 20,
   },
   placesField: {
-    zIndex: 5,
+    zIndex: 20,
   },
-  completedFieldContainer: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    width: 120 * scale,
-    height: 20 * scale,
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingRight: 10 * scale,
+  selectedAddressBox: {
+    backgroundColor: 'rgba(0, 180, 171, 0.08)',
+    borderRadius: 8 * scale,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 180, 171, 0.25)',
+    paddingHorizontal: 14 * scale,
+    paddingVertical: 12 * scale,
+    marginBottom: 24 * scale,
   },
-  completedFieldText: {
+  selectedAddressLabel: {
     fontFamily: 'Nunito-SemiBold',
-    fontSize: 15 * scale,
-    color: 'rgba(142, 142, 142, 1)',
-    textAlign: 'right',
-    letterSpacing: 0.2,
-    opacity: 0.7,
-    flexShrink: 1,
+    fontSize: 11 * scale,
+    color: '#00B4AB',
+    letterSpacing: 0.3,
+    marginBottom: 4 * scale,
+    textTransform: 'uppercase',
+  },
+  selectedAddressText: {
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: 14 * scale,
+    color: '#505050',
+    lineHeight: 20 * scale,
   },
   nextButton: {
     width: 239 * scale,
@@ -393,6 +354,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
+    marginTop: 8 * scale,
   },
   nextButtonDisabled: {
     opacity: 0.7,

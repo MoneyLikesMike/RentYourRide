@@ -82,6 +82,19 @@ export const HELP_ARTICLES: HelpArticle[] = [
     link: { label: 'See how it works', to: '/how-it-works' },
   },
   {
+    id: 'guest-guidelines',
+    topic: 'booking',
+    audience: 'guest',
+    question: 'Where can I read the guest guidelines?',
+    answer: [
+      'Our Guest Guidelines cover signing up, picking your ride, booking a trip, pickup/drop-off, and what to do after your trip — the same guidance shown in the Rent Your Ride app.',
+    ],
+    link: {
+      label: 'Guest Guidelines',
+      to: '/terms-conditions?section=guest-guidelines',
+    },
+  },
+  {
     id: 'minimum-age',
     topic: 'booking',
     audience: 'guest',
@@ -113,6 +126,19 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'Receive your ride back with money in your pocket. Do a walk around, complete the checkout process through the app and leave a review for your guest.',
     ],
     link: { label: 'List your ride', to: '/profile/list-your-ride' },
+  },
+  {
+    id: 'host-guidelines',
+    topic: 'hosting',
+    audience: 'host',
+    question: 'Where can I read the host guidelines?',
+    answer: [
+      'Our Host Guidelines cover hospitality tips, listing your vehicle, maintaining it, managing trips, and pickup/drop-off best practices — the same guidance shown in the Rent Your Ride app.',
+    ],
+    link: {
+      label: 'Host Guidelines',
+      to: '/terms-conditions?section=host-guidelines',
+    },
   },
   {
     id: 'earnings',
@@ -151,6 +177,16 @@ export const HELP_ARTICLES: HelpArticle[] = [
     answer: [
       'When you request a vehicle your card payment is authorized. That does not mean funds have been debited — a temporary hold is placed on them. When the host accepts your request the total trip amount is charged to your card and a receipt is sent to you.',
     ],
+  },
+  {
+    id: 'card-name-match',
+    topic: 'payments',
+    audience: 'guest',
+    question: 'Does the name on my card have to match my license?',
+    answer: [
+      'Yes. For every booking, the cardholder name on your payment card must match the legal name on your verified driver\'s license. Enter that name exactly when you add or edit a card. If your legal name has changed, complete license verification again or contact support.',
+    ],
+    link: { label: 'Payment information', to: '/profile/payment-information' },
   },
   {
     id: 'fees',
@@ -269,9 +305,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     audience: 'both',
     question: 'How do I update or delete my account?',
     answer: [
-      'You can change your details any time from your profile. If you would like to deactivate or delete your account entirely, email support@rentyourride.ca and we will take care of it.',
+      'You can change your details any time from your profile. To delete your account, go to Profile → Delete account in the app, or Contact information on the website. For security, you must sign in again (password, Apple, or Google) before deletion starts. You cannot delete an account while you have an active or upcoming trip or an outstanding balance. Your account is deactivated immediately. You have 30 days to cancel by signing back in. After 30 days, your personal information is permanently removed. Guest and Host profiles are deleted together. Past trip records for the other guest or host may remain without your personal details.',
     ],
-    link: { label: 'Edit profile', to: '/profile/edit' },
+    link: { label: 'Contact information', to: '/profile/contact-information' },
   },
 ];
 

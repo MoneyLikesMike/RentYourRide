@@ -19,6 +19,7 @@ import './styles/content-pages.css';
 import './styles/search-time-picker.css';
 import './styles/notifications.css';
 import './styles/trips.css';
+import './styles/motion.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

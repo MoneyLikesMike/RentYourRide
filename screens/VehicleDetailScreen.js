@@ -5,14 +5,17 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   Image,
   Dimensions,
   FlatList,
   Platform,
+  Alert,
+  Share,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Circle, Marker } from 'react-native-maps';
+import { useIsFocused } from '@react-navigation/native';
+import MapView, { Circle } from 'react-native-maps';
 import { Svg, Path } from 'react-native-svg';
 import { MAP_PROVIDER } from '../utils/mapProvider';
 import { COLORS } from '../constants/colors';
@@ -22,15 +25,32 @@ import { useFavorites } from '../context/FavoritesContext';
 import { getListing } from '../services/listingsApi';
 import { isRemoteListingId } from '../utils/listingId';
 import { ensureIdentityVerified } from '../utils/verificationGates';
-import { apiRangesToCalendarData } from '../utils/listingAvailability';
+import {
+  bookingOverlapsListingBlocks,
+  resolveListingCalendarData,
+} from '../utils/listingAvailability';
+import { resolveMediaUrl } from '../utils/mediaUrl';
+import { listingPhotoUrls, isListingVideo, listingPhotoUri } from '../utils/listingPhotos';
+import { Video, ResizeMode } from 'expo-av';
+import {
+  formatVehicleDetailDateLine,
+  resolveBookingDates,
+} from '../utils/bookingDatesDefaults';
+import {
+  formatListingTripLabel,
+  getListingDisplayRating,
+  listingHasGuestReviews,
+} from '../utils/listingRating';
+import { navigateToUserProfile } from '../utils/navigateRootStack';
+import { formatApproximatePickup } from '../utils/approximateLocation';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const scale = uiScale;
-const TAB_BAR_HEIGHT = 78 * scale;
 const CARD_SIZE = (screenWidth - 40 * scale - 2 * 12 * scale) / 3;
-const CAROUSEL_CARD_WIDTH = screenWidth * 0.84;
-const CAROUSEL_CARD_GAP = 2;
-const CAROUSEL_HEIGHT = CAROUSEL_CARD_WIDTH / 1.35;
+const HERO_HEIGHT = Math.round(screenHeight * 0.46);
+// Content band matches checkout sticky CTA; colors still extend into the home-indicator.
+const BOTTOM_BAR_HEIGHT = 56;
+const STICKY_HEADER_CONTENT = 48 * scale;
 
 const CAR_FEATURES_DISPLAY = [
   { key: 'navigation', label: 'NAVIGATION', icon: require('../assets/icons/gps.png') },
@@ -47,26 +67,77 @@ const CAR_FEATURES_DISPLAY = [
   { key: 'allWheelDrive', label: 'ALL-WHEEL DRIVE', icon: require('../assets/icons/chassis.png') },
 ];
 
+function BackChevron({ color = '#fff', size = 22 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <Path
+        d="M31 8L17 24L31 40"
+        stroke={color}
+        strokeWidth={4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ShareIcon({ color = '#fff', size = 20 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3v11M8 7l4-4 4 4"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function HeartIcon({ filled, color = COLORS.YELLOWISH_ORANGE, size = 20 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 21s-6.7-4.35-9.33-7.5C.5 10.85 1.1 7.2 3.9 5.55 5.7 4.5 8 4.85 9.5 6.4L12 9l2.5-2.6c1.5-1.55 3.8-1.9 5.6-.85 2.8 1.65 3.4 5.3 1.23 7.95C18.7 16.65 12 21 12 21z"
+        fill={filled ? color : 'transparent'}
+        stroke={color}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export default function VehicleDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { listings, mergeRemoteListings } = useListings();
   const { isFavorited, toggleFavorite } = useFavorites();
   const routeListing = route.params?.listing || {};
   const [fetchedListing, setFetchedListing] = useState(null);
+  const [stickyActive, setStickyActive] = useState(false);
+  const [heroInView, setHeroInView] = useState(true);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const listing = useMemo(() => {
     const id = routeListing?.id;
     if (id == null || id === '') return fetchedListing || routeListing;
     const live = listings.find((l) => String(l.id) === String(id));
-    // Prefer freshly fetched public listing, then catalog, then route snapshot.
     return { ...routeListing, ...(live || {}), ...(fetchedListing || {}) };
   }, [routeListing, listings, fetchedListing]);
-  /** Stable key so we reset carousel/map when opening a different vehicle on the same screen instance */
   const listingIdentityKey = useMemo(
     () =>
       listing?.id != null && listing.id !== ''
         ? String(listing.id)
         : `${listing?.title || ''}|${listing?.pickupAddress || ''}|${String(listing?.pricePerDay ?? '')}`,
-    [listing?.id, listing?.title, listing?.pickupAddress, listing?.pricePerDay]
+    [listing?.id, listing?.title, listing?.pickupAddress, listing?.pricePerDay],
   );
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -75,8 +146,11 @@ export default function VehicleDetailScreen({ navigation, route }) {
   useEffect(() => {
     setActiveImageIndex(0);
     setDescriptionExpanded(false);
+    setStickyActive(false);
+    setHeroInView(true);
+    scrollY.setValue(0);
     flatListRef.current?.scrollToOffset?.({ offset: 0, animated: false });
-  }, [listingIdentityKey]);
+  }, [listingIdentityKey, scrollY]);
 
   useEffect(() => {
     const id = routeListing?.id;
@@ -101,37 +175,58 @@ export default function VehicleDetailScreen({ navigation, route }) {
 
   const title = listing.title || 'Vehicle';
   const photos = Array.isArray(listing.photos) && listing.photos.length > 0 ? listing.photos : [];
+  const photoUrls = useMemo(() => listingPhotoUrls(photos), [photos]);
   const pricePerDay = Number(listing.pricePerDay) || 89;
   const city = listing.city || 'Winnipeg';
-  const pickupAddress = listing.pickupAddress || `${city}, MB R3N 0P2`;
+  const pickupDisplay = formatApproximatePickup({
+    city,
+    pickupAddress: listing.pickupAddress,
+  });
   const instantBooking = listing.instantBooking === true;
   const hostName = listing.hostName || 'Moe Jackson';
-  const hostTrips = listing.hostTrips ?? 52;
-  const guestReviews = Array.isArray(listing.guestReviews) ? listing.guestReviews : [];
-  const hostRatingRaw = Number(listing.hostRating);
-  const hostRating = Number.isFinite(hostRatingRaw) ? hostRatingRaw : 5;
-  const hostStarsFilled = Math.min(5, Math.max(0, Math.round(hostRating)));
+  const hostPhotoUri = useMemo(
+    () => resolveMediaUrl(listing.hostPhotoUri),
+    [listing.hostPhotoUri],
+  );
+  const favorited =
+    listing?.id != null && listing.id !== '' ? isFavorited(listing.id) : false;
 
-  // If your listings ever include coordinates, we can center precisely.
-  // For now, default to Winnipeg.
+  const openHostProfile = () => {
+    if (!listing.hostUserId && !hostName) return;
+    navigateToUserProfile(navigation, {
+      profileUser: {
+        userId: listing.hostUserId || null,
+        displayName: hostName,
+        photoUri: hostPhotoUri || listing.hostPhotoUri || null,
+        joinedYear: listing.hostJoinedYear ?? null,
+        aboutBio: listing.hostBio || '',
+      },
+      highlightListings: [listing],
+    });
+  };
+  const guestReviews = Array.isArray(listing.guestReviews) ? listing.guestReviews : [];
+  const displayRating = getListingDisplayRating(listing);
+  const hostStarsFilled =
+    displayRating != null ? Math.min(5, Math.max(0, Math.round(displayRating))) : 0;
+
   const mapLatitude = typeof listing?.latitude === 'number' ? listing.latitude : 49.8951;
   const mapLongitude = typeof listing?.longitude === 'number' ? listing.longitude : -97.1384;
   const initialMapRegion = {
     latitude: mapLatitude,
     longitude: mapLongitude,
-    latitudeDelta: 0.012,
-    longitudeDelta: 0.012,
+    latitudeDelta: 0.04,
+    longitudeDelta: 0.04,
   };
 
-  const bookingDates = route.params?.bookingDates;
-  const hasBookingDates = bookingDates?.start != null && bookingDates?.end != null;
+  const bookingDates = useMemo(
+    () => resolveBookingDates(route.params?.bookingDates),
+    [route.params?.bookingDates],
+  );
 
-  const bookingCalendarData = useMemo(() => {
-    if (listing?.calendarData?.blockedRanges?.length) return listing.calendarData;
-    const fromBlocked = apiRangesToCalendarData(listing?.blockedRanges);
-    if (fromBlocked) return fromBlocked;
-    return apiRangesToCalendarData(listing?.availability);
-  }, [listing?.calendarData, listing?.blockedRanges, listing?.availability]);
+  const bookingCalendarData = useMemo(
+    () => resolveListingCalendarData(listing),
+    [listing?.calendarData, listing?.blockedRanges, listing?.availability],
+  );
 
   const tripConstraints = useMemo(() => {
     const extras = listing?.extras && typeof listing.extras === 'object' ? listing.extras : {};
@@ -141,54 +236,83 @@ export default function VehicleDetailScreen({ navigation, route }) {
     };
   }, [listing?.shortestTrip, listing?.longestTrip, listing?.extras]);
 
+  const refreshListingCalendarData = async (fallback = bookingCalendarData) => {
+    if (!isRemoteListingId(listing?.id)) return fallback;
+    try {
+      const fresh = await getListing(String(listing.id));
+      if (!fresh) return fallback;
+      setFetchedListing(fresh);
+      mergeRemoteListings([fresh]);
+      return resolveListingCalendarData(fresh) || fallback;
+    } catch (_) {
+      return fallback;
+    }
+  };
+
+  const openBookingCalendar = async ({ skipVerify = false } = {}) => {
+    if (
+      !skipVerify &&
+      !(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to book' }))
+    ) {
+      return;
+    }
+    const calendarData = await refreshListingCalendarData(bookingCalendarData);
+    navigation.navigate('CalendarScreen', {
+      mode: 'booking',
+      returnTo: 'VehicleDetailScreen',
+      listing,
+      bookingSessionKey: Date.now(),
+      savedCalendarData: calendarData,
+      minTripConstraint: tripConstraints.min,
+      maxTripConstraint: tripConstraints.max,
+    });
+  };
+
   const proceedToCheckout = async () => {
     if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to book' }))) {
       return;
     }
-    if (!hasBookingDates) {
-      let calendarData = bookingCalendarData;
-      // Refresh blocked ranges right before opening the calendar.
-      if (isRemoteListingId(listing?.id)) {
-        try {
-          const fresh = await getListing(String(listing.id));
-          if (fresh) {
-            setFetchedListing(fresh);
-            mergeRemoteListings([fresh]);
-            calendarData =
-              fresh.calendarData?.blockedRanges?.length
-                ? fresh.calendarData
-                : apiRangesToCalendarData(fresh.blockedRanges) ||
-                  apiRangesToCalendarData(fresh.availability) ||
-                  calendarData;
-          }
-        } catch (_) {
-          /* use cached listing data */
-        }
-      }
-      navigation.navigate('CalendarScreen', {
-        mode: 'booking',
-        returnTo: 'VehicleDetailScreen',
-        listing,
-        bookingSessionKey: Date.now(),
-        savedCalendarData: calendarData,
-        minTripConstraint: tripConstraints.min,
-        maxTripConstraint: tripConstraints.max,
-      });
+    const calendarData = await refreshListingCalendarData(bookingCalendarData);
+    if (bookingOverlapsListingBlocks(bookingDates, calendarData || listing)) {
+      Alert.alert(
+        'Dates unavailable',
+        'Those dates are blocked by the host. Please choose different dates.',
+        [{ text: 'OK', onPress: () => openBookingCalendar({ skipVerify: true }) }],
+      );
       return;
     }
     navigation.navigate('BookingCheckoutScreen', { listing, bookingDates });
   };
 
-  const startDate = bookingDates?.start
-    ? `${new Date(bookingDates.start).toLocaleString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()} - ${bookingDates?.startTime || '12:00 AM'}`
-    : 'JAN 20TH, 2019 - 12:00 AM';
-  const endDate = bookingDates?.end
-    ? `${new Date(bookingDates.end).toLocaleString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()} - ${bookingDates?.endTime || '9:00 PM'}`
-    : 'JAN 26TH, 2019 - 9:00 PM';
+  const shareListing = async () => {
+    const id = listing?.id != null && listing.id !== '' ? String(listing.id) : '';
+    const url = id
+      ? `https://app.rentyourride.ca/find-your-car/${encodeURIComponent(id)}`
+      : 'https://app.rentyourride.ca/find-your-car';
+    try {
+      await Share.share({
+        message: `Check out ${title} on RentYourRide\n${url}`,
+        url,
+        title,
+      });
+    } catch (_) {
+      /* user cancelled */
+    }
+  };
+
+  const toggleFav = () => {
+    if (listing?.id == null || listing.id === '') return;
+    toggleFavorite(listing);
+  };
+
+  const startDate = formatVehicleDetailDateLine(bookingDates.start, bookingDates.startTime);
+  const endDate = formatVehicleDetailDateLine(bookingDates.end, bookingDates.endTime);
   const descriptionShort = listing.description?.trim()
     ? listing.description.trim()
     : "This isn't your typical Mercedes. With a hand built 6.2L V8 pushing 507 horsepower this Mercedes is built for speed. The engine is mated to a 7 speed multiclutch transmission that allows for lightning quick shifts. This...";
-  const descriptionFull = descriptionShort + " The interior is finished in premium leather with carbon fiber accents. A perfect blend of luxury and performance for the discerning driver.";
+  const descriptionFull =
+    descriptionShort +
+    ' The interior is finished in premium leather with carbon fiber accents. A perfect blend of luxury and performance for the discerning driver.';
   const selectedFeatureSet = new Set(Array.isArray(listing.carFeatures) ? listing.carFeatures : []);
   const displayFeatures = selectedFeatureSet.size
     ? CAR_FEATURES_DISPLAY.filter((f) => selectedFeatureSet.has(f.key))
@@ -199,290 +323,430 @@ export default function VehicleDetailScreen({ navigation, route }) {
   }).current;
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Svg width={24} height={24} viewBox="0 0 48 48" fill="none">
-            <Path d="M31 8L17 24L31 40" stroke={COLORS.YELLOWISH_ORANGE} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
-        {listing?.id != null && listing.id !== '' ? (
-          <TouchableOpacity
-            style={styles.favBtn}
-            onPress={() => toggleFavorite(listing)}
-            hitSlop={12}
-          >
-            <Text style={styles.favIcon}>{isFavorited(listing.id) ? '♥' : '♡'}</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.headerSpacer} />
-        )}
-      </View>
+  const openPhotoGallery = (index = activeImageIndex) => {
+    if (!photos.length) return;
+    navigation.navigate('ListingPhotoGalleryScreen', {
+      photos: photos.map((p) => ({
+        uri: listingPhotoUri(p),
+        type: isListingVideo(p) ? 'video' : 'image',
+      })),
+      initialIndex: Math.min(Math.max(index, 0), photos.length - 1),
+      title,
+    });
+  };
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Image carousel - card style: rounded corners, shadow, gaps, center larger, sides slightly visible */}
-        <View style={[styles.carouselWrap, { height: CAROUSEL_HEIGHT }]}>
+  const stickyThreshold = HERO_HEIGHT - insets.top - 24;
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [stickyThreshold - 40, stickyThreshold],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const heroChromeOpacity = scrollY.interpolate({
+    inputRange: [stickyThreshold - 40, stickyThreshold],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const stickyHeaderHeight = insets.top + STICKY_HEADER_CONTENT;
+  const checkoutBarHeight = BOTTOM_BAR_HEIGHT + insets.bottom;
+  const bottomPad = checkoutBarHeight + 20;
+
+  const renderChromeButtons = (onLight) => {
+    const iconColor = onLight ? COLORS.YELLOWISH_ORANGE : '#fff';
+    const btnStyle = onLight ? styles.chromeBtnLight : styles.chromeBtn;
+    return (
+      <>
+        <TouchableOpacity
+          style={btnStyle}
+          onPress={() => navigation.goBack()}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <BackChevron color={iconColor} />
+        </TouchableOpacity>
+        <View style={styles.chromeRight}>
+          <TouchableOpacity
+            style={btnStyle}
+            onPress={shareListing}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Share"
+          >
+            <ShareIcon color={iconColor} />
+          </TouchableOpacity>
+          {listing?.id != null && listing.id !== '' ? (
+            <TouchableOpacity
+              style={btnStyle}
+              onPress={toggleFav}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={favorited ? 'Remove favourite' : 'Add favourite'}
+            >
+              <HeartIcon filled={favorited} color={COLORS.YELLOWISH_ORANGE} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <Animated.ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: true,
+          listener: (e) => {
+            const y = e.nativeEvent.contentOffset.y;
+            const next = y >= stickyThreshold - 8;
+            setStickyActive((prev) => (prev === next ? prev : next));
+            // Pause muted autoplay once the hero has mostly scrolled off-screen.
+            const inView = y < HERO_HEIGHT * 0.55;
+            setHeroInView((prev) => (prev === inView ? prev : inView));
+          },
+        })}
+      >
+        <View style={[styles.hero, { height: HERO_HEIGHT }]}>
           {photos.length > 0 ? (
             <FlatList
               key={listingIdentityKey}
               ref={flatListRef}
               data={photos}
               horizontal
-              style={styles.carouselList}
+              pagingEnabled
+              style={styles.heroList}
               showsHorizontalScrollIndicator={false}
               onViewableItemsChanged={onViewableItemsChanged}
               viewabilityConfig={viewabilityConfig}
-              snapToOffsets={photos.map((_, i) => i * (CAROUSEL_CARD_WIDTH + CAROUSEL_CARD_GAP))}
-              snapToAlignment="center"
-              decelerationRate="fast"
-              contentContainerStyle={{
-                paddingHorizontal: (screenWidth - CAROUSEL_CARD_WIDTH) / 2,
-              }}
-              ItemSeparatorComponent={() => <View style={{ width: CAROUSEL_CARD_GAP }} />}
-              keyExtractor={(item, i) => (item.uri || i).toString()}
+              extraData={`${activeImageIndex}:${heroInView && isFocused ? 1 : 0}`}
+              keyExtractor={(item, i) => (item.uri || item.url || i).toString()}
               renderItem={({ item, index }) => {
-                const isActive = index === activeImageIndex;
-                const scale = isActive ? 1 : 0.9;
+                const uri = photoUrls[index] || item.uri || item.url;
+                const video = isListingVideo(item);
+                const autoplay = video && index === activeImageIndex && heroInView && isFocused;
                 return (
-                  <View
-                    style={[
-                      styles.carouselSlide,
-                      {
-                        width: CAROUSEL_CARD_WIDTH,
-                        height: CAROUSEL_HEIGHT,
-                        zIndex: isActive ? 2 : 1,
-                        transform: [{ scale }],
-                      },
-                    ]}
+                  <TouchableOpacity
+                    activeOpacity={0.95}
+                    onPress={() => openPhotoGallery(index)}
+                    style={[styles.heroSlide, { width: screenWidth, height: HERO_HEIGHT }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      video
+                        ? `View video ${index + 1} of ${photos.length}`
+                        : `View photo ${index + 1} of ${photos.length}`
+                    }
                   >
-                    <Image source={{ uri: item.uri }} style={styles.carouselImage} resizeMode="cover" />
-                  </View>
+                    {video ? (
+                      <View style={styles.heroImage}>
+                        <Video
+                          source={{ uri }}
+                          style={StyleSheet.absoluteFill}
+                          resizeMode={ResizeMode.COVER}
+                          shouldPlay={autoplay}
+                          isLooping
+                          isMuted
+                          useNativeControls={false}
+                        />
+                      </View>
+                    ) : (
+                      <Image source={{ uri }} style={styles.heroImage} resizeMode="cover" />
+                    )}
+                  </TouchableOpacity>
                 );
               }}
             />
           ) : (
-            <View style={[styles.carouselPlaceholder, { height: CAROUSEL_HEIGHT }]}>
-              <Text style={styles.carouselPlaceholderText}>No photos</Text>
+            <View style={[styles.heroPlaceholder, { height: HERO_HEIGHT }]}>
+              <Text style={styles.heroPlaceholderText}>No photos</Text>
             </View>
           )}
+          {photos.length > 0 ? (
+            <View style={styles.photoCounter}>
+              <Text style={styles.photoCounterText}>
+                {activeImageIndex + 1} of {photos.length}
+              </Text>
+            </View>
+          ) : null}
+          <Animated.View
+            pointerEvents={stickyActive ? 'none' : 'box-none'}
+            style={[
+              styles.heroChrome,
+              { paddingTop: insets.top + 8, opacity: heroChromeOpacity },
+            ]}
+          >
+            {renderChromeButtons(false)}
+          </Animated.View>
         </View>
 
-        {/* Host profile */}
-        <TouchableOpacity style={styles.hostRow} onPress={() => {}} activeOpacity={0.85}>
-          <View style={styles.hostAvatar} />
-          <View style={styles.hostInfo}>
-            <View style={styles.hostNameRow}>
-              <Text style={styles.hostName}>{hostName}</Text>
-              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" style={styles.hostNameArrow}>
-                <Path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" fill="#9B9B9B" />
-              </Svg>
-            </View>
-            <Text style={styles.hostLabel}>HOST</Text>
-          </View>
-          <View style={styles.hostMeta}>
-            <View style={styles.starRow}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Svg key={i} width={14} height={14} viewBox="0 0 24 24">
-                  <Path
-                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                    fill={i <= hostStarsFilled ? COLORS.YELLOWISH_ORANGE : '#E0E0E0'}
-                  />
+        <View style={styles.body}>
+          <Text style={styles.pageTitle}>{title}</Text>
+
+          <TouchableOpacity style={styles.hostRow} onPress={openHostProfile} activeOpacity={0.85}>
+            {hostPhotoUri ? (
+              <Image source={{ uri: hostPhotoUri }} style={styles.hostAvatar} resizeMode="cover" />
+            ) : (
+              <View style={styles.hostAvatar} />
+            )}
+            <View style={styles.hostInfo}>
+              <View style={styles.hostNameRow}>
+                <Text style={styles.hostName}>{hostName}</Text>
+                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" style={styles.hostNameArrow}>
+                  <Path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" fill="#9B9B9B" />
                 </Svg>
+              </View>
+              <Text style={styles.hostLabel}>HOST</Text>
+            </View>
+            <View style={styles.hostMeta}>
+              {listingHasGuestReviews(listing) ? (
+                <View style={styles.starRow}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Svg key={i} width={14} height={14} viewBox="0 0 24 24">
+                      <Path
+                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                        fill={i <= hostStarsFilled ? COLORS.YELLOWISH_ORANGE : '#E0E0E0'}
+                      />
+                    </Svg>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.hostNewBadge}>New</Text>
+              )}
+              <Text style={styles.hostTrips}>{formatListingTripLabel(listing)}</Text>
+            </View>
+          </TouchableOpacity>
+
+          {guestReviews.length > 0 ? (
+            <View style={styles.guestReviewsSection}>
+              <Text style={styles.guestReviewsHeader}>GUEST REVIEWS</Text>
+              {[...guestReviews].reverse().map((rev) => (
+                <View key={rev.bookingId} style={styles.guestReviewCard}>
+                  <View style={styles.guestReviewTop}>
+                    <Text style={styles.guestReviewName}>{rev.guestName || 'Guest'}</Text>
+                    <View style={styles.starRowSmall}>
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Svg key={i} width={12} height={12} viewBox="0 0 24 24">
+                          <Path
+                            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                            fill={
+                              i <= Math.round(Number(rev.rating) || 0)
+                                ? COLORS.YELLOWISH_ORANGE
+                                : '#E0E0E0'
+                            }
+                          />
+                        </Svg>
+                      ))}
+                    </View>
+                  </View>
+                  {rev.publicText ? (
+                    <Text style={styles.guestReviewBody}>{rev.publicText}</Text>
+                  ) : null}
+                </View>
               ))}
             </View>
-            <Text style={styles.hostTrips}>{hostTrips} trips</Text>
-          </View>
-        </TouchableOpacity>
+          ) : null}
 
-        {guestReviews.length > 0 ? (
-          <View style={styles.guestReviewsSection}>
-            <Text style={styles.guestReviewsHeader}>GUEST REVIEWS</Text>
-            {[...guestReviews].reverse().map((rev) => (
-              <View key={rev.bookingId} style={styles.guestReviewCard}>
-                <View style={styles.guestReviewTop}>
-                  <Text style={styles.guestReviewName}>{rev.guestName || 'Guest'}</Text>
-                  <View style={styles.starRowSmall}>
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <Svg key={i} width={12} height={12} viewBox="0 0 24 24">
-                        <Path
-                          d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                          fill={
-                            i <= Math.round(Number(rev.rating) || 0) ? COLORS.YELLOWISH_ORANGE : '#E0E0E0'
-                          }
-                        />
-                      </Svg>
-                    ))}
-                  </View>
-                </View>
-                {rev.publicText ? <Text style={styles.guestReviewBody}>{rev.publicText}</Text> : null}
+          {instantBooking ? (
+            <View style={styles.instantBookingBadge}>
+              <Image
+                source={require('../assets/instantBookingIcon.png')}
+                style={styles.instantBookingIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.instantBookingText}>INSTANT BOOKING AVAILABLE</Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={styles.chooseDateBtn}
+            activeOpacity={0.85}
+            onPress={openBookingCalendar}
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"
+                fill={COLORS.GREENY_BLUE_TWO}
+              />
+            </Svg>
+            <Text style={styles.chooseDateText}>CHOOSE RENTAL DATE</Text>
+            <Image
+              source={require('../assets/icons/arrow-button.png')}
+              style={styles.chooseDateArrow}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+
+          <View style={styles.rentalDatesContainer}>
+            <View style={styles.rentalDateHalf}>
+              <Text style={styles.dateBoxLabel}>Start</Text>
+              <Text
+                style={styles.dateBoxValue}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {startDate}
+              </Text>
+            </View>
+            <View style={styles.rentalDatesDivider} />
+            <View style={styles.rentalDateHalf}>
+              <Text style={styles.dateBoxLabel}>End</Text>
+              <Text
+                style={styles.dateBoxValue}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {endDate}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.pickupBox}>
+            <Text style={styles.pickupLabel}>Pickup & drop off location</Text>
+            <Text style={styles.pickupValue}>{pickupDisplay}</Text>
+          </View>
+
+          <Text style={styles.restrictionsHeader}>RESTRICTIONS</Text>
+          <View style={styles.restrictionsRow}>
+            <Text style={styles.restrictionsLabel}>Shortest Possible Trip</Text>
+            <Text style={styles.restrictionsValue}>{listing.shortestTrip || '1 day'}</Text>
+          </View>
+          <View style={styles.rowDivider} />
+          <View style={styles.restrictionsRow}>
+            <Text style={styles.restrictionsLabel}>Longest Possible Trip</Text>
+            <Text style={styles.restrictionsValue}>{listing.longestTrip || '1 month'}</Text>
+          </View>
+          <View style={styles.rowDivider} />
+          <View style={styles.restrictionsRow}>
+            <Text style={styles.restrictionsLabel}>Kilometres included</Text>
+            <Text style={styles.restrictionsValue}>{listing.dailyKm || '200 km/day'}</Text>
+          </View>
+          <View style={styles.sectionDivider} />
+
+          <Text style={styles.pricingHeader}>PRICING</Text>
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingLabel}>Kilometres Overage Fee*</Text>
+            <Text style={styles.restrictionsValue}>
+              $ {(Number(listing.kmOverageFee) || 0.25).toFixed(2)}/KM
+            </Text>
+          </View>
+          <View style={styles.rowDivider} />
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingLabel}>Delivery Price</Text>
+            <Text style={styles.restrictionsValue}>$ {listing.deliveryPrice ?? 0}</Text>
+          </View>
+          <View style={styles.rowDivider} />
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingLabel}>Weekly Discount</Text>
+            <Text style={styles.restrictionsValue}>{listing.weeklyDiscount || '0%'}</Text>
+          </View>
+          <View style={styles.rowDivider} />
+          <View style={styles.pricingRow}>
+            <Text style={styles.pricingLabel}>Monthly Discount</Text>
+            <Text style={styles.restrictionsValue}>{listing.monthlyDiscount || '0%'}</Text>
+          </View>
+
+          <Text style={styles.carFeaturesHeader}>CAR FEATURES</Text>
+          <View style={styles.featureGrid}>
+            {displayFeatures.map((f) => (
+              <View key={f.key} style={styles.featureTile}>
+                <Image
+                  source={f.icon}
+                  style={{ width: 70, height: 70, marginBottom: 8 * scale }}
+                  resizeMode="contain"
+                />
+                <Text style={styles.featureTileText}>{f.label}</Text>
               </View>
             ))}
           </View>
-        ) : null}
 
-        {/* Instant booking */}
-        {instantBooking && (
-          <View style={styles.instantBookingBadge}>
-            <Image source={require('../assets/instantBookingIcon.png')} style={styles.instantBookingIcon} resizeMode="contain" />
-            <Text style={styles.instantBookingText}>INSTANT BOOKING AVAILABLE</Text>
-          </View>
-        )}
-
-        {/* Choose rental date */}
-        <TouchableOpacity
-          style={styles.chooseDateBtn}
-          activeOpacity={0.85}
-          onPress={async () => {
-            if (!(await ensureIdentityVerified(navigation, { alertTitle: 'Verify your account to book' }))) {
-              return;
-            }
-            navigation.navigate('CalendarScreen', {
-              mode: 'booking',
-              returnTo: 'VehicleDetailScreen',
-              listing,
-              bookingSessionKey: Date.now(),
-              savedCalendarData: listing.calendarData,
-              minTripConstraint: listing.shortestTrip,
-              maxTripConstraint: listing.longestTrip,
-            });
-          }}
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z" fill={COLORS.GREENY_BLUE_TWO} />
-          </Svg>
-          <Text style={styles.chooseDateText}>CHOOSE RENTAL DATE</Text>
-          <Image source={require('../assets/icons/arrow-button.png')} style={styles.chooseDateArrow} resizeMode="contain" />
-        </TouchableOpacity>
-
-        {/* Rental dates */}
-        <View style={styles.rentalDatesContainer}>
-          <View style={styles.rentalDateHalf}>
-            <Text style={styles.dateBoxLabel}>Start</Text>
-            <Text style={styles.dateBoxValue}>{startDate}</Text>
-          </View>
-          <View style={styles.rentalDatesDivider} />
-          <View style={styles.rentalDateHalf}>
-            <Text style={styles.dateBoxLabel}>End</Text>
-            <Text style={styles.dateBoxValue}>{endDate}</Text>
-          </View>
-        </View>
-
-        {/* Pickup & drop off */}
-        <View style={styles.pickupBox}>
-          <Text style={styles.pickupLabel}>Pickup & drop off location</Text>
-          <Text style={styles.pickupValue}>{pickupAddress}</Text>
-        </View>
-
-        {/* Restrictions */}
-        <Text style={styles.restrictionsHeader}>RESTRICTIONS</Text>
-        <View style={styles.restrictionsRow}>
-          <Text style={styles.restrictionsLabel}>Shortest Possible Trip</Text>
-          <Text style={styles.restrictionsValue}>{listing.shortestTrip || '1 day'}</Text>
-        </View>
-        <View style={styles.rowDivider} />
-        <View style={styles.restrictionsRow}>
-          <Text style={styles.restrictionsLabel}>Longest Possible Trip</Text>
-          <Text style={styles.restrictionsValue}>{listing.longestTrip || '1 month'}</Text>
-        </View>
-        <View style={styles.rowDivider} />
-        <View style={styles.restrictionsRow}>
-          <Text style={styles.restrictionsLabel}>Kilometres included</Text>
-          <Text style={styles.restrictionsValue}>{listing.dailyKm || '200 km/day'}</Text>
-        </View>
-        {/* Divider between sections */}
-        <View style={styles.sectionDivider} />
-
-        {/* Pricing */}
-        <Text style={styles.pricingHeader}>PRICING</Text>
-        <View style={styles.pricingRow}>
-          <Text style={styles.pricingLabel}>Kilometres Overage Fee*</Text>
-          <Text style={styles.restrictionsValue}>$ {(Number(listing.kmOverageFee) || 0.25).toFixed(2)}/KM</Text>
-        </View>
-        <View style={styles.rowDivider} />
-        <View style={styles.pricingRow}>
-          <Text style={styles.pricingLabel}>Delivery Price</Text>
-          <Text style={styles.restrictionsValue}>$ {listing.deliveryPrice ?? 0}</Text>
-        </View>
-        <View style={styles.rowDivider} />
-        <View style={styles.pricingRow}>
-          <Text style={styles.pricingLabel}>Weekly Discount</Text>
-          <Text style={styles.restrictionsValue}>{listing.weeklyDiscount || '0%'}</Text>
-        </View>
-        <View style={styles.rowDivider} />
-        <View style={styles.pricingRow}>
-          <Text style={styles.pricingLabel}>Monthly Discount</Text>
-          <Text style={styles.restrictionsValue}>{listing.monthlyDiscount || '0%'}</Text>
-        </View>
-
-        {/* Car features */}
-        <Text style={styles.carFeaturesHeader}>CAR FEATURES</Text>
-        <View style={styles.featureGrid}>
-          {displayFeatures.map((f) => (
-            <View key={f.key} style={styles.featureTile}>
-              <Image
-                source={f.icon}
-                style={{ width: 70, height: 70, marginBottom: 8 * scale }}
-                resizeMode="contain"
-              />
-              <Text style={styles.featureTileText}>{f.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Description */}
-        <Text style={styles.descriptionHeader}>Description</Text>
-        <View style={styles.sectionMidDivider} />
-        <Text style={styles.descriptionText}>
-          {descriptionExpanded ? descriptionFull : descriptionShort}
-        </Text>
-        <TouchableOpacity onPress={() => setDescriptionExpanded(!descriptionExpanded)} style={styles.viewMoreWrap}>
-          <Text style={styles.viewMoreText}>{descriptionExpanded ? 'VIEW LESS' : 'VIEW MORE'}</Text>
-        </TouchableOpacity>
-
-        {/* Pickup map placeholder */}
-        <Text style={styles.pickupHeaderAboveMap}>Pickup & drop off location</Text>
-        <View style={styles.sectionMidDivider} />
-        <MapView
-          key={listingIdentityKey}
-          provider={MAP_PROVIDER}
-          style={styles.mapPlaceholder}
-          initialRegion={initialMapRegion}
-          showsUserLocation={false}
-          scrollEnabled={false}
-          zoomEnabled={false}
-          pitchEnabled={false}
-          rotateEnabled={false}
-        >
-          <Marker coordinate={{ latitude: mapLatitude, longitude: mapLongitude }} />
-          <Circle
-            center={{ latitude: mapLatitude, longitude: mapLongitude }}
-            radius={250}
-            strokeColor={COLORS.GREENY_BLUE_TWO}
-            fillColor="rgba(76, 182, 177, 0.15)"
-            strokeWidth={2}
-          />
-        </MapView>
-
-        {/* Checkout CTA (scrolls with content) */}
-        <TouchableOpacity
-          style={styles.checkoutSection}
-          activeOpacity={0.85}
-          onPress={proceedToCheckout}
-        >
-          <View style={styles.checkoutBtn}>
-            <Text style={styles.checkoutBtnText}>PROCEED TO CHECKOUT</Text>
-            <View style={styles.checkoutArrowTip} />
-          </View>
-          <View style={styles.priceBadge}>
-            <Text style={styles.priceBadgeText}>
-              <Text style={styles.priceBadgeMain}>CAD ${pricePerDay}/</Text>
-              <Text style={styles.priceBadgeDay}>DAY</Text>
+          <Text style={styles.descriptionHeader}>Description</Text>
+          <View style={styles.sectionMidDivider} />
+          <Text style={styles.descriptionText}>
+            {descriptionExpanded ? descriptionFull : descriptionShort}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setDescriptionExpanded(!descriptionExpanded)}
+            style={styles.viewMoreWrap}
+          >
+            <Text style={styles.viewMoreText}>
+              {descriptionExpanded ? 'VIEW LESS' : 'VIEW MORE'}
             </Text>
-          </View>
-        </TouchableOpacity>
-      </ScrollView>
+          </TouchableOpacity>
+
+          <Text style={styles.pickupHeaderAboveMap}>Pickup & drop off location</Text>
+          <View style={styles.sectionMidDivider} />
+          <MapView
+            key={listingIdentityKey}
+            provider={MAP_PROVIDER}
+            style={styles.mapPlaceholder}
+            initialRegion={initialMapRegion}
+            showsUserLocation={false}
+            scrollEnabled={false}
+            zoomEnabled={false}
+            pitchEnabled={false}
+            rotateEnabled={false}
+          >
+            <Circle
+              center={{ latitude: mapLatitude, longitude: mapLongitude }}
+              radius={350}
+              strokeColor={COLORS.GREENY_BLUE_TWO}
+              fillColor="rgba(76, 182, 177, 0.18)"
+              strokeWidth={2}
+            />
+          </MapView>
+        </View>
+      </Animated.ScrollView>
+
+      <Animated.View
+        pointerEvents={stickyActive ? 'box-none' : 'none'}
+        style={[
+          styles.stickyHeader,
+          {
+            height: stickyHeaderHeight,
+            paddingTop: insets.top,
+            opacity: stickyOpacity,
+          },
+        ]}
+      >
+        <View style={styles.stickyHeaderInner}>{renderChromeButtons(true)}</View>
+        <View style={styles.stickyTitleWrap} pointerEvents="none">
+          <Text style={styles.stickyTitle} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
+      </Animated.View>
+
+      <TouchableOpacity
+        style={[styles.checkoutBar, { height: checkoutBarHeight }]}
+        activeOpacity={0.85}
+        onPress={proceedToCheckout}
+        accessibilityRole="button"
+        accessibilityLabel="Proceed to checkout"
+      >
+        <View style={[styles.checkoutBtn, { height: checkoutBarHeight }]}>
+          <Text style={styles.checkoutBtnText}>CONTINUE</Text>
+          <View
+            style={[
+              styles.checkoutArrowTip,
+              {
+                borderTopWidth: checkoutBarHeight / 2,
+                borderBottomWidth: checkoutBarHeight / 2,
+              },
+            ]}
+          />
+        </View>
+        <View style={[styles.priceBadge, { height: checkoutBarHeight }]}>
+          <Text style={styles.priceBadgeText}>
+            <Text style={styles.priceBadgeMain}>CAD ${pricePerDay}/</Text>
+            <Text style={styles.priceBadgeDay}>DAY</Text>
+          </Text>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -492,113 +756,158 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eee',
-  },
-  backBtn: {
-    padding: 4,
-    width: 40,
-  },
-  title: {
-    fontFamily: FONTS.NUNITO_MEDIUM,
-    fontSize: 20,
-    color: 'rgb(100, 97, 97)',
-    letterSpacing: -0.1,
-    width: 232,
-    height: 20,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  favBtn: {
-    width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  favIcon: {
-    fontSize: 22 * scale,
-    color: COLORS.MANGO_TWO,
-  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20 * scale,
-    paddingBottom: TAB_BAR_HEIGHT + 28,
+    paddingBottom: 28,
   },
-  carouselWrap: {
+  hero: {
     width: screenWidth,
-    marginHorizontal: -20 * scale,
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  carouselList: {
-    width: screenWidth,
-  },
-  carouselSlide: {
-    borderRadius: 14,
+    backgroundColor: '#1a1a1a',
     overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.14,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
   },
-  carouselImage: {
+  heroList: {
+    width: screenWidth,
+  },
+  heroSlide: {
+    backgroundColor: '#1a1a1a',
+  },
+  heroImage: {
     width: '100%',
     height: '100%',
   },
-  carouselPlaceholder: {
-    width: '100%',
-    height: '100%',
+  heroPlayWrap: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  carouselPlaceholderText: {
+  heroPlayBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroPlayTriangle: {
+    width: 0,
+    height: 0,
+    marginLeft: 4,
+    borderTopWidth: 10,
+    borderBottomWidth: 10,
+    borderLeftWidth: 16,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#fff',
+  },
+  heroPlaceholder: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  heroPlaceholderText: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 14,
     color: '#9B9B9B',
   },
-  dots: {
+  photoCounter: {
     position: 'absolute',
-    bottom: 12,
+    left: 16,
+    bottom: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  photoCounterText: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 12,
+    color: '#fff',
+  },
+  heroChrome: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 12,
+  },
+  chromeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chromeBtnLight: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chromeRight: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-  },
-  dotActive: {
     backgroundColor: '#fff',
-    width: 8,
-    borderRadius: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E8E8E8',
+    zIndex: 40,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+      },
+      android: { elevation: 4 },
+    }),
+  },
+  stickyHeaderInner: {
+    height: STICKY_HEADER_CONTENT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+  },
+  stickyTitleWrap: {
+    ...StyleSheet.absoluteFillObject,
+    top: undefined,
+    bottom: 0,
+    height: STICKY_HEADER_CONTENT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 96,
+  },
+  stickyTitle: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 16,
+    color: 'rgb(80,80,80)',
+    textAlign: 'center',
+  },
+  body: {
+    paddingHorizontal: 20 * scale,
+    paddingTop: 16,
+  },
+  pageTitle: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 22,
+    color: 'rgb(80,80,80)',
+    marginBottom: 8,
   },
   hostRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
-    borderBottomWidth: 0,
   },
   hostAvatar: {
     width: 48,
@@ -638,6 +947,13 @@ const styles = StyleSheet.create({
     gap: 2,
     marginBottom: 4,
   },
+  hostNewBadge: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 12,
+    color: COLORS.GREENY_BLUE_TWO,
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
   hostTrips: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 12,
@@ -673,8 +989,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 14 * scale,
     color: '#333',
-    flex: 1,
-    paddingRight: 8,
   },
   starRowSmall: {
     flexDirection: 'row',
@@ -690,8 +1004,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
-    height: 46,
+    height: 40,
     borderRadius: 3,
     backgroundColor: 'rgba(255, 247, 231, 0.413)',
     marginTop: 16,
@@ -707,10 +1020,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.YELLOWISH_ORANGE,
     letterSpacing: 0.2,
-    width: 197,
-    height: 18,
-    textAlign: 'center',
-    lineHeight: 18,
   },
   chooseDateBtn: {
     flexDirection: 'row',
@@ -731,10 +1040,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgb(69, 168, 163)',
     letterSpacing: 0.2,
-    height: 18,
-    textAlign: 'center',
-    lineHeight: 18,
-    width: 149,
   },
   chooseDateArrow: {
     width: 6,
@@ -743,7 +1048,7 @@ const styles = StyleSheet.create({
   rentalDatesContainer: {
     flexDirection: 'row',
     width: '100%',
-    height: 59,
+    minHeight: 59,
     backgroundColor: 'rgb(242, 242, 242)',
     borderRadius: 7,
     marginTop: 20,
@@ -753,18 +1058,18 @@ const styles = StyleSheet.create({
   rentalDateHalf: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    minWidth: 0,
   },
   rentalDatesDivider: {
     width: 1,
-    height: 59,
     backgroundColor: 'rgba(151, 151, 151, 0.21)',
   },
   sectionDivider: {
     alignSelf: 'stretch',
     width: '100%',
     height: 2,
-    opacity: 0.8560267857142857,
     borderTopWidth: 1,
     borderTopColor: COLORS.GREENY_BLUE_TWO,
     marginTop: 10,
@@ -774,17 +1079,17 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     width: '100%',
     height: 1,
-    opacity: 0.1746186755952381,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgb(151, 151, 151)',
+    opacity: 0.35,
   },
   sectionMidDivider: {
     alignSelf: 'stretch',
     width: '100%',
     height: 1,
-    opacity: 0.1746186755952381,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgb(151, 151, 151)',
+    opacity: 0.35,
     marginTop: 8,
     marginBottom: 8,
   },
@@ -792,24 +1097,13 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 13,
     color: COLORS.GREENY_BLUE_TWO,
-    kerning: 0.2,
-    width: 31,
-    height: 18,
-    textAlign: 'left',
-    opacity: 0.8809291294642857,
-    lineHeight: 18,
     marginBottom: 4,
   },
   dateBoxValue: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 9,
+    fontSize: 11,
     color: 'rgb(102, 102, 102)',
-    kerning: 0.1,
-    width: 121,
-    height: 12,
-    textAlign: 'left',
-    lineHeight: 12,
-    opacity: 0.5091145833333334,
+    flexShrink: 1,
   },
   pickupBox: {
     backgroundColor: '#F5F5F5',
@@ -822,93 +1116,19 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 13,
     color: COLORS.GREENY_BLUE_TWO,
-    kerning: 0.2,
-    opacity: 0.8809291294642857,
-    textAlign: 'left',
-    lineHeight: 18,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   pickupValue: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 9,
-    color: 'rgb(102, 102, 102)',
-    kerning: 0.1,
-    width: 99,
-    height: 12,
-    textAlign: 'center',
-    lineHeight: 12,
-    opacity: 0.5091145833333334,
-  },
-  sectionTitle: {
-    fontFamily: FONTS.NUNITO_BOLD,
-    fontSize: 12,
-    color: '#000',
-    letterSpacing: 0.2,
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  sectionTitleGreen: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 13,
-    color: COLORS.GREENY_BLUE_TWO,
-    kerning: 0.2,
-    textAlign: 'center',
-    opacity: 0.8809291294642857,
-    lineHeight: 18,
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  carFeaturesSectionLabel: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 12 * scale,
-    color: '#4A4A4A',
-    letterSpacing: 0.2,
-    marginTop: 28 * scale,
-    marginBottom: 8 * scale,
-  },
-  carFeaturesHeader: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 11,
-    color: '#000',
-    kerning: 0.2,
-    width: 200,
-    height: 15,
-    textAlign: 'left',
-    opacity: 0.6994977678571429,
-    marginTop: 20,
-    marginBottom: 6,
-  },
-  descriptionHeader: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 13,
-    color: COLORS.GREENY_BLUE_TWO,
-    kerning: 0.2,
-    textAlign: 'left',
-    opacity: 0.8809291294642857,
-    lineHeight: 18,
-    marginTop: 20,
-    marginBottom: 0,
-  },
-  pickupHeaderAboveMap: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 13,
-    color: COLORS.GREENY_BLUE_TWO,
-    kerning: 0.2,
-    textAlign: 'left',
-    opacity: 0.8809291294642857,
-    lineHeight: 18,
-    marginTop: 20,
-    marginBottom: 0,
+    fontSize: 14,
+    color: 'rgb(80, 80, 80)',
+    lineHeight: 20,
   },
   restrictionsHeader: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 11,
     color: '#000',
-    kerning: 0.2,
-    width: 81,
-    height: 15,
-    textAlign: 'center',
-    opacity: 0.6994977678571429,
+    opacity: 0.7,
     marginTop: 24,
     marginBottom: 8,
   },
@@ -916,11 +1136,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 11,
     color: '#000',
-    kerning: 0.2,
-    width: 46,
-    height: 15,
-    textAlign: 'center',
-    opacity: 0.6994977678571429,
+    opacity: 0.7,
     marginTop: 0,
     marginBottom: 8,
   },
@@ -934,8 +1150,8 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 13,
     color: COLORS.GREENY_BLUE_TWO,
-    kerning: 0.2,
-    opacity: 0.8809291294642857,
+    flex: 1,
+    paddingRight: 12,
   },
   restrictionsValue: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
@@ -952,13 +1168,30 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 13,
     color: COLORS.GREENY_BLUE_TWO,
-    kerning: 0.2,
-    opacity: 0.8809291294642857,
+    flex: 1,
+    paddingRight: 12,
   },
-  pricingValue: {
+  carFeaturesHeader: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 11,
+    color: '#000',
+    opacity: 0.7,
+    marginTop: 20,
+    marginBottom: 6,
+  },
+  descriptionHeader: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 13,
-    color: '#4A4A4A',
+    color: COLORS.GREENY_BLUE_TWO,
+    marginTop: 20,
+    marginBottom: 0,
+  },
+  pickupHeaderAboveMap: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 13,
+    color: COLORS.GREENY_BLUE_TWO,
+    marginTop: 20,
+    marginBottom: 0,
   },
   featureGrid: {
     flexDirection: 'row',
@@ -976,7 +1209,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12 * scale,
-    position: 'relative',
   },
   featureTileText: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
@@ -987,92 +1219,59 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   descriptionText: {
-    fontFamily: 'GothamRounded-Medium',
-    fontSize: 11,
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 13,
     color: 'rgb(100, 97, 97)',
-    textAlign: 'center',
-    kerning: 0.3,
-    width: '100%',
-    height: 75,
-    lineHeight: 16,
+    lineHeight: 20,
   },
   viewMoreWrap: {
     marginTop: 8,
     alignSelf: 'center',
   },
   viewMoreText: {
-    fontFamily: 'GothamRounded-Medium',
-    fontSize: 9,
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 11,
     color: COLORS.YELLOWISH_ORANGE,
-    textAlign: 'center',
     letterSpacing: 0.2,
-    width: 61,
-    height: 9,
-    lineHeight: 9,
   },
   mapPlaceholder: {
     width: screenWidth,
-    height: 180,
+    height: 200,
     backgroundColor: '#E8F4F4',
-    borderRadius: 0,
     overflow: 'hidden',
-    marginTop: 0,
     marginBottom: 12,
-    alignSelf: 'stretch',
     marginHorizontal: -20 * scale,
   },
-  mapPlaceholderText: {
-    fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 14,
-    color: COLORS.GREENY_BLUE_TWO,
-  },
-  footer: {
+  checkoutBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 20 * scale,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#eee',
     zIndex: 50,
     elevation: 50,
-  },
-  checkoutSection: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 0,
-    paddingTop: 0,
-    borderTopWidth: 0,
-    marginTop: 16,
-    marginBottom: 12,
-    alignSelf: 'stretch',
-    width: screenWidth,
-    marginHorizontal: -20 * scale,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -2 },
   },
   checkoutBtn: {
     width: 168,
-    height: 61,
     backgroundColor: COLORS.YELLOWISH_ORANGE,
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 0,
-    paddingLeft: 18,
+    // Optical center of the arrow shape (chevron overhangs to the right).
+    paddingRight: 22,
     position: 'relative',
     zIndex: 2,
   },
   checkoutBtnText: {
     fontFamily: 'GothamRounded-Book',
-    fontSize: 12,
+    fontSize: 17,
     color: '#fff',
-    letterSpacing: -0.2,
-    width: 170,
-    textAlign: 'left',
-    lineHeight: 16,
+    letterSpacing: 0.9,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   checkoutArrowTip: {
     position: 'absolute',
@@ -1080,8 +1279,6 @@ const styles = StyleSheet.create({
     top: 0,
     width: 0,
     height: 0,
-    borderTopWidth: 30.5,
-    borderBottomWidth: 30.5,
     borderLeftWidth: 30,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
@@ -1090,29 +1287,23 @@ const styles = StyleSheet.create({
   priceBadge: {
     flex: 1,
     backgroundColor: COLORS.GREENY_BLUE_TWO,
-    paddingVertical: 16,
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 8,
   },
   priceBadgeText: {
-    width: '100%',
-    height: 20,
     textAlign: 'center',
-    lineHeight: 20,
   },
   priceBadgeMain: {
     fontFamily: 'GothamRounded-Book',
-    fontSize: 20,
+    fontSize: 21,
     color: '#fff',
-    letterSpacing: -0.1,
+    letterSpacing: -0.2,
   },
   priceBadgeDay: {
     fontFamily: 'GothamRounded-Book',
-    fontSize: 11,
+    fontSize: 12,
     color: '#fff',
     letterSpacing: -0.1,
   },
-  
 });

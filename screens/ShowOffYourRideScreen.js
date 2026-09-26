@@ -14,6 +14,7 @@ import { Svg, Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { listingVideoRejectReason } from '../constants/listingMedia';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
@@ -72,8 +73,49 @@ const ShowOffYourRideScreen = ({ navigation }) => {
 
     if (result.canceled || !result.assets?.length) return;
 
-    const photos = result.assets.slice(0, MAX_PHOTOS).map((asset) => ({ uri: asset.uri }));
+    const photos = result.assets.slice(0, MAX_PHOTOS).map((asset) => ({
+      uri: asset.uri,
+      type: 'image',
+    }));
     navigation.navigate('PhotoManagementScreen', { photos });
+  };
+
+  const handleAddVideo = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission needed',
+        'Library access is required to choose a video.',
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['videos'],
+      allowsMultipleSelection: false,
+      videoMaxDuration: 60,
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const asset = result.assets[0];
+    const reason = listingVideoRejectReason(asset);
+    if (reason) {
+      Alert.alert('Video not added', reason);
+      return;
+    }
+    navigation.navigate('PhotoManagementScreen', {
+      photos: [
+        {
+          uri: asset.uri,
+          type: 'video',
+          mimeType: asset.mimeType || 'video/mp4',
+          ...(asset.fileSize != null ? { fileSize: asset.fileSize } : {}),
+          ...(asset.duration != null ? { duration: asset.duration } : {}),
+        },
+      ],
+    });
   };
 
   return (
@@ -96,7 +138,7 @@ const ShowOffYourRideScreen = ({ navigation }) => {
             Show off your ride
           </Text>
           <Text style={styles.headerDescription}>
-            Follow our guide to take amazing photos that will make your ride stand out.
+            Follow our guide to take amazing photos — and add a short video like Marketplace so guests can see your ride in motion.
           </Text>
         </View>
 
@@ -141,6 +183,9 @@ const ShowOffYourRideScreen = ({ navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity style={styles.secondaryButton} onPress={handleAddFromCameraRoll}>
             <Text style={styles.secondaryButtonText}>Add from camera roll</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={handleAddVideo}>
+            <Text style={styles.secondaryButtonText}>Add video</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

@@ -6,7 +6,9 @@ import {
 } from 'react-router-dom';
 import type { AuthLocationState } from './auth/authModal';
 import { AuthProvider } from './auth/AuthContext';
+import AnalyticsRouteTracker from './components/AnalyticsRouteTracker';
 import CrispChat from './components/CrispChat';
+import MotionObserver from './components/MotionObserver';
 import ScrollToTop from './components/ScrollToTop';
 import SiteFooter from './components/SiteFooter';
 import AccountSettingsPage from './pages/AccountSettingsPage';
@@ -22,7 +24,10 @@ import LoginPage from './pages/LoginPage';
 import PaymentInformationPage from './pages/PaymentInformationPage';
 import ProfileOverviewPage from './pages/ProfileOverviewPage';
 import ReferralsCreditsPage from './pages/ReferralsCreditsPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import SignupPage from './pages/SignupPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import ConfirmEmailChangePage from './pages/ConfirmEmailChangePage';
 import YourRidesPage from './pages/YourRidesPage';
 import FavouritesPage from './pages/FavouritesPage';
 import MessagesPage from './pages/MessagesPage';
@@ -61,6 +66,8 @@ function AppRoutes() {
   return (
     <>
       <ScrollToTop />
+      <AnalyticsRouteTracker />
+      <MotionObserver />
       <Routes location={background ?? location}>
         <Route path="/" element={<HomePage />} />
         <Route path="/home" element={<Navigate to="/" replace />} />
@@ -153,6 +160,12 @@ function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route
+          path="/confirm-email-change"
+          element={<ConfirmEmailChangePage />}
+        />
         <Route path="/didit/callback" element={<DiditCallbackPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

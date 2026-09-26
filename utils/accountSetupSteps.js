@@ -28,14 +28,14 @@ export function buildAccountSetupSteps(me) {
       id: 'phone',
       title: 'Phone verification',
       status: phoneVerified ? 'verified' : 'incomplete',
-      screen: 'ChangePhoneNumberScreen',
+      screen: 'AddPhoneNumberScreen',
     },
     {
       id: 'license',
       title: 'License verification',
       status: licenseVerified
         ? 'verified'
-        : licenseStatus === 'pending_review' || licenseStatus === 'in_progress'
+        : licenseStatus === 'pending_review'
           ? 'pending'
           : 'incomplete',
       screen: 'LicenseVerificationScreen',

@@ -1,8 +1,19 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import * as Device from 'expo-device';
 import { apiFetch } from './apiClient';
+
+/**
+ * Prefer ExpoDevice when the native module is linked. Never `require('expo-device')`
+ * here — a stale binary throws "Cannot find native module 'ExpoDevice'" at import time.
+ */
+function isPhysicalDevice() {
+  const expoDevice = NativeModules.ExpoDevice;
+  if (expoDevice && typeof expoDevice.isDevice === 'boolean') {
+    return expoDevice.isDevice;
+  }
+  return true;
+}
 
 let pushConfigured = false;
 
@@ -29,7 +40,7 @@ function getExpoProjectId() {
 
 export async function registerForPushNotificationsAsync() {
   configurePushNotifications();
-  if (!Device.isDevice) {
+  if (!isPhysicalDevice()) {
     return null;
   }
 

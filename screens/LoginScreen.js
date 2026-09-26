@@ -10,6 +10,7 @@ import {
   Dimensions,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
@@ -85,11 +86,17 @@ export default function LoginScreen({ isChildScreen, onSwitchToSignUp, onForgotP
     if (!valid) return;
     setSubmitting(true);
     try {
-      await signIn(email, password);
+      const data = await signIn(email, password);
       if (rememberMe) {
         await saveRememberMeCredentials(email, password);
       } else {
         await clearRememberMeCredentials();
+      }
+      if (data?.deletionCancelled) {
+        Alert.alert(
+          'Account restored',
+          'Signing in cancelled your scheduled account deletion. Your account is active again.',
+        );
       }
       resetToMainTabs();
     } catch (err) {

@@ -1,13 +1,22 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import type { ListingMediaItem } from '../api/listings';
 
 type Props = {
-  photos: string[];
+  photos: Array<string | ListingMediaItem>;
   index: number;
   title?: string;
   onIndexChange: (index: number) => void;
   onClose: () => void;
 };
+
+function normalizeItem(item: string | ListingMediaItem): ListingMediaItem {
+  if (typeof item === 'string') {
+    const isVideo = /\.(mp4|mov|m4v|webm)(\?|$)/i.test(item);
+    return { url: item, type: isVideo ? 'video' : 'image' };
+  }
+  return item;
+}
 
 function Chevron({ direction }: { direction: 'left' | 'right' }) {
   return (
@@ -24,7 +33,7 @@ function Chevron({ direction }: { direction: 'left' | 'right' }) {
   );
 }
 
-/** Full-screen photo viewer, mirroring the gallery in the mobile app. */
+/** Full-screen media viewer (photos + muted-by-default listing videos). */
 export default function PhotoLightbox({
   photos,
   index,
@@ -33,7 +42,8 @@ export default function PhotoLightbox({
   onClose,
 }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
-  const total = photos.length;
+  const items = photos.map(normalizeItem);
+  const total = items.length;
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -57,7 +67,7 @@ export default function PhotoLightbox({
     };
   }, []);
 
-  const current = photos[index] || photos[0];
+  const current = items[index] || items[0];
   if (!current) return null;
 
   return createPortal(
@@ -92,20 +102,32 @@ export default function PhotoLightbox({
             type="button"
             className="lightbox-nav lightbox-nav--prev"
             onClick={() => onIndexChange((index - 1 + total) % total)}
-            aria-label="Previous photo"
+            aria-label="Previous"
           >
             <Chevron direction="left" />
           </button>
         ) : null}
 
-        <img className="lightbox-image" src={current} alt={title || ''} />
+        {current.type === 'video' ? (
+          <video
+            key={current.url}
+            className="lightbox-image lightbox-video"
+            src={current.url}
+            controls
+            playsInline
+            muted
+            preload="metadata"
+          />
+        ) : (
+          <img className="lightbox-image" src={current.url} alt={title || ''} />
+        )}
 
         {total > 1 ? (
           <button
             type="button"
             className="lightbox-nav lightbox-nav--next"
             onClick={() => onIndexChange((index + 1) % total)}
-            aria-label="Next photo"
+            aria-label="Next"
           >
             <Chevron direction="right" />
           </button>
@@ -118,15 +140,19 @@ export default function PhotoLightbox({
             {index + 1} / {total}
           </span>
           <div className="lightbox-thumbs">
-            {photos.map((url, i) => (
+            {items.map((item, i) => (
               <button
-                key={url + i}
+                key={item.url + i}
                 type="button"
                 className={`lightbox-thumb${i === index ? ' active' : ''}`}
                 onClick={() => onIndexChange(i)}
-                aria-label={`Photo ${i + 1}`}
+                aria-label={`${item.type === 'video' ? 'Video' : 'Photo'} ${i + 1}`}
               >
-                <img src={url} alt="" />
+                {item.type === 'video' ? (
+                  <span className="lightbox-thumb-video">Video</span>
+                ) : (
+                  <img src={item.url} alt="" />
+                )}
               </button>
             ))}
           </div>

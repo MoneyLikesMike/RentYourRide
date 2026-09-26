@@ -173,6 +173,9 @@ export default function EditPaymentMethodModal({
                 autoComplete="cc-name"
                 disabled={busy !== null}
               />
+              <span className="add-pay-hint">
+                Use the same name as on your verified driver&apos;s license.
+              </span>
             </label>
 
             <label className="add-pay-field">

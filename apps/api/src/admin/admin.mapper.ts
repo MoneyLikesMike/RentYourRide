@@ -53,15 +53,17 @@ function adminContactAddress(user: UserEntity) {
 
 /** Human-readable license status for the legacy admin Verifications card. */
 export function formatLicenseVerificationStatus(user: UserEntity): string {
-  if (user.licenseVerified) return 'Verified';
   const raw = (user.licenseVerificationStatus || '')
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
+  // Active / negative statuses win over a prior approval (re-verify in flight).
   switch (raw) {
-    case 'approved':
-    case 'verified':
-      return 'Verified';
+    case 'declined':
+      return 'Declined';
+    case 'expired':
+    case 'kyc_expired':
+      return 'Expired';
     case 'in_progress':
       return 'In progress';
     case 'pending_review':
@@ -69,13 +71,16 @@ export function formatLicenseVerificationStatus(user: UserEntity): string {
       return 'In review';
     case 'awaiting_user':
       return 'Awaiting user';
-    case 'declined':
-      return 'Declined';
     case 'resubmitted':
       return 'Resubmit required';
-    case 'expired':
-    case 'kyc_expired':
-      return 'Expired';
+    default:
+      break;
+  }
+  if (user.licenseVerified) return 'Verified';
+  switch (raw) {
+    case 'approved':
+    case 'verified':
+      return 'Verified';
     case 'not_started':
     case '':
       return 'Not verified';
@@ -116,7 +121,7 @@ export function toAdminProfile(user: UserEntity) {
     // Legacy admin field name; now points at Didit Business Console.
     matiDashboardUrl: diditConsoleSessionUrl(user.diditSessionId),
     referralLink: user.referralCode ? `https://rentyourride.ca/r/${user.referralCode}` : '',
-    avatar: user.avatarUrl ? { uri: user.avatarUrl } : null,
+    avatar: adminAvatarDto(user.avatarUrl),
     role: user.role,
     isTextNotificationsTurnOn: settings.textNotif !== false,
     isEmailNotificationsTurnOn: settings.emailNotif !== false,
@@ -220,8 +225,8 @@ export function toUserListingRow(listing: ListingEntity) {
     id: listing.id,
     vehicleInfo,
     uploadedTime: listing.createdAt,
-    // Legacy member Listings tab labels this field Active / Not Active.
-    isVerified: listing.active,
+    // Member Listings tab: Active only when live on marketplace (active + published).
+    isVerified: listing.active && listing.published,
   };
 }
 
@@ -426,6 +431,12 @@ function resolveImageUrl(uri: string | undefined): string {
   return `${base}${uri.startsWith('/') ? '' : '/'}${uri}`;
 }
 
+/** Legacy admin UI reads `avatar.imageUrl` (not `uri`). */
+function adminAvatarDto(url: string | null | undefined): { imageUrl: string } | null {
+  const imageUrl = resolveImageUrl(url ?? undefined);
+  return imageUrl ? { imageUrl } : null;
+}
+
 function mapListingImages(photos: ListingEntity['photos']) {
   const list = Array.isArray(photos) ? photos : [];
   return list
@@ -481,7 +492,7 @@ function toAdminHostDto(host: UserEntity | null | undefined) {
     isEmailVerified: !!host.emailVerified,
     createdAt: host.createdAt,
     updatedAt: host.updatedAt,
-    avatar: host.avatarUrl ? { imageUrl: host.avatarUrl } : null,
+    avatar: adminAvatarDto(host.avatarUrl),
     address:
       host.addressLine || host.addressCity || host.addressCountry
         ? {

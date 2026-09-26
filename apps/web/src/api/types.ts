@@ -10,6 +10,8 @@ export interface AuthUser {
   phoneVerified?: boolean;
   addressLine?: string | null;
   addressCity?: string | null;
+  addressProvince?: string | null;
+  addressPostalCode?: string | null;
   addressCountry?: string | null;
   licenseNumber?: string | null;
   licenseVerified?: boolean;
@@ -19,6 +21,7 @@ export interface AuthUser {
 
 export interface LoginPayload {
   isNewUser?: boolean;
+  deletionCancelled?: boolean;
   user: AuthUser;
   token: {
     accessToken: string;

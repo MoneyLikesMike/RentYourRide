@@ -24,6 +24,9 @@ module.exports = () => {
   if (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim()) {
     extra.googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.trim();
   }
+  if (process.env.EXPO_PUBLIC_STRIPE_MERCHANT_IDENTIFIER?.trim()) {
+    extra.stripeMerchantIdentifier = process.env.EXPO_PUBLIC_STRIPE_MERCHANT_IDENTIFIER.trim();
+  }
 
   return {
     ...appJson,

@@ -182,7 +182,11 @@ function AddPaymentMethodForm({
               <span className="add-pay-error-text">
                 Please enter cardholder name!
               </span>
-            ) : null}
+            ) : (
+              <span className="add-pay-hint">
+                Use the same name as on your verified driver&apos;s license.
+              </span>
+            )}
           </label>
 
           <div className="add-pay-field">

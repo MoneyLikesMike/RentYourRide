@@ -118,6 +118,7 @@ export async function quoteBooking(body: QuoteInput): Promise<BookingQuote> {
   return apiFetch<BookingQuote>('v1/bookings/quote', {
     method: 'POST',
     json: body,
+    auth: false,
   });
 }
 

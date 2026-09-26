@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import * as bookingsApi from '../services/bookingsApi';
@@ -104,6 +105,16 @@ export function GuestBookingsProvider({ children }) {
     if (isAuthenticated && isReady) {
       refreshFromApi();
     }
+  }, [hydrated, isAuthenticated, isReady, refreshFromApi]);
+
+  // Hosts often stay on Rental Manager while a guest books — refresh when the
+  // app returns to the foreground so new requests appear without a full relaunch.
+  useEffect(() => {
+    if (!hydrated || !isAuthenticated || !isReady) return undefined;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshFromApi();
+    });
+    return () => sub.remove();
   }, [hydrated, isAuthenticated, isReady, refreshFromApi]);
 
   useEffect(() => {

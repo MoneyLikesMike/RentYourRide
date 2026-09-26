@@ -286,7 +286,19 @@ export default function ListingsScreen({ navigation }) {
     }, [canUseListingsHub, navigation, isAuthenticated, isReady, refreshMyListingsFromApi])
   );
 
-  const activeListings = useMemo(() => myListings.filter((l) => l.active !== false), [myListings]);
+  const activeListings = useMemo(
+    () =>
+      myListings.filter((l) => {
+        if (l.active === false) return false;
+        // Hide empty wizard shells ("My vehicle" with no decoded vehicle) from ACTIVE.
+        const title = String(l.title || '').trim().toLowerCase();
+        const vd = l.vehicleData && typeof l.vehicleData === 'object' ? l.vehicleData : null;
+        const hasVehicle = Boolean(vd?.make || vd?.model || vd?.year || (l.vin && String(l.vin).trim()));
+        if (title === 'my vehicle' && !hasVehicle) return false;
+        return true;
+      }),
+    [myListings],
+  );
   const deactivatedListings = useMemo(() => myListings.filter((l) => l.active === false), [myListings]);
 
   const data = tab === 'active' ? activeListings : deactivatedListings;

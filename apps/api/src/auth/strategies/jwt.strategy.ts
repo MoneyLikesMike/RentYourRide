@@ -27,6 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: JwtPayload) {
     if (payload.typ !== 'access') return false;
     const user = await this.usersService.findById(payload.sub);
+    if (!user || user.isActive === false || user.deletedAt) return false;
     return user;
   }
 }

@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FONTS } from '../constants/fonts';
 import { useHorizontalSwipeNavigation } from '../hooks/useHorizontalSwipeNavigation';
+import { resetToMainTabs } from '../navigation/navigationRef';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -24,8 +25,8 @@ export default function ListRideLanding1Screen({ navigation }) {
   const { translateX, panHandlers } = useHorizontalSwipeNavigation({
     onSwipeLeft: useCallback(() => navigation.navigate('ListRideLanding2Screen'), [navigation]),
     onSwipeRight: useCallback(() => {
-      if (navigation.canGoBack()) navigation.goBack();
-    }, [navigation]),
+      resetToMainTabs();
+    }, []),
   });
 
   useFocusEffect(
@@ -76,7 +77,10 @@ export default function ListRideLanding1Screen({ navigation }) {
       {/* Bottom controls */}
       <View style={[styles.bottomRow, { bottom: Math.max(24 * scale, insets.bottom + 16) }]}>
         {/* Skip Button */}
-        <TouchableOpacity onPress={() => navigation.popToTop()} style={styles.skipBtn}>
+        <TouchableOpacity
+          onPress={() => resetToMainTabs()}
+          style={styles.skipBtn}
+        >
           <Text style={styles.skipText}>BACK</Text>
         </TouchableOpacity>
         {/* Progress Bar */}

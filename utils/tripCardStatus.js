@@ -15,6 +15,28 @@ export function getTripBoundsMs(booking) {
   return { startMs: start.getTime(), endMs: end.getTime() };
 }
 
+/** True once either party has entered the check-in / trip-started lifecycle. */
+function hasEnteredTripLifecycle(booking) {
+  const status = booking?.status;
+  if (
+    status === 'checkin_pending' ||
+    status === 'active' ||
+    status === 'checkout_pending' ||
+    status === 'extended' ||
+    status === 'extension_pending' ||
+    status === 'extension_declined'
+  ) {
+    return true;
+  }
+  return (
+    booking?.guestCheckedInAt != null ||
+    booking?.hostCheckedInAt != null ||
+    booking?.guestTripStartedAt != null ||
+    booking?.hostTripStartedAt != null ||
+    booking?.rentalAgreementSignedAt != null
+  );
+}
+
 /**
  * @returns {{ key: string, label: string }}
  */
@@ -40,8 +62,9 @@ export function getTripCardStatus(booking, nowMs = Date.now()) {
     return { key: 'completed', label: '' };
   }
 
-  // Checkout window: 24h before end through 24h after end (unless completed above).
-  if (nowMs >= endMs - H24_MS) {
+  // Checkout / "ending soon" only after check-in has started. Otherwise short trips
+  // (≤24h) look "ending soon" for their entire window and skip check-in entirely.
+  if (nowMs >= endMs - H24_MS && hasEnteredTripLifecycle(booking)) {
     return { key: 'ending_soon', label: 'Ending soon' };
   }
 
@@ -54,8 +77,9 @@ export function getTripCardStatus(booking, nowMs = Date.now()) {
     return { key: 'beginning_soon', label: 'Beginning soon' };
   }
 
-  // In progress only within the scheduled trip window (not before start, even if guest checked in early).
-  if (nowMs >= startMs && nowMs < endMs - H24_MS) {
+  // In progress within the scheduled trip window (including short trips that never
+  // qualify for the post-check-in ending-soon badge above).
+  if (nowMs >= startMs && nowMs < endMs) {
     return { key: 'in_progress', label: 'In progress' };
   }
 
@@ -90,19 +114,20 @@ export function getTripCardPrimaryAction(statusKey, { isHost, booking }) {
   if (statusKey === 'completed' || hasPartyCheckedOut(booking, isHost)) {
     return { type: null };
   }
+  // Never offer checkout before this party has checked in (short-trip / late-accept safety).
+  if (
+    (statusKey === 'ending_soon' ||
+      statusKey === 'beginning_soon' ||
+      statusKey === 'in_progress') &&
+    !hasCheckedIn(booking, isHost)
+  ) {
+    return { type: 'check_in' };
+  }
   if (statusKey === 'ending_soon') {
     return { type: 'checkout' };
   }
-  // Check-in stays available from the pre-trip window through the active trip
-  // until this party completes it.
-  if (statusKey === 'beginning_soon' || statusKey === 'in_progress') {
-    if (!hasCheckedIn(booking, isHost)) {
-      return { type: 'check_in' };
-    }
-    if (statusKey === 'in_progress' && !isHost) {
-      return { type: 'extend' };
-    }
-    return { type: null };
+  if (statusKey === 'in_progress' && !isHost) {
+    return { type: 'extend' };
   }
   return { type: null };
 }

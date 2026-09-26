@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ApiError } from '../api/http';
 import {
   createDiditLicenseSession,
+  abandonDiditLicenseSession,
   DIDIT_RETURN_PATH_KEY,
   diditWebCallbackUrl,
 } from '../api/didit';
@@ -15,8 +16,21 @@ type Props = {
   reload: () => Promise<void>;
 };
 
+type View = 'confirm' | 'main' | 'pending';
+
 function statusLabel(me: MeUser): string {
-  if (me.licenseVerified) return 'Verified';
+  if (me.licenseVerified) {
+    const s = (me.licenseVerificationStatus || '').trim();
+    if (
+      s === 'pending_review' ||
+      s === 'in_progress' ||
+      s === 'awaiting_user'
+    ) {
+      // Re-verify in flight
+    } else {
+      return 'Verified';
+    }
+  }
   const s = (me.licenseVerificationStatus || '').trim();
   if (s === 'pending_review') return 'In review';
   if (s === 'declined') return 'Declined';
@@ -35,32 +49,46 @@ export default function LicenseVerificationModal({
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<'main' | 'pending'>('main');
+  const [view, setView] = useState<View>('main');
 
   const verified = !!me.licenseVerified;
   const status = (me.licenseVerificationStatus || '').trim();
+  const reverifyInFlight = verified && status === 'pending_review';
+  // Mid-flow abandon leaves in_progress — that must stay retryable, not locked as pending.
   const showPending =
-    !verified &&
-    (status === 'pending_review' ||
-      status === 'in_progress' ||
-      status === 'awaiting_user');
+    reverifyInFlight || (!verified && status === 'pending_review');
+  const canRetryAbandoned =
+    !verified && (status === 'in_progress' || status === 'awaiting_user');
   const label = statusLabel(me);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
     setBusy(false);
-    setView(showPending || verified ? 'pending' : 'main');
+    if (showPending) {
+      setView('pending');
+    } else if (verified) {
+      setView('confirm');
+    } else {
+      setView('main');
+    }
   }, [open, showPending, verified]);
 
   const startDidit = async () => {
-    if (showPending) {
+    if (showPending && !verified) {
       setView('pending');
       return;
     }
     setBusy(true);
     setError(null);
     try {
+      if (canRetryAbandoned) {
+        try {
+          await abandonDiditLicenseSession();
+        } catch {
+          /* still attempt a new session */
+        }
+      }
       sessionStorage.setItem(
         DIDIT_RETURN_PATH_KEY,
         '/profile/contact-information',
@@ -107,111 +135,125 @@ export default function LicenseVerificationModal({
           <img src="/close.png" alt="" />
         </button>
 
-        <h2 id="license-verify-title" className="phone-verify-title">
-          License verification
-        </h2>
-
-        {view === 'pending' ? (
-          <div className="license-verify-pending">
-            <div className="license-verify-accent" />
-            <p className="license-verify-heading">
-              {verified
-                ? 'Your license is verified'
-                : "We're still reviewing your license"}
-            </p>
-            {!verified ? (
-              <p className="license-verify-status-line">Status: {label}</p>
-            ) : null}
-            <p className="license-verify-body">
-              {verified
-                ? 'You are cleared to rent and list on Rent Your Ride. Contact support if your license details change.'
-                : "You look good! Please give us a moment to verify your ID. We will send you an email once you're verified or if we need more information."}
-            </p>
+        {view === 'confirm' ? (
+          <div className="license-verify-confirm">
+            <img
+              className="license-verify-confirm-icon"
+              src="/profile/license-already-approved.png"
+              alt=""
+              width={150}
+              height={150}
+            />
+            <h2 id="license-verify-title" className="license-verify-confirm-title">
+              Your license is already approved would you like to update it?
+            </h2>
             <button
               type="button"
-              className="license-verify-continue"
-              onClick={() => {
-                void reload();
-                onClose();
-              }}
+              className="license-verify-primary"
+              onClick={() => setView('main')}
             >
-              Continue
+              Update
             </button>
-            {!verified && status === 'declined' ? (
-              <button
-                type="button"
-                className="account-action"
-                style={{ marginTop: '1rem' }}
-                onClick={() => setView('main')}
-              >
-                Try again
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="license-verify-primary license-verify-primary--outline"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
           </div>
         ) : (
-          <div className="license-verify-main">
-            <p className="license-verify-status-label">Status</p>
-            <p
-              className={
-                verified
-                  ? 'license-verify-status-value license-verify-status-value--ok'
-                  : 'license-verify-status-value'
-              }
-            >
-              {label}
-            </p>
+          <>
+            <h2 id="license-verify-title" className="phone-verify-title">
+              License verification
+            </h2>
 
-            {me.licenseNumber ? (
-              <p className="license-verify-on-file">
-                License on file: {me.licenseNumber}
-              </p>
-            ) : null}
-
-            <div className="license-verify-disclosure">
-              <p className="license-verify-disclosure-title">
-                Identity verification
-              </p>
-              <p className="license-verify-disclosure-body">
-                To rent or list vehicles, we verify your driver&apos;s license
-                with Didit. You will scan your license and complete a short
-                liveness check in the Didit flow. Images are processed by Didit
-                for verification only.
-              </p>
-            </div>
-
-            {error ? <p className="phone-verify-error">{error}</p> : null}
-
-            {!verified ? (
-              <button
-                type="button"
-                className="license-verify-primary"
-                disabled={busy}
-                onClick={() => void startDidit()}
-              >
-                {busy
-                  ? 'Starting…'
-                  : showPending
-                    ? 'View submission status'
-                    : 'Verify my license'}
-              </button>
+            {view === 'pending' ? (
+              <div className="license-verify-pending">
+                <div className="license-verify-accent" />
+                <p className="license-verify-heading">
+                  {verified && !reverifyInFlight
+                    ? 'Your license is verified'
+                    : "We're still reviewing your license"}
+                </p>
+                {!(verified && !reverifyInFlight) ? (
+                  <p className="license-verify-status-line">Status: {label}</p>
+                ) : null}
+                <p className="license-verify-body">
+                  {verified && !reverifyInFlight
+                    ? 'You are cleared to rent and list on Rent Your Ride. Contact support if your license details change.'
+                    : "You look good! Please give us a moment to verify your ID. We will send you an email once you're verified or if we need more information."}
+                </p>
+                <button
+                  type="button"
+                  className="license-verify-continue"
+                  onClick={() => {
+                    void reload();
+                    onClose();
+                  }}
+                >
+                  Continue
+                </button>
+                {!verified && status === 'declined' ? (
+                  <button
+                    type="button"
+                    className="account-action"
+                    style={{ marginTop: '1rem' }}
+                    onClick={() => setView('main')}
+                  >
+                    Try again
+                  </button>
+                ) : null}
+              </div>
             ) : (
-              <p className="license-verify-note">
-                Your license is verified. Contact support if your details
-                change.
-              </p>
-            )}
+              <div className="license-verify-main">
+                <div className="license-verify-disclosure">
+                  <p className="license-verify-disclosure-title">
+                    Let&apos;s add your license
+                  </p>
+                  <p className="license-verify-disclosure-body">
+                    Rent Your Ride verifies the I.D. of every user on the
+                    platform. Please ensure that you are a minimum of 18 years
+                    old and hold a valid drivers license.
+                  </p>
+                </div>
 
-            {showPending ? (
-              <button
-                type="button"
-                className="account-action"
-                style={{ marginTop: '1rem', alignSelf: 'center' }}
-                onClick={() => setView('pending')}
-              >
-                View submission status
-              </button>
-            ) : null}
-          </div>
+                {error ? <p className="phone-verify-error">{error}</p> : null}
+
+                <button
+                  type="button"
+                  className="license-verify-primary license-verify-primary--outline"
+                  disabled={busy}
+                  onClick={() => void startDidit()}
+                >
+                  {busy
+                    ? 'Starting…'
+                    : showPending
+                      ? 'View submission status'
+                      : canRetryAbandoned
+                        ? 'Try again'
+                        : 'Next'}
+                </button>
+
+                {canRetryAbandoned ? (
+                  <p className="phone-verify-hint" style={{ marginTop: '0.75rem' }}>
+                    Previous attempt was not finished. You can try again.
+                  </p>
+                ) : null}
+
+                {showPending ? (
+                  <button
+                    type="button"
+                    className="account-action"
+                    style={{ marginTop: '1rem', alignSelf: 'center' }}
+                    onClick={() => setView('pending')}
+                  >
+                    View submission status
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>,

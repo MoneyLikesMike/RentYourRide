@@ -21,6 +21,7 @@ import { useListings } from '../context/ListingsContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
 import { averageRatingFromReviews } from '../utils/guestListingReview';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
@@ -69,13 +70,10 @@ export default function GuestHostReviewScreen({ navigation, route }) {
   const hostName = ls.hostName || 'Host';
 
   const hostPhoto = useMemo(() => {
-    const photos = Array.isArray(ls.photos) ? ls.photos : [];
-    if (photos.length > 0 && photos[0] != null) {
-      const p = photos[0];
-      return typeof p === 'number' ? p : { uri: String(p) };
-    }
+    const uri = resolveMediaUrl(ls.hostPhotoUri);
+    if (uri) return { uri };
     return require('../assets/icons/shape.png');
-  }, [ls.photos]);
+  }, [ls.hostPhotoUri]);
 
   const startFmt = useMemo(
     () => formatTripDateTime(booking?.bookingDates?.start, booking?.bookingDates?.startTime),

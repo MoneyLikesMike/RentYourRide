@@ -18,6 +18,7 @@ import { assertIdentityVerified } from '../common/user-verification';
 import {
   formatRentalStripeDescription,
   formatRentalStripeDescriptionFromBooking,
+  formatTripOutcomeStripeDescription,
 } from './booking-stripe-description';
 import {
   DATE_BLOCKING_BOOKING_STATUSES,
@@ -26,9 +27,12 @@ import {
   manualAvailabilityToDayRanges,
   toDayRangeMs,
 } from './booking-date-ranges';
+import { getTripBillingDays } from './trip-billing-days';
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+export { getTripBillingDays } from './trip-billing-days';
+
 const MS_PER_HOUR = 60 * 60 * 1000;
+
 function statusLabel(status: BookingStatus): string | null {
   switch (status) {
     case 'checkin_pending':
@@ -42,15 +46,6 @@ function statusLabel(status: BookingStatus): string | null {
     default:
       return null;
   }
-}
-
-export function getTripBillingDays(startMs: number, endMs: number): number {
-  const a = new Date(startMs);
-  const b = new Date(endMs);
-  const t1 = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
-  const t2 = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
-  const daySpan = Math.abs(t2 - t1) / MS_PER_DAY;
-  return Math.max(1, Math.floor(daySpan) + 1);
 }
 
 function parsePercent(value: unknown): number {
@@ -166,7 +161,7 @@ export class BookingsService {
       hostReceiveTotal,
       kmIncludedLabel: input.extraUnlimitedKm
         ? 'Unlimited kms'
-        : `${kmPerDayNumber * tripDays} km`,
+        : `${Math.round(kmPerDayNumber * tripDays)} km`,
       selectedExtras,
       canDeliver,
     };
@@ -238,7 +233,9 @@ export class BookingsService {
         const existingByKey = await manager.findOne(BookingEntity, {
           where: { idempotencyKey: key },
         });
-        if (existingByKey) return existingByKey.toMobileDto();
+        if (existingByKey) {
+          return { kind: 'existing' as const, dto: existingByKey.toMobileDto() };
+        }
       }
 
       const requestedRange = toDayRangeMs(startMs, endMs);
@@ -263,7 +260,9 @@ export class BookingsService {
           Number(row.bookingDates?.start) === startMs &&
           Number(row.bookingDates?.end) === endMs,
       );
-      if (exactDuplicate) return exactDuplicate.toMobileDto();
+      if (exactDuplicate) {
+        return { kind: 'existing' as const, dto: exactDuplicate.toMobileDto() };
+      }
 
       const bookingConflict = openRows.find((row) => {
         const existing = bookingDatesToDayRange(
@@ -413,19 +412,23 @@ export class BookingsService {
 
       await manager.save(row);
 
-      // Seed a conversation for this booking (intro message + system message).
-      // This is idempotent — the messaging service will find an existing conversation.
+      // Notify + seed chat AFTER this transaction commits. Firing inside the
+      // transaction races: notification/messaging repos use other connections and
+      // often cannot see the uncommitted booking (silent no-op → no emails/SMS).
+      return { kind: 'created' as const, row, status };
+    }).then(async (result) => {
+      if (result.kind === 'existing') return result.dto;
       try {
-        await this.messaging.findOrCreateForBooking(guestId, row.id);
+        await this.messaging.findOrCreateForBooking(guestId, result.row.id);
       } catch {
         // Never fail the booking on messaging setup issues.
       }
-      if (status === 'confirmed') {
-        this.notifications.bookingApproved(row.id);
+      if (result.status === 'confirmed') {
+        this.notifications.bookingApproved(result.row.id);
       } else {
-        this.notifications.bookingCreated(row.id);
+        this.notifications.bookingCreated(result.row.id);
       }
-      return row.toMobileDto();
+      return result.row.toMobileDto();
     });
   }
 
@@ -464,7 +467,10 @@ export class BookingsService {
   }
 
   async cancel(userId: string, id: string) {
-    const b = await this.bookingsRepo.findOne({ where: { id } });
+    const b = await this.bookingsRepo.findOne({
+      where: { id },
+      relations: ['host'],
+    });
     if (!b) throw new NotFoundException('Booking not found');
     if (b.guestUserId !== userId && b.hostUserId !== userId) {
       throw new ForbiddenException();
@@ -472,16 +478,21 @@ export class BookingsService {
     if (['completed', 'cancelled', 'declined'].includes(b.status)) {
       throw new BadRequestException('Cannot cancel');
     }
+    const cancelledBy = b.guestUserId === userId ? 'guest' : 'host';
     if (b.stripePaymentIntentId && !(b.lifecycle as { hostTransferId?: string })?.hostTransferId) {
       await this.payments.refundBookingPayment(
         b.stripePaymentIntentId,
-        'RentYourRide trip cancelled',
+        formatTripOutcomeStripeDescription({
+          outcome: 'Cancelled',
+          by: cancelledBy,
+          booking: b,
+          host: b.host,
+        }),
       );
     }
     b.status = 'cancelled';
     b.lifecycle = { ...(b.lifecycle ?? {}), paymentRefundedAt: Date.now() };
     await this.bookingsRepo.save(b);
-    const cancelledBy = b.guestUserId === userId ? 'guest' : 'host';
     await this.messaging.postBookingSystemMessage(
       b.id,
       cancelledBy === 'guest'
@@ -532,7 +543,10 @@ export class BookingsService {
   }
 
   async declineHost(userId: string, id: string) {
-    const b = await this.bookingsRepo.findOne({ where: { id } });
+    const b = await this.bookingsRepo.findOne({
+      where: { id },
+      relations: ['host'],
+    });
     if (!b) throw new NotFoundException('Booking not found');
     if (b.hostUserId !== userId) throw new ForbiddenException();
     if (b.status !== 'pending_host') {
@@ -541,7 +555,12 @@ export class BookingsService {
     if (b.stripePaymentIntentId) {
       await this.payments.refundBookingPayment(
         b.stripePaymentIntentId,
-        'RentYourRide trip declined by host',
+        formatTripOutcomeStripeDescription({
+          outcome: 'Declined',
+          by: 'host',
+          booking: b,
+          host: b.host,
+        }),
       );
     }
     b.status = 'declined';
@@ -713,6 +732,10 @@ export class BookingsService {
     if (pi.metadata?.guestId && pi.metadata.guestId !== guestId) {
       throw new BadRequestException('Invalid payment');
     }
+    await this.payments.assertPaymentIntentMatchesGuestIdentity(
+      guestId,
+      paymentIntentId,
+    );
     return pi.id;
   }
 
@@ -807,7 +830,10 @@ export class BookingsService {
   }
 
   async respondExtension(hostId: string, bookingId: string, approved: boolean) {
-    const booking = await this.bookingsRepo.findOne({ where: { id: bookingId } });
+    const booking = await this.bookingsRepo.findOne({
+      where: { id: bookingId },
+      relations: ['host'],
+    });
     if (!booking) throw new NotFoundException('Booking not found');
     if (booking.hostUserId !== hostId) throw new ForbiddenException();
     if (booking.status !== 'extension_pending') {
@@ -847,7 +873,12 @@ export class BookingsService {
         try {
           await this.payments.refundBookingPayment(
             ext.stripePaymentIntentId,
-            'RentYourRide extension declined',
+            formatTripOutcomeStripeDescription({
+              outcome: 'Declined',
+              by: 'host',
+              booking,
+              host: booking.host,
+            }).replace('Trip Declined', 'Trip Extension Declined'),
           );
         } catch {
           // Refund failure should not block decline

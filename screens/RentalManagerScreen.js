@@ -1,78 +1,85 @@
 import React from 'react';
 import { uiScale } from '../utils/uiScale';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, ScrollView, Platform } from 'react-native';
-import { COLORS } from '../constants/colors';
-import { FONTS } from '../constants/fonts';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { useListings } from '../context/ListingsContext';
 import { startListRideFlow } from '../utils/verificationGates';
 
-const BASE_WIDTH = 375;
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = uiScale;
 
 function buildIcons({ canStartListingWithoutGetPaid, hasListingOrPayoutInfo }) {
   return [
-  {
-    label: 'List a new ride',
-    icon: require('../assets/icons/list-a-new-ride.png'),
-    onPress: (navigation) => {
-      startListRideFlow(navigation, { canUseListingsHub: canStartListingWithoutGetPaid });
+    {
+      label: 'List a new ride',
+      icon: require('../assets/icons/list-a-new-ride.png'),
+      onPress: (navigation) => {
+        startListRideFlow(navigation, { canUseListingsHub: canStartListingWithoutGetPaid });
+      },
     },
-  },
-  {
-    label: 'Rental requests',
-    icon: require('../assets/icons/suitcaseAlt.png'),
-    onPress: (navigation) => navigation.navigate('RentalRequestScreen'),
-  },
-  {
-    label: 'Active rentals',
-    icon: require('../assets/icons/usersAlt.png'),
-    onPress: (navigation) => navigation.navigate('ActiveRentalsScreen'),
-  },
-  {
-    label: 'Rental agreements',
-    icon: require('../assets/icons/text.png'),
-    onPress: (navigation) => navigation.navigate('RentalAgreementsScreen'),
-  },
-  {
-    label: 'Payouts',
-    icon: require('../assets/icons/price.png'),
-    onPress: (navigation) => {
-      if (!hasListingOrPayoutInfo) {
-        navigation.navigate('PayoutEmptyStateScreen');
-      } else {
-        navigation.navigate('PayoutsDashboardScreen');
-      }
+    {
+      label: 'Rental requests',
+      icon: require('../assets/icons/suitcaseAlt.png'),
+      onPress: (navigation) => navigation.navigate('RentalRequestScreen'),
     },
-  },
-  {
-    label: 'Rental history',
-    icon: require('../assets/icons/icHistory24Px.png'),
-    onPress: (navigation) => navigation.navigate('RentalHistoryScreen'),
-  },
-];
+    {
+      label: 'Active rentals',
+      icon: require('../assets/icons/usersAlt.png'),
+      onPress: (navigation) => navigation.navigate('ActiveRentalsScreen'),
+    },
+    {
+      label: 'Rental agreements',
+      icon: require('../assets/icons/text.png'),
+      onPress: (navigation) => navigation.navigate('RentalAgreementsScreen'),
+    },
+    {
+      label: 'Payouts',
+      icon: require('../assets/icons/price.png'),
+      onPress: (navigation) => {
+        if (!hasListingOrPayoutInfo) {
+          navigation.navigate('PayoutEmptyStateScreen');
+        } else {
+          navigation.navigate('PayoutsDashboardScreen');
+        }
+      },
+    },
+    {
+      label: 'Rental history',
+      icon: require('../assets/icons/icHistory24Px.png'),
+      onPress: (navigation) => navigation.navigate('RentalHistoryScreen'),
+    },
+  ];
 }
 
 export default function RentalManagerScreen({ navigation }) {
-  const [selectedTab, setSelectedTab] = React.useState('rental');
   const { canUseListingsHub } = useListings();
   const ICONS = React.useMemo(
-    () => buildIcons({ canStartListingWithoutGetPaid: canUseListingsHub, hasListingOrPayoutInfo: canUseListingsHub }),
-    [canUseListingsHub]
+    () =>
+      buildIcons({
+        canStartListingWithoutGetPaid: canUseListingsHub,
+        hasListingOrPayoutInfo: canUseListingsHub,
+      }),
+    [canUseListingsHub],
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      {/* Stationary Header */}
       <View style={styles.headerContainer}>
         <Text style={styles.heading}>RENTAL MANAGER</Text>
       </View>
-      <View style={{ height: 46 * scale }} />
-      {/* Scrollable grid only */}
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* Content-sized scroll — no minHeight, or empty space becomes scrollable */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        alwaysBounceVertical={false}
+      >
         <View style={styles.grid}>
-          {ICONS.map((item, idx) => (
-            <TouchableOpacity key={item.label} style={styles.button} onPress={() => item.onPress ? item.onPress(navigation) : null} activeOpacity={0.8}>
+          {ICONS.map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              style={styles.button}
+              onPress={() => (item.onPress ? item.onPress(navigation) : null)}
+              activeOpacity={0.8}
+            >
               <View style={styles.iconWrapper}>
                 <Image source={item.icon} style={styles.icon} resizeMode="contain" />
               </View>
@@ -81,53 +88,11 @@ export default function RentalManagerScreen({ navigation }) {
           ))}
         </View>
       </ScrollView>
-      {/* Menu Bar */}
-      <View style={styles.menuBar}>
-        <TouchableOpacity style={styles.menuItem} onPress={() => { setSelectedTab('home'); navigation.navigate('HomeScreen'); }}>
-          <Image
-            source={require('../assets/icons/home.png')}
-            style={[styles.menuIcon, selectedTab === 'home' && styles.menuIconSelected]}
-            resizeMode="contain"
-          />
-          {selectedTab === 'home' && <View style={styles.menuDot} />}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => { setSelectedTab('rental'); navigation.navigate('RentalManagerScreen'); }}>
-          <Image
-            source={require('../assets/icons/shape2.png')}
-            style={[styles.menuIcon, selectedTab === 'rental' && styles.menuIconSelected]}
-            resizeMode="contain"
-          />
-          {selectedTab === 'rental' && <View style={styles.menuDot} />}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => setSelectedTab('chat')}>
-          <Image
-            source={require('../assets/icons/path2.png')}
-            style={[styles.menuIcon, selectedTab === 'chat' && styles.menuIconSelected]}
-            resizeMode="contain"
-          />
-          {selectedTab === 'chat' && <View style={styles.menuDot} />}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => setSelectedTab('profile')}>
-          <Image
-            source={require('../assets/icons/shape.png')}
-            style={[styles.menuIcon, selectedTab === 'profile' && styles.menuIconSelected]}
-            resizeMode="contain"
-          />
-          {selectedTab === 'profile' && <View style={styles.menuDot} />}
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingTop: 73 * scale,
-    paddingBottom: 40 * scale,
-    minHeight: '100%',
-  },
   headerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -138,8 +103,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     alignItems: 'center',
-    paddingBottom: 40 * scale,
-    minHeight: '100%',
+    paddingTop: 8 * scale,
+    paddingBottom: 24 * scale,
   },
   heading: {
     fontFamily: 'Nunito_700Bold',
@@ -199,38 +164,4 @@ const styles = StyleSheet.create({
     opacity: 0.69,
     textTransform: 'uppercase',
   },
-  menuBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: 375 * scale,
-    height: 78 * scale,
-    backgroundColor: '#fff',
-    paddingHorizontal: 24 * scale,
-    marginBottom: Platform.OS === 'ios' ? 0 : 0,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-  },
-  menuItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 24 * scale,
-    height: 22 * scale,
-  },
-  menuIcon: {
-    width: 24 * scale,
-    height: 24 * scale,
-    tintColor: '#C3C3C3',
-  },
-  menuIconSelected: {
-    tintColor: COLORS.GREENY_BLUE_TWO,
-  },
-  menuDot: {
-    width: 4 * scale,
-    height: 4 * scale,
-    backgroundColor: COLORS.GREENY_BLUE_TWO,
-    borderRadius: 2 * scale,
-    marginTop: 7 * scale,
-  },
-}); 
+});

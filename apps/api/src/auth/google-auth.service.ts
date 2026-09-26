@@ -17,11 +17,16 @@ export class GoogleAuthService {
   constructor(private readonly config: ConfigService) {}
 
   private audiences(): string[] {
+    const split = (raw?: string | null) =>
+      (raw || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
     return [
-      this.config.get<string>('GOOGLE_OAUTH_WEB_CLIENT_ID'),
-      this.config.get<string>('GOOGLE_OAUTH_IOS_CLIENT_ID'),
-      this.config.get<string>('GOOGLE_OAUTH_ANDROID_CLIENT_ID'),
-    ].filter((v): v is string => Boolean(v?.trim()));
+      ...split(this.config.get<string>('GOOGLE_OAUTH_WEB_CLIENT_ID')),
+      ...split(this.config.get<string>('GOOGLE_OAUTH_IOS_CLIENT_ID')),
+      ...split(this.config.get<string>('GOOGLE_OAUTH_ANDROID_CLIENT_ID')),
+    ];
   }
 
   async verifyIdToken(idToken: string): Promise<VerifiedGoogleProfile> {

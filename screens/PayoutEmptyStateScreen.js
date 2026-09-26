@@ -4,12 +4,18 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import Svg, { Path } from 'react-native-svg';
+import { startListRideFlow } from '../utils/verificationGates';
+import { useListings } from '../context/ListingsContext';
 
 const BASE_WIDTH = 375;
 const scale = 1;
 
 export default function PayoutEmptyStateScreen() {
   const navigation = useNavigation();
+  const { canUseListingsHub } = useListings();
+  const openListRide = () => {
+    void startListRideFlow(navigation, { canUseListingsHub });
+  };
   return (
     <View style={styles.container}>
       {/* Top Row: Back and List a ride */}
@@ -20,7 +26,7 @@ export default function PayoutEmptyStateScreen() {
           </Svg>
         </TouchableOpacity>
         <View style={styles.headerRightSpacer} />
-        <TouchableOpacity style={styles.listBtn} onPress={() => navigation.navigate('ListRideScreen')}>
+        <TouchableOpacity style={styles.listBtn} onPress={openListRide}>
           <View style={styles.iconPlusRow}>
             <Image source={require('../assets/icons/skeletoncar.png')} style={styles.skeletonCarIcon} />
             <View style={styles.plusWrapper}>

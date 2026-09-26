@@ -1,6 +1,6 @@
 /**
- * After saving a new payment method from checkout, return to the Home tab (checkout).
- * Otherwise go to Payment information. Edits always go to Payment information.
+ * After saving a new payment method from checkout, return to the previous screen
+ * (usually BookingCheckout on the same stack). Falls back to Home tab if needed.
  *
  * Finds the bottom-tab navigator (the one whose state includes "HomeTab"). Using a fixed
  * getParent() chain is brittle: one level too far hits the root stack, which only has
@@ -21,6 +21,10 @@ function navigateToHomeTab(navigation) {
 
 export function navigateAfterPaymentMethodSaved(navigation, { returnAfterPayment, isEdit }) {
   if (returnAfterPayment && !isEdit) {
+    if (typeof navigation.canGoBack === 'function' && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
     if (navigateToHomeTab(navigation)) {
       return;
     }

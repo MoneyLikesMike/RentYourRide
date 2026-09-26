@@ -22,6 +22,8 @@ import { useAuth } from '../context/AuthContext';
 import { navigateRootStack, navigateToVehicleDetail } from '../utils/navigateRootStack';
 import { startListRideFlow } from '../utils/verificationGates';
 import ListingCard, { ListingStarRating } from '../components/ListingCard';
+import { resolveMediaUrl } from '../utils/mediaUrl';
+import { sanitizeHostBioForDisplay } from '../utils/hostBioDisplay';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -132,14 +134,16 @@ export default function UserProfileScreen({ navigation, route }) {
         .filter(Boolean)
         .join(' ') || 'Guest'
     : (profileUser?.displayName || 'Guest').trim() || 'Guest';
-  const profilePhotoUri = isOwnProfile ? photoUri : profileUser?.photoUri || null;
+  const profilePhotoUri = isOwnProfile
+    ? photoUri
+    : resolveMediaUrl(profileUser?.photoUri) || profileUser?.photoUri || null;
   const profileJoinedYear = isOwnProfile ? joinedYear : profileUser?.joinedYear ?? null;
-  const aboutDisplay = isOwnProfile
-    ? aboutBio?.trim()
-      ? aboutBio.trim()
-      : ABOUT_PLACEHOLDER
-    : profileUser?.aboutBio?.trim() || ABOUT_PLACEHOLDER;
-  const aboutIsPlaceholder = isOwnProfile ? !aboutBio?.trim() : !profileUser?.aboutBio?.trim();
+  const rawAbout = isOwnProfile
+    ? aboutBio?.trim() || ''
+    : profileUser?.aboutBio?.trim() || '';
+  const sanitizedAbout = sanitizeHostBioForDisplay(rawAbout);
+  const aboutDisplay = sanitizedAbout || ABOUT_PLACEHOLDER;
+  const aboutIsPlaceholder = !sanitizedAbout;
 
   const openListing = useCallback(
     (listing) => {

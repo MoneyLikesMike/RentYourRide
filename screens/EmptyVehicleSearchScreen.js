@@ -16,7 +16,9 @@ export default function EmptyVehicleSearchScreen({ route }) {
 
   const handlePress = () => {
     setShowNeedHeader(true);
-    Linking.openURL(`mailto:support@rentyourride.ca?subject=We%20need%20Rent%20Your%20Ride%20in%20${encodeURIComponent(city)}`);
+    Linking.openURL(
+      `mailto:support@rentyourride.ca?subject=We%20need%20Rent%20Your%20Ride%20in%20${encodeURIComponent(city)}`,
+    );
   };
 
   return (

@@ -1569,3 +1569,139 @@
     text-align: center;
   }
 }
+
+/* —— Home discovery strips (Near you / Best value / New hosts) —— */
+.home-discovery {
+  width: min(92vw, 68rem);
+  margin: 2.5rem auto 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.home-strip-section {
+  min-width: 0;
+}
+
+.home-strip-heading {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.15rem, 1.4vw, 1.4rem);
+  color: #0e262b;
+}
+
+.home-strip-subheading {
+  margin: 0.25rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #8e8e8e;
+}
+
+.home-strip-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.85rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.home-strip-card {
+  flex: 0 0 11.5rem;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+}
+
+.home-strip-photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #f0f0f0;
+  border: 1px solid #e8e8e8;
+  margin-bottom: 0.5rem;
+}
+
+.home-strip-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-strip-photo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  color: #9b9b9b;
+}
+
+.home-strip-badge {
+  position: absolute;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.home-strip-badge--new {
+  top: 0.5rem;
+  left: 0.5rem;
+  background: #4cb6b1;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.28rem 0.5rem;
+}
+
+.home-strip-title {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #505050;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-strip-price {
+  margin: 0.15rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #8e8e8e;
+}
+
+.home-strip-price span {
+  color: #388d89;
+}
+
+.home-strip-meta {
+  margin: 0.15rem 0 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #8e8e8e;
+}
+
+@media (max-width: 640px) {
+  .home-discovery {
+    width: 100%;
+    padding: 0 1.25rem;
+    margin: 1.75rem auto 0.5rem;
+    box-sizing: border-box;
+  }
+
+  .home-strip-card {
+    flex-basis: 9.75rem;
+  }
+}

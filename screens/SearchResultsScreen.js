@@ -24,12 +24,18 @@ import { useFavorites } from '../context/FavoritesContext';
 import { useListings } from '../context/ListingsContext';
 import ListingCard from '../components/ListingCard';
 import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocompleteField';
-import { resolveCurrentLocationQueryWithAlert } from '../utils/currentLocation';
+import { resolveCurrentLocationQueryWithAlert, getCurrentCoordinates } from '../utils/currentLocation';
 import { formatLocationLabel, resolveSearchCity, isMarketplaceListing } from '../utils/searchLocation';
 import { searchListings } from '../services/listingsApi';
+import {
+  createDefaultBookingDates,
+  formatSearchDateRangeShort,
+  formatSearchDatesDetail,
+} from '../utils/bookingDatesDefaults';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const scale = uiScale;
+const TAB_BAR_HEIGHT = 78 * scale;
 // Min height for Filters scroll content so the whole sheet area is scrollable
 const REFINE_SCROLL_CONTENT_MIN_HEIGHT = screenHeight * 0.55;
 // Car feature card size (same formula as DescribeYourRideScreen: 3 cols, padding 20*scale each side, 2 gaps 12*scale)
@@ -38,9 +44,8 @@ const PRICE_THUMB_SIZE = 18;
 const PRICE_MAX_VALUE = 199; // matches C$0 - C$199+/DAY label
 const KM_SLIDER_MAX = 500; // 0 - 500 KM/DAY
 
-const DEFAULT_DATE_RANGE = 'Jan 14 - Jan 25';
+const DEFAULT_BOOKING_DATES = createDefaultBookingDates();
 const DISTANCE_VALUES = [50, 100, 250, 500, 1000, 'prov', 'national'];
-const DEFAULT_DATES_TEXT = 'Jan 8, 10:00 AM - Jan 10, 3:00 PM';
 const SEARCH_PANEL_HEIGHT = 560;
 const SORT_OPTIONS = ['Relevance', 'Price low to high', 'Price high to low', 'Distance'];
 const VEHICLE_TYPE_OPTIONS = [
@@ -77,12 +82,14 @@ const COLOR_OPTIONS = [
   { name: 'Blue', value: '#0066CC' },
   { name: 'Red', value: '#DC143C' },
   { name: 'Brown', value: '#8B4513' },
+  { name: 'Beige', value: '#D8C3A5' },
   { name: 'Green', value: '#228B22' },
   { name: 'Gold', value: '#FFD700' },
   { name: 'Yellow', value: '#FFE135' },
   { name: 'Orange', value: '#FF8C00' },
   { name: 'Purple', value: '#800080' },
   { name: 'Pink', value: '#FF69B4' },
+  { name: 'Burgundy', value: '#800020' },
 ];
 
 export default function SearchResultsScreen({ navigation, route }) {
@@ -98,8 +105,17 @@ export default function SearchResultsScreen({ navigation, route }) {
     return key ? getListingsByCity(key).filter(isMarketplaceListing) : [];
   });
   const useMiles = country === 'US' || country === 'USA' || country === 'United States';
-  const [dateRange, setDateRange] = useState(DEFAULT_DATE_RANGE);
-  const [datesDetailText, setDatesDetailText] = useState(DEFAULT_DATES_TEXT);
+  const [searchBookingDates, setSearchBookingDates] = useState(DEFAULT_BOOKING_DATES);
+  const [searchOrigin, setSearchOrigin] = useState(() => {
+    const lat = Number(route.params?.latitude);
+    const lon = Number(route.params?.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      return { latitude: lat, longitude: lon };
+    }
+    return null;
+  });
+  const [dateRange, setDateRange] = useState(() => formatSearchDateRangeShort(DEFAULT_BOOKING_DATES));
+  const [datesDetailText, setDatesDetailText] = useState(() => formatSearchDatesDetail(DEFAULT_BOOKING_DATES));
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
   const [refineModalVisible, setRefineModalVisible] = useState(false);
   const [selectedDistance, setSelectedDistance] = useState(500);
@@ -283,23 +299,47 @@ export default function SearchResultsScreen({ navigation, route }) {
     const { city, query } = resolveSearchCity({ city: loc.city, query: loc.query });
     setWhereInput(query || loc.query);
     setSelectedCity(city || formatLocationLabel(loc.query));
+    if (Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude)) {
+      setSearchOrigin({ latitude: loc.latitude, longitude: loc.longitude });
+    }
     setEditingCity(false);
     closeSearchPanel();
   };
 
-  // When returning from booking calendar
-  const bookingDates = route.params?.bookingDates;
-  if (bookingDates && typeof bookingDates === 'object') {
-    const start = new Date(bookingDates.start);
-    const end = new Date(bookingDates.end);
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const short = `${monthNames[start.getMonth()]} ${start.getDate()} - ${monthNames[end.getMonth()]} ${end.getDate()}`;
-    if (dateRange !== short) setDateRange(short);
-    const detail = `${monthNames[start.getMonth()]} ${start.getDate()}, ${bookingDates.startTime} - ${monthNames[end.getMonth()]} ${end.getDate()}, ${bookingDates.endTime}`;
-    if (datesDetailText !== detail) setDatesDetailText(detail);
-    // clear it so we don't loop
+  useEffect(() => {
+    const lat = Number(route.params?.latitude);
+    const lon = Number(route.params?.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      setSearchOrigin({ latitude: lat, longitude: lon });
+    }
+  }, [route.params?.latitude, route.params?.longitude]);
+
+  // If search has no coords yet, try device location quietly for distance labels.
+  useEffect(() => {
+    if (searchOrigin) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const coords = await getCurrentCoordinates();
+        if (!cancelled && coords) setSearchOrigin(coords);
+      } catch (_) {
+        /* permission denied — hide distance */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchOrigin]);
+
+  useEffect(() => {
+    const bookingDates = route.params?.bookingDates;
+    if (!bookingDates || typeof bookingDates !== 'object') return;
+    if (bookingDates.start == null || bookingDates.end == null) return;
+    setSearchBookingDates(bookingDates);
+    setDateRange(formatSearchDateRangeShort(bookingDates));
+    setDatesDetailText(formatSearchDatesDetail(bookingDates));
     navigation.setParams({ bookingDates: undefined });
-  }
+  }, [navigation, route.params?.bookingDates]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -359,6 +399,15 @@ export default function SearchResultsScreen({ navigation, route }) {
                       onPlaceSelected={({ selection }) => {
                         setWhereInput(selection.query);
                         setSelectedCity(selection.city || selection.query.split(',')[0].trim());
+                        if (
+                          Number.isFinite(selection.latitude) &&
+                          Number.isFinite(selection.longitude)
+                        ) {
+                          setSearchOrigin({
+                            latitude: selection.latitude,
+                            longitude: selection.longitude,
+                          });
+                        }
                         setEditingCity(false);
                         closeSearchPanel();
                       }}
@@ -790,7 +839,10 @@ export default function SearchResultsScreen({ navigation, route }) {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: TAB_BAR_HEIGHT + 24 + insets.bottom },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {currentListings.length === 0 ? (
@@ -804,7 +856,9 @@ export default function SearchResultsScreen({ navigation, route }) {
               <ListingCard
                 key={listing.id}
                 listing={listing}
-                onPress={() => navigation.navigate('VehicleDetailScreen', { listing })}
+                bookingDates={searchBookingDates}
+                searchOrigin={searchOrigin}
+                onPress={() => navigation.navigate('VehicleDetailScreen', { listing, bookingDates: searchBookingDates })}
                 isFavorited={isFavorited(listing.id)}
                 onToggleFavorite={toggleFavorite}
               />
@@ -844,7 +898,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20 * scale,
     paddingTop: 12,
-    paddingBottom: 40,
   },
   searchBarPill: {
     flex: 1,

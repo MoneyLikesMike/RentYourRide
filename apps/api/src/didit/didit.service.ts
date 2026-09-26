@@ -51,8 +51,27 @@ function normalizeDiditStatus(raw: string | undefined | null): string {
   }
 }
 
+type DiditParsedAddress = {
+  street_1?: string | null;
+  street_2?: string | null;
+  city?: string | null;
+  region?: string | null;
+  state?: string | null;
+  province?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  formatted_address?: string | null;
+};
+
 type DiditIdVerification = {
   document_number?: string;
+  first_name?: string;
+  last_name?: string;
+  given_name?: string;
+  family_name?: string;
+  full_name?: string;
+  name?: string;
+  name_on_document?: string;
   address?: string;
   formatted_address?: string;
   issuing_state_name?: string;
@@ -60,23 +79,20 @@ type DiditIdVerification = {
   birth_date?: string;
   gender?: string;
   extra_fields?: Record<string, unknown>;
-  parsed_address?: {
-    street_1?: string | null;
-    street_2?: string | null;
-    city?: string | null;
-    region?: string | null;
-    state?: string | null;
-    province?: string | null;
-    postal_code?: string | null;
-    country?: string | null;
-    formatted_address?: string | null;
-  };
+  parsed_address?: DiditParsedAddress;
+};
+
+type DiditPoaVerification = {
+  address?: string;
+  formatted_address?: string;
+  parsed_address?: DiditParsedAddress;
 };
 
 type DiditDecision = {
   status?: string;
   date_of_birth?: string;
   id_verifications?: DiditIdVerification[];
+  poa_verifications?: DiditPoaVerification[];
 };
 
 type DiditWebhookPayload = {
@@ -141,6 +157,33 @@ export class DiditService {
       session_id: session.session_id,
       session_token: session.session_token,
       url: session.url,
+    };
+  }
+
+  /**
+   * User cancelled Didit mid-flow (or abandoned before submit).
+   * Clears sticky in_progress / awaiting_user so they can start again.
+   * Does not change true pending_review (docs already submitted).
+   */
+  async abandonIncompleteLicenseSession(userId: string) {
+    const user = await this.users.findById(userId);
+    if (!user) {
+      return { ok: true, licenseVerificationStatus: '' };
+    }
+    const status = (user.licenseVerificationStatus || '').trim();
+    if (status !== 'in_progress' && status !== 'awaiting_user') {
+      return {
+        ok: true,
+        licenseVerificationStatus: status,
+        licenseVerified: !!user.licenseVerified,
+      };
+    }
+    const next = user.licenseVerified ? 'approved' : '';
+    const dto = await this.users.setLicenseVerificationStatus(userId, next);
+    return {
+      ok: true,
+      licenseVerificationStatus: dto.licenseVerificationStatus ?? next,
+      licenseVerified: !!dto.licenseVerified,
     };
   }
 
@@ -213,42 +256,37 @@ export class DiditService {
   }
 
   /**
-   * If Didit's webhook was missed, find this user's sessions and apply Approved
-   * when Didit already decided. Looks up by vendor_data (user id), not only the
-   * last stored session id — a later In Progress session must not hide an
-   * earlier Approved one.
+   * Sync our stored license flags with Didit's current decision for this user.
+   * Prefer the session id we last stored; otherwise the newest Didit session.
+   * Never prefer an older Approved over a newer Declined (that left users
+   * looking verified after Didit declined them).
    */
   async reconcileUserLicense(userId: string): Promise<void> {
     const user = await this.users.findById(userId);
     if (!user) return;
-    if (
-      user.licenseVerified &&
-      user.licenseVerificationStatus === 'approved' &&
-      user.addressLine &&
-      user.addressPostalCode &&
-      user.dateOfBirth &&
-      user.gender
-    ) {
-      return;
+
+    let sessionId = user.diditSessionId || undefined;
+    let listStatus: string | undefined;
+
+    if (!sessionId) {
+      const sessions = await this.listSessionsForVendor(userId);
+      const newest = sessions[0];
+      sessionId = newest?.session_id;
+      listStatus = newest?.status;
     }
 
-    const sessions = await this.listSessionsForVendor(userId);
-    const approved = sessions.find((s) => normalizeDiditStatus(s.status) === 'Approved');
-    const stored =
-      sessions.find((s) => s.session_id === user.diditSessionId) ||
-      (user.diditSessionId
-        ? { session_id: user.diditSessionId, status: undefined as string | undefined }
-        : undefined);
-    const chosen = approved || stored;
-    if (!chosen?.session_id) return;
+    if (!sessionId) return;
 
-    const full = await this.retrieveSession(chosen.session_id);
-    const status = normalizeDiditStatus(full?.status || chosen.status);
+    const full = await this.retrieveSession(sessionId);
+    const status = normalizeDiditStatus(full?.status || listStatus);
     if (!status) return;
+
     await this.applyDiditStatus(userId, status, {
-      sessionId: chosen.session_id,
+      sessionId,
       decision: full?.decision,
-      notify: !user.licenseVerified && status === 'Approved',
+      // Notify only when applyDiditStatus detects a real approve/deny transition
+      // (covers webhook misses; no-ops when already in that terminal state).
+      notify: true,
     });
   }
 
@@ -298,6 +336,7 @@ export class DiditService {
         date_of_birth?: string;
         decision?: DiditDecision;
         id_verifications?: DiditDecision['id_verifications'];
+        poa_verifications?: DiditDecision['poa_verifications'];
       };
       return {
         status: body.status,
@@ -305,6 +344,7 @@ export class DiditService {
           ...(body.decision || {}),
           date_of_birth: body.decision?.date_of_birth ?? body.date_of_birth,
           id_verifications: body.decision?.id_verifications ?? body.id_verifications,
+          poa_verifications: body.decision?.poa_verifications ?? body.poa_verifications,
         },
       };
     } catch (err) {
@@ -342,29 +382,66 @@ export class DiditService {
     opts: { sessionId?: string; decision?: DiditDecision; notify?: boolean } = {},
   ) {
     const status = normalizeDiditStatus(statusRaw);
+    const before = await this.users.findById(userId);
+    const prevStatus = (before?.licenseVerificationStatus || '').trim().toLowerCase();
+    const wasVerified = !!before?.licenseVerified;
+    // Already in the terminal approved state (avoid duplicate Approved webhooks / reconcile).
+    const alreadyApproved = wasVerified && (prevStatus === 'approved' || prevStatus === '');
+    const alreadyDeclined = prevStatus === 'declined';
+
     switch (status) {
       case 'Approved': {
-        const already = await this.users.findById(userId);
+        // Webhooks often omit OCR details — always pull the full decision when we can.
         let decision = opts.decision;
-        if (this.licenseDetailsIncomplete(decision) && opts.sessionId) {
+        if (opts.sessionId) {
           const full = await this.retrieveSession(opts.sessionId);
-          if (full?.decision) decision = full.decision;
+          if (full?.decision) {
+            decision = {
+              ...(decision || {}),
+              ...full.decision,
+              id_verifications:
+                full.decision.id_verifications?.length
+                  ? full.decision.id_verifications
+                  : decision?.id_verifications,
+              poa_verifications:
+                full.decision.poa_verifications?.length
+                  ? full.decision.poa_verifications
+                  : decision?.poa_verifications,
+              date_of_birth:
+                full.decision.date_of_birth || decision?.date_of_birth,
+            };
+          }
+        } else if (this.licenseDetailsIncomplete(decision)) {
+          this.logger.warn(
+            `Approved Didit status for ${userId} without session id — address may be incomplete`,
+          );
         }
         const docNumber = this.extractLicenseNumber(decision);
         const address = this.extractLicenseAddress(decision);
+        const legalName = this.extractLicenseName(decision);
+        if (!address?.addressLine) {
+          this.logger.warn(
+            `Didit Approved for ${userId} but no address extracted (session=${opts.sessionId || 'none'})`,
+          );
+        }
         await this.users.setLicenseVerified(userId, {
           licenseNumber: docNumber,
           sessionId: opts.sessionId,
           ...address,
+          ...legalName,
         });
-        if (opts.notify !== false && !already?.licenseVerified) {
+        // Every transition into approved (incl. re-verify after deny / in-review / expiry).
+        if (opts.notify !== false && !alreadyApproved) {
           this.notifications.licenseApproved(userId);
         }
         break;
       }
       case 'Declined':
         await this.users.setLicenseVerificationStatus(userId, 'declined', opts.sessionId);
-        if (opts.notify !== false) this.notifications.licenseDenied(userId);
+        // Every transition into declined (incl. after a prior approval).
+        if (opts.notify !== false && !alreadyDeclined) {
+          this.notifications.licenseDenied(userId);
+        }
         break;
       case 'In Review':
         await this.users.setLicenseVerificationStatus(userId, 'pending_review', opts.sessionId);
@@ -382,6 +459,16 @@ export class DiditService {
       case 'Awaiting User':
         await this.users.setLicenseVerificationStatus(userId, 'awaiting_user', opts.sessionId);
         break;
+      case 'Abandoned':
+      case 'Not Started': {
+        // User quit mid-flow before submitting — clear sticky in_progress so they can retry.
+        if (wasVerified) {
+          await this.users.setLicenseVerificationStatus(userId, 'approved', opts.sessionId);
+        } else {
+          await this.users.setLicenseVerificationStatus(userId, '', opts.sessionId);
+        }
+        break;
+      }
       default:
         this.logger.debug(`Didit status noop: ${status}`);
         break;
@@ -412,8 +499,12 @@ export class DiditService {
     dateOfBirth?: string;
     gender?: string;
   } | undefined {
-    const entries = decision?.id_verifications;
-    if (!Array.isArray(entries) || !entries.length) return undefined;
+    const idEntries = Array.isArray(decision?.id_verifications)
+      ? decision!.id_verifications!
+      : [];
+    const poaEntries = Array.isArray(decision?.poa_verifications)
+      ? decision!.poa_verifications!
+      : [];
 
     const details: {
       addressLine?: string;
@@ -429,19 +520,30 @@ export class DiditService {
       if (!details[key] && value) details[key] = value;
     };
 
-    for (const entry of entries) {
+    const ingestAddress = (entry: {
+      address?: string;
+      formatted_address?: string;
+      issuing_state_name?: string;
+      parsed_address?: DiditParsedAddress;
+    }) => {
       const parsed = entry?.parsed_address;
       const street = [parsed?.street_1, parsed?.street_2]
         .map((part) => (typeof part === 'string' ? part.trim() : ''))
         .filter(Boolean)
         .join(', ');
-      take(
-        'addressLine',
+      const freeform =
         street ||
-          (typeof entry?.address === 'string' ? entry.address.trim() : '') ||
-          (typeof entry?.formatted_address === 'string' ? entry.formatted_address.trim() : '') ||
-          undefined,
-      );
+        (typeof parsed?.formatted_address === 'string'
+          ? parsed.formatted_address.trim()
+          : '') ||
+        (typeof entry?.formatted_address === 'string'
+          ? entry.formatted_address.trim()
+          : '') ||
+        (typeof entry?.address === 'string' ? entry.address.trim() : '') ||
+        '';
+
+      // Prefer structured street for addressLine; otherwise keep the full freeform.
+      take('addressLine', street || freeform || undefined);
       take('addressCity', typeof parsed?.city === 'string' ? parsed.city.trim() : undefined);
       take(
         'addressProvince',
@@ -457,9 +559,29 @@ export class DiditService {
       take(
         'addressCountry',
         (typeof parsed?.country === 'string' && parsed.country.trim()) ||
-          (typeof entry?.issuing_state_name === 'string' && entry.issuing_state_name.trim()) ||
+          (typeof entry?.issuing_state_name === 'string' &&
+            entry.issuing_state_name.trim()) ||
           undefined,
       );
+
+      if (freeform) {
+        take('addressPostalCode', parsePostalCode(freeform));
+        take('addressProvince', parseProvince(freeform));
+        take('addressCountry', parseCountry(freeform));
+        // Only guess city from freeform when it looks like a full address.
+        if (
+          !details.addressCity &&
+          (details.addressPostalCode ||
+            details.addressProvince ||
+            /,/.test(freeform))
+        ) {
+          take('addressCity', parseCity(freeform, details));
+        }
+      }
+    };
+
+    for (const entry of idEntries) {
+      ingestAddress(entry);
       const dobRaw =
         (typeof entry?.date_of_birth === 'string' && entry.date_of_birth.trim()) ||
         (typeof entry?.birth_date === 'string' && entry.birth_date.trim()) ||
@@ -472,23 +594,81 @@ export class DiditService {
         extraFieldString(entry?.extra_fields, 'sex') ||
         '';
       take('gender', genderRaw || undefined);
+    }
 
-      const freeform = [
-        typeof parsed?.formatted_address === 'string' ? parsed.formatted_address : '',
-        typeof entry?.formatted_address === 'string' ? entry.formatted_address : '',
-        typeof entry?.address === 'string' ? entry.address : '',
-      ]
-        .filter(Boolean)
-        .join(' | ');
-      if (freeform) {
-        take('addressPostalCode', parsePostalCode(freeform));
-        take('addressProvince', parseProvince(freeform));
-      }
+    // Proof-of-address step is a fallback when the license OCR lacked a street.
+    for (const entry of poaEntries) {
+      ingestAddress(entry);
+    }
+
+    // Normalize ISO country codes we commonly see from Didit.
+    if (details.addressCountry) {
+      const c = details.addressCountry.trim().toUpperCase();
+      if (c === 'CA' || c === 'CAN') details.addressCountry = 'Canada';
+      else if (c === 'US' || c === 'USA') details.addressCountry = 'United States';
+    } else if (details.addressProvince && parseProvince(details.addressProvince)) {
+      details.addressCountry = 'Canada';
     }
 
     if (!Object.values(details).some(Boolean)) return undefined;
     return details;
   }
+
+  private extractLicenseName(decision?: DiditDecision): {
+    licenseFirstName?: string;
+    licenseLastName?: string;
+  } | undefined {
+    const entries = decision?.id_verifications;
+    if (!Array.isArray(entries) || !entries.length) return undefined;
+
+    for (const entry of entries) {
+      const firstRaw =
+        (typeof entry?.first_name === 'string' && entry.first_name.trim()) ||
+        (typeof entry?.given_name === 'string' && entry.given_name.trim()) ||
+        extraFieldString(entry?.extra_fields, 'first_name') ||
+        extraFieldString(entry?.extra_fields, 'given_name') ||
+        '';
+      const lastRaw =
+        (typeof entry?.last_name === 'string' && entry.last_name.trim()) ||
+        (typeof entry?.family_name === 'string' && entry.family_name.trim()) ||
+        extraFieldString(entry?.extra_fields, 'last_name') ||
+        extraFieldString(entry?.extra_fields, 'family_name') ||
+        '';
+      if (firstRaw && lastRaw) {
+        return {
+          licenseFirstName: firstRaw.slice(0, 120),
+          licenseLastName: lastRaw.slice(0, 120),
+        };
+      }
+
+      const fullRaw =
+        (typeof entry?.full_name === 'string' && entry.full_name.trim()) ||
+        (typeof entry?.name === 'string' && entry.name.trim()) ||
+        (typeof entry?.name_on_document === 'string' && entry.name_on_document.trim()) ||
+        extraFieldString(entry?.extra_fields, 'full_name') ||
+        '';
+      const parsed = splitDocumentFullName(fullRaw);
+      if (parsed) return parsed;
+    }
+
+    return undefined;
+  }
+}
+
+function splitDocumentFullName(fullRaw: string): {
+  licenseFirstName: string;
+  licenseLastName: string;
+} | undefined {
+  const tokens = fullRaw
+    .replace(/,/g, ' ')
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (tokens.length < 2) return undefined;
+  return {
+    licenseFirstName: tokens[0].slice(0, 120),
+    licenseLastName: tokens[tokens.length - 1].slice(0, 120),
+  };
 }
 
 function extraFieldString(
@@ -530,5 +710,50 @@ function parseProvince(text: string): string | undefined {
   if (named) return named[1];
   const coded = text.match(/\b(AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|QC|SK|YT)\b/);
   if (coded) return PROVINCE_NAMES[coded[1]] || coded[1];
+  return undefined;
+}
+
+function parseCountry(text: string): string | undefined {
+  if (/\b(Canada|CAN)\b/i.test(text)) return 'Canada';
+  if (/\b(United States|USA|U\.S\.A\.)\b/i.test(text)) return 'United States';
+  return undefined;
+}
+
+/** Best-effort city from a freeform Canadian/US address string. */
+function parseCity(
+  text: string,
+  known: { addressProvince?: string; addressPostalCode?: string },
+): string | undefined {
+  let working = text.replace(/\s+/g, ' ').trim();
+  const postal = known.addressPostalCode || parsePostalCode(working);
+  if (postal) {
+    working = working.replace(new RegExp(postal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), ' ');
+  }
+  const province = known.addressProvince || parseProvince(working);
+  if (province) {
+    working = working.replace(new RegExp(`\\b${province}\\b`, 'i'), ' ');
+    const code = Object.entries(PROVINCE_NAMES).find(
+      ([, name]) => name.toLowerCase() === province.toLowerCase(),
+    )?.[0];
+    if (code) working = working.replace(new RegExp(`\\b${code}\\b`, 'i'), ' ');
+  }
+  working = working
+    .replace(/\b(Canada|United States|USA|CAN)\b/i, ' ')
+    .replace(/,/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // Take the last remaining token group as city (street usually comes first).
+  const parts = working.split(/\s{2,}|\s-\s/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    const city = parts[parts.length - 1];
+    if (city && /[A-Za-z]/.test(city) && city.length < 80) return city;
+  }
+  // Fallback: last 1–3 words that look like a place name.
+  const words = working.split(' ').filter(Boolean);
+  if (words.length >= 2) {
+    const city = words.slice(-2).join(' ');
+    // Avoid returning street numbers as city.
+    if (!/^\d/.test(city) && city.length < 80) return city;
+  }
   return undefined;
 }

@@ -31,6 +31,8 @@ export enum TemplateName {
   YourTripIsBeginningSoonGuest = 'YourTripIsBeginningSoonGuest',
   TripBeginningSoonHost = 'TripBeginningSoonHost',
   NewMessageFromHost = 'NewMessageFromHost',
-  NewMessageFromGuest = 'NewMessageFromGuest',
+  /** Pinpoint template is named NewMessageFromRenter (legacy infra). */
+  NewMessageFromGuest = 'NewMessageFromRenter',
+  YourTripExtensionRequestWasDenied = 'YourTripExtensionRequestWasDenied',
   YouHaveDeniedATripExtenison = 'YouHaveDeniedATripExtenison',
 }

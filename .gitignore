@@ -22,6 +22,7 @@ ios/build/
 *.p12
 *.key
 *.mobileprovision
+ios/private_keys/
 
 # Metro
 .metro-health-check*

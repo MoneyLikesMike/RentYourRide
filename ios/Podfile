@@ -31,6 +31,8 @@ target 'RentYourRide' do
 
   pod 'GoogleUtilities', :modular_headers => true
   pod 'RecaptchaInterop', :modular_headers => true
+  # Google Analytics (GA4) via Firebase SDK — needs GoogleService-Info.plist in the app target.
+  pod 'FirebaseAnalytics'
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];

@@ -40,16 +40,6 @@ export default function AddPaymentMethodScreen({ navigation, route }) {
         <Text style={styles.optionChevron}>›</Text>
       </TouchableOpacity>
       <View style={styles.rowDivider} />
-
-      <TouchableOpacity
-        style={styles.optionRow}
-        onPress={() => navigation.navigate('AddPayPalScreen', { returnAfterPayment })}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.optionTitle}>PayPal</Text>
-        <Text style={styles.optionChevron}>›</Text>
-      </TouchableOpacity>
-      <View style={styles.rowDivider} />
     </View>
   );
 }

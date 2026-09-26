@@ -17,6 +17,11 @@ export const CONTACT_MAILTO =
     'Hello,\n\nI need help with Rent Your Ride. Please find my message below:\n\n\n\nThank you,',
   )}`;
 
+/** Company support line (Winnipeg). Keep in sync with constants/companyContact.js (mobile). */
+export const CONTACT_PHONE_DISPLAY = '204-977-7677';
+export const CONTACT_PHONE_E164 = '+12049777677';
+export const CONTACT_TEL = `tel:${CONTACT_PHONE_E164}`;
+
 export const CONTACT_CHAT_URL = 'https://m.me/rentyourride.ca';
 
 const MENU_LINKS = [
@@ -58,6 +63,7 @@ export default function SiteHeader({ afterLogo }: Props) {
   const { isAuthenticated, user, signOut } = useAuth();
   const { unreadTotal } = useMessagingUnread();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const avatarSrc = resolveAvatarUrl(user?.avatarUrl);
   const avatarAlt = user?.firstName
@@ -70,6 +76,13 @@ export default function SiteHeader({ afterLogo }: Props) {
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -95,7 +108,7 @@ export default function SiteHeader({ afterLogo }: Props) {
 
   return (
     <header
-      className={`header-wrapper${afterLogo ? ' header-wrapper--with-search' : ''}`}
+      className={`header-wrapper${afterLogo ? ' header-wrapper--with-search' : ''}${scrolled ? ' is-scrolled' : ''}`}
     >
       <div className="header-left">
         <Link to="/" className="logo-wrapper">

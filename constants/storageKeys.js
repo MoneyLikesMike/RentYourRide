@@ -5,6 +5,9 @@ export const STORAGE_YEAR = '@ryr_user_join_year';
 export const STORAGE_PHOTO = '@ryr_user_profile_photo_uri';
 export const STORAGE_ABOUT = '@ryr_user_profile_about';
 
+/** Per-user payment method cache prefix (`${STORAGE_PAYMENT_METHODS}:${userId}`). */
+export const STORAGE_PAYMENT_METHODS = '@ryr_payment_methods_v2';
+
 export const PROFILE_STORAGE_KEYS = [
   STORAGE_FIRST,
   STORAGE_LAST,

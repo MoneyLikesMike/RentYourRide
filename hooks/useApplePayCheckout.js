@@ -18,11 +18,6 @@ function buildApplePayParams(label, totalDollars) {
           amount,
           paymentType: PlatformPay.PaymentType.Immediate,
         },
-        {
-          label: 'Rent Your Ride',
-          amount,
-          paymentType: PlatformPay.PaymentType.Immediate,
-        },
       ],
       merchantCountryCode: 'CA',
       currencyCode: 'CAD',
