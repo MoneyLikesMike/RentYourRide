@@ -5,6 +5,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   InputAdornment,
   Paper,
@@ -17,6 +18,7 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -26,7 +28,10 @@ import type { MemberListQuery } from '../api/types';
 export default function MembersPage() {
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
-  const [pageOpts, setPageOpts] = useState<Omit<MemberListQuery, 'query'>>({
+  const [emailTypoOnly, setEmailTypoOnly] = useState(false);
+  const [pageOpts, setPageOpts] = useState<
+    Omit<MemberListQuery, 'query' | 'emailTypo'>
+  >({
     order: 'DESC',
     page: 1,
     take: 10,
@@ -34,8 +39,12 @@ export default function MembersPage() {
   });
 
   const listQuery: MemberListQuery = useMemo(
-    () => ({ ...pageOpts, query: search || undefined }),
-    [pageOpts, search],
+    () => ({
+      ...pageOpts,
+      query: search || undefined,
+      emailTypo: emailTypoOnly || undefined,
+    }),
+    [pageOpts, search, emailTypoOnly],
   );
 
   const { data, isPending, error, isFetching } = useQuery({
@@ -72,7 +81,23 @@ export default function MembersPage() {
         <Button variant="outlined" onClick={onSearch}>
           Search
         </Button>
+        <Chip
+          label="Email typos"
+          color={emailTypoOnly ? 'warning' : 'default'}
+          variant={emailTypoOnly ? 'filled' : 'outlined'}
+          onClick={() => {
+            setEmailTypoOnly((v) => !v);
+            setPageOpts((o) => ({ ...o, page: 1 }));
+          }}
+          sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}
+        />
       </Stack>
+      {emailTypoOnly ? (
+        <Alert severity="warning">
+          Showing members whose email domain matches a known typo (e.g. gmil.com →
+          gmail.com). Use for LC/BD cleanup.
+        </Alert>
+      ) : null}
       {error ? (
         <Alert severity="error">
           {(error as Error).message || 'Could not load members'}
@@ -99,6 +124,16 @@ export default function MembersPage() {
                     </Box>
                   </TableCell>
                 </TableRow>
+              ) : data?.data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <Typography variant="body2" color="text.secondary" py={3} px={1}>
+                      {emailTypoOnly
+                        ? 'No members with known typo email domains.'
+                        : 'No members found.'}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
               ) : (
                 data?.data.map((row) => (
                   <TableRow key={row.id} hover>
@@ -112,7 +147,22 @@ export default function MembersPage() {
                         {row.fullName}
                       </Button>
                     </TableCell>
-                    <TableCell>{row.email}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <span>{row.email}</span>
+                        {row.emailDomainTypo ? (
+                          <Tooltip
+                            title={`Did you mean ${row.emailDomainTypo.suggestedEmail}?`}
+                          >
+                            <Chip
+                              size="small"
+                              color="warning"
+                              label={`→ ${row.emailDomainTypo.suggestion}`}
+                            />
+                          </Tooltip>
+                        ) : null}
+                      </Stack>
+                    </TableCell>
                     <TableCell>
                       {row.signUpDate
                         ? new Date(row.signUpDate).toLocaleDateString()

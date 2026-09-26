@@ -12,6 +12,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { emailTypoUserMessage } from '../utils/emailDomainTypos';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
@@ -60,7 +61,13 @@ export default function SignUpScreen(props) {
       setEmailError('Invalid email address');
       valid = false;
     } else {
-      setEmailError('');
+      const typo = emailTypoUserMessage(email);
+      if (typo) {
+        setEmailError(typo);
+        valid = false;
+      } else {
+        setEmailError('');
+      }
     }
     if (!firstName) {
       setFirstNameError('Please enter first name');

@@ -1,3 +1,4 @@
+import { emailTypoUserMessage } from '../common/email-domain-typos';
 import {
   ConflictException,
   BadRequestException,
@@ -76,8 +77,13 @@ export class AuthService {
     firstName: string;
     lastName: string;
   }) {
+    const email = body.email.trim().toLowerCase();
+    const typoMsg = emailTypoUserMessage(email);
+    if (typoMsg) {
+      throw new BadRequestException(typoMsg);
+    }
     const existing = await this.usersRepo.findOne({
-      where: { email: body.email.trim().toLowerCase() },
+      where: { email },
     });
     if (existing) {
       throw new ConflictException('Email already registered');
@@ -90,7 +96,7 @@ export class AuthService {
       referralCode = randomReferralCode();
     }
     const user = this.usersRepo.create({
-      email: body.email.trim().toLowerCase(),
+      email,
       passwordHash: hash,
       firstName: body.firstName.trim(),
       lastName: body.lastName.trim(),
@@ -637,6 +643,10 @@ export class AuthService {
       .toLowerCase();
     if (!email || !email.includes('@')) {
       throw new BadRequestException('Enter a valid email address');
+    }
+    const typoMsg = emailTypoUserMessage(email);
+    if (typoMsg) {
+      throw new BadRequestException(typoMsg);
     }
 
     const user = await this.usersRepo.findOne({ where: { id: userId } });
