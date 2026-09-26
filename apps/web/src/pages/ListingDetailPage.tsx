@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   CAR_FEATURE_ICONS,
@@ -94,14 +94,17 @@ function TripChevron() {
   return <span className="car-trip-chevron" aria-hidden />;
 }
 
+/** Same glyphs and colours as the app's VehicleDetailScreen hero buttons. */
+const APP_HEART_COLOR = 'rgb(255, 178, 20)';
+
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
-    <svg width="18" height="16" viewBox="0 0 24 22" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
-        d="M12 20.5S2.5 14.2 2.5 8.4C2.5 5.1 5 2.8 8.1 2.8c1.8 0 3.4.9 3.9 2.2.5-1.3 2.1-2.2 3.9-2.2 3.1 0 5.6 2.3 5.6 5.6 0 5.8-9.5 12.1-9.5 12.1z"
-        fill={filled ? '#f34949' : 'none'}
-        stroke={filled ? '#f34949' : 'currentColor'}
-        strokeWidth="1.8"
+        d="M12 21s-6.7-4.35-9.33-7.5C.5 10.85 1.1 7.2 3.9 5.55 5.7 4.5 8 4.85 9.5 6.4L12 9l2.5-2.6c1.5-1.55 3.8-1.9 5.6-.85 2.8 1.65 3.4 5.3 1.23 7.95C18.7 16.65 12 21 12 21z"
+        fill={filled ? APP_HEART_COLOR : 'transparent'}
+        stroke={APP_HEART_COLOR}
+        strokeWidth="2"
         strokeLinejoin="round"
       />
     </svg>
@@ -110,12 +113,18 @@ function HeartIcon({ filled }: { filled: boolean }) {
 
 function ShareIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
-        d="M12 3v12M7.5 7.5 12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"
-        fill="none"
+        d="M12 3v11M8 7l4-4 4 4"
         stroke="currentColor"
-        strokeWidth="1.8"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4"
+        stroke="currentColor"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -195,6 +204,24 @@ export default function ListingDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const shareMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!shareMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!shareMenuRef.current?.contains(e.target as Node)) setShareMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShareMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [shareMenuOpen]);
   const canNativeShare =
     typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
@@ -391,16 +418,14 @@ export default function ListingDetailPage() {
   const shareUrl = `${window.location.origin}/find-your-car/${encodeURIComponent(listingId)}`;
 
   const onCopyLink = async () => {
+    setShareMenuOpen(false);
     const ok = await copyText(shareUrl);
     setShareNotice(ok ? 'Link copied' : `Copy this link: ${shareUrl}`);
   };
 
-  const onShare = async () => {
+  const onNativeShare = async () => {
+    setShareMenuOpen(false);
     if (!listing) return;
-    if (!canNativeShare) {
-      await onCopyLink();
-      return;
-    }
     try {
       await navigator.share({
         title: listing.title,
@@ -589,63 +614,118 @@ export default function ListingDetailPage() {
             <div className="car-details-wrapper">
               <div className="left-details-column">
                 <div className="photo-wrapper">
-                  {mainMedia ? (
-                    <button
-                      type="button"
-                      className="main-photo-button"
-                      onClick={() => setLightboxOpen(true)}
-                      aria-label={
-                        mainMedia.type === 'video'
-                          ? `Play ${listing.title} video`
-                          : `View ${listing.title} photos`
-                      }
-                    >
-                      {mainMedia.type === 'video' ? (
-                        <video
-                          key={mainMedia.url}
-                          className="main-photo main-photo-video"
-                          src={mainMedia.url}
-                          muted
-                          playsInline
-                          preload="metadata"
-                          controls={false}
-                        />
-                      ) : (
-                        <img
-                          src={mainMedia.url}
-                          alt={listing.title}
-                          className="main-photo"
-                        />
-                      )}
-                      {mainMedia.type === 'video' ? (
-                        <span className="main-photo-play" aria-hidden>
-                          ▶
+                  <div className="main-photo-frame">
+                    <div className="car-chrome">
+                      <div className="car-share" ref={shareMenuRef}>
+                        <button
+                          type="button"
+                          className="car-chrome-btn"
+                          onClick={() => setShareMenuOpen((open) => !open)}
+                          aria-label="Share"
+                          aria-haspopup="menu"
+                          aria-expanded={shareMenuOpen}
+                        >
+                          <ShareIcon />
+                        </button>
+                        {shareMenuOpen ? (
+                          <div className="car-share-menu" role="menu">
+                            {canNativeShare ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="car-share-item"
+                                onClick={() => void onNativeShare()}
+                              >
+                                <ShareIcon />
+                                Share via…
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="car-share-item"
+                              onClick={() => void onCopyLink()}
+                            >
+                              <LinkIcon />
+                              Copy link
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        className="car-chrome-btn"
+                        onClick={() => void onToggleFavorite()}
+                        disabled={favoriteBusy}
+                        aria-pressed={isFavorite}
+                        aria-label={isFavorite ? 'Remove favourite' : 'Add favourite'}
+                      >
+                        <HeartIcon filled={isFavorite} />
+                      </button>
+                      {shareNotice ? (
+                        <span className="car-chrome-notice" role="status" aria-live="polite">
+                          {shareNotice}
                         </span>
-                      ) : (
-                        <span className="main-photo-zoom" aria-hidden>
-                          <svg viewBox="0 0 24 24">
-                            <circle
-                              cx="11"
-                              cy="11"
-                              r="6.5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            />
-                            <path
-                              d="M11 8.5v5M8.5 11h5M15.8 15.8 20 20"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                        </span>
-                      )}
-                    </button>
-                  ) : (
-                    <div className="main-photo main-photo--empty" />
-                  )}
+                      ) : null}
+                    </div>
+                    {mainMedia ? (
+                      <button
+                        type="button"
+                        className="main-photo-button"
+                        onClick={() => setLightboxOpen(true)}
+                        aria-label={
+                          mainMedia.type === 'video'
+                            ? `Play ${listing.title} video`
+                            : `View ${listing.title} photos`
+                        }
+                      >
+                        {mainMedia.type === 'video' ? (
+                          <video
+                            key={mainMedia.url}
+                            className="main-photo main-photo-video"
+                            src={mainMedia.url}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            controls={false}
+                          />
+                        ) : (
+                          <img
+                            src={mainMedia.url}
+                            alt={listing.title}
+                            className="main-photo"
+                          />
+                        )}
+                        {mainMedia.type === 'video' ? (
+                          <span className="main-photo-play" aria-hidden>
+                            ▶
+                          </span>
+                        ) : (
+                          <span className="main-photo-zoom" aria-hidden>
+                            <svg viewBox="0 0 24 24">
+                              <circle
+                                cx="11"
+                                cy="11"
+                                r="6.5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              />
+                              <path
+                                d="M11 8.5v5M8.5 11h5M15.8 15.8 20 20"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </span>
+                        )}
+                      </button>
+                    ) : (
+                      <div className="main-photo main-photo--empty" />
+                    )}
+                  </div>
                   {media.length > 1 ? (
                     <div className="other-photos">
                       {media.map((item, i) => (
@@ -694,43 +774,6 @@ export default function ListingDetailPage() {
                   )}
                   <span className="car-trips">
                     {formatListingTripLabel(listing)}
-                  </span>
-                </div>
-
-                <div className="car-actions">
-                  {canNativeShare ? (
-                    <button
-                      type="button"
-                      className="car-action"
-                      onClick={() => void onShare()}
-                      aria-label="Share this listing"
-                    >
-                      <ShareIcon />
-                      Share
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="car-action"
-                    onClick={() => void onCopyLink()}
-                    aria-label="Copy link to this listing"
-                  >
-                    <LinkIcon />
-                    Copy link
-                  </button>
-                  <button
-                    type="button"
-                    className={`car-action${isFavorite ? ' car-action--on' : ''}`}
-                    onClick={() => void onToggleFavorite()}
-                    disabled={favoriteBusy}
-                    aria-pressed={isFavorite}
-                    aria-label={isFavorite ? 'Remove from favourites' : 'Save to favourites'}
-                  >
-                    <HeartIcon filled={isFavorite} />
-                    {isFavorite ? 'Saved' : 'Save'}
-                  </button>
-                  <span className="car-action-notice" role="status" aria-live="polite">
-                    {shareNotice}
                   </span>
                 </div>
 
