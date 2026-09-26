@@ -202,6 +202,110 @@
   min-height: 14rem;
 }
 
+.main-photo-frame {
+  position: relative;
+}
+
+/* Mirrors the app hero chrome: 40px round buttons, top-right of the photo. */
+.car-chrome {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.car-chrome-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.car-chrome-btn:hover,
+.car-chrome-btn[aria-expanded='true'] {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.car-chrome-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.car-chrome-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.car-share {
+  position: relative;
+}
+
+.car-share-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  min-width: 10.5rem;
+  padding: 0.35rem;
+  background: #fff;
+  border-radius: 0.65rem;
+  box-shadow: 0 8px 24px rgba(23, 37, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+.car-share-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: none;
+  border-radius: 0.45rem;
+  background: none;
+  color: #17252a;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.car-share-item:hover,
+.car-share-item:focus-visible {
+  background: #f2f5f6;
+}
+
+.car-share-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.car-chrome-notice {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  max-width: min(20rem, 70vw);
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.5rem;
+  background: rgba(23, 37, 42, 0.88);
+  color: #fff;
+  font-size: 0.82rem;
+  width: max-content;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
 .main-photo-button {
   position: relative;
   display: block;
@@ -417,52 +521,6 @@
   align-items: center;
   gap: 0.75rem 1.15rem;
   margin: 0 0 0.55rem;
-}
-
-.car-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.85rem;
-}
-
-.car-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.85rem;
-  border: 1px solid #d5dbdd;
-  border-radius: 999px;
-  background: #fff;
-  color: #17252a;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.car-action:hover {
-  border-color: #17252a;
-}
-
-.car-action:disabled {
-  opacity: 0.65;
-  cursor: default;
-}
-
-.car-action--on {
-  border-color: #f34949;
-  color: #c62828;
-  background: #fff5f5;
-}
-
-.car-action-notice {
-  font-size: 0.85rem;
-  color: #4a5a5f;
-  min-height: 1em;
-  user-select: text;
-  overflow-wrap: anywhere;
 }
 
 .car-title {
