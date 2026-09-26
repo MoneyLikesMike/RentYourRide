@@ -88,7 +88,8 @@ describe('toPublicListingDto', () => {
     assert.equal(dto.vehicleData?.make, 'Honda');
     assert.equal(dto.extras.shortestTrip, '1 day');
     assert.equal(dto.extras.checkInInstructions, undefined);
-    assert.equal(dto.hostUserId, 'host-uuid-1');
+    assert.equal((dto as Record<string, unknown>).hostUserId, undefined);
+    assert.ok(!JSON.stringify(dto).includes('host-uuid-1'));
     assert.equal(dto.hostName, 'Denzel M.');
   });
 

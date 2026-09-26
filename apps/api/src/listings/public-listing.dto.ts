@@ -97,15 +97,14 @@ export type PublicListingDto = {
   hostPhotoUri?: string;
   hostJoinedYear?: number;
   hostBio: string;
-  /** Opaque id for in-app host profile navigation (not email/phone). */
-  hostUserId: string;
   vehicleData?: Record<string, unknown>;
 };
 
 /**
  * Build a public listing payload from the entity. Does not include
- * hostEmail, hostPhone, vin, licensePlate, licenseProvince, or check-in
- * instructions. Call withApproximateLocation at the public HTTP boundary.
+ * hostEmail, hostPhone, hostUserId, vin, licensePlate, licenseProvince, or
+ * check-in instructions. hostUserId is the raw user UUID and would let
+ * scrapers link one host across listings. Call withApproximateLocation at the public HTTP boundary.
  */
 export function toPublicListingDto(listing: ListingEntity): PublicListingDto {
   const h = listing.host;
@@ -146,7 +145,6 @@ export function toPublicListingDto(listing: ListingEntity): PublicListingDto {
     hostPhotoUri: h?.avatarUrl ?? undefined,
     hostJoinedYear: h?.createdAt ? h.createdAt.getFullYear() : undefined,
     hostBio: sanitizeHostBioForDisplay(h?.aboutBio),
-    hostUserId: listing.hostUserId,
     vehicleData,
   };
 }
@@ -155,6 +153,7 @@ export function toPublicListingDto(listing: ListingEntity): PublicListingDto {
 export const PUBLIC_LISTING_FORBIDDEN_KEYS = [
   'hostEmail',
   'hostPhone',
+  'hostUserId',
   'email',
   'phone',
   'licensePlate',
