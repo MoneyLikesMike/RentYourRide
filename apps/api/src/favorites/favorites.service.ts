@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { FavoriteEntity } from '../entities/favorite.entity';
 import { ListingEntity } from '../entities/listing.entity';
 import { withApproximateLocation } from '../listings/approximate-location';
+import { toPublicListingDto } from '../listings/public-listing.dto';
 
 @Injectable()
 export class FavoritesService {
@@ -22,7 +23,7 @@ export class FavoritesService {
     });
     return rows
       .filter((r) => r.listing?.published && r.listing?.active)
-      .map((r) => withApproximateLocation(r.listing.toDetailDto()));
+      .map((r) => withApproximateLocation(toPublicListingDto(r.listing)));
   }
 
   async add(userId: string, listingId: string) {
