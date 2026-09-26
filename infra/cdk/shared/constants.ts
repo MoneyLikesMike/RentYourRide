@@ -49,9 +49,9 @@ http {
             add_header Content-Type text/plain;
         }
 
-        # Serve React app
+        # Serve React app ($uri/index.html = prerendered listing share previews)
         location / {
-            try_files $uri /index.html;
+            try_files $uri $uri/index.html /index.html;
         }
     }
 }

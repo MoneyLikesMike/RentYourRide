@@ -7,6 +7,7 @@ import {
   listingMediaItems,
   type ListingDetail,
 } from '../api/listings';
+import { addFavorite, listFavorites, removeFavorite } from '../api/favorites';
 import { ApiError } from '../api/http';
 import { formatLocationLabel, reverseGeocode } from '../api/maps';
 import { useAuth } from '../auth/AuthContext';
@@ -93,6 +94,74 @@ function TripChevron() {
   return <span className="car-trip-chevron" aria-hidden />;
 }
 
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="18" height="16" viewBox="0 0 24 22" aria-hidden>
+      <path
+        d="M12 20.5S2.5 14.2 2.5 8.4C2.5 5.1 5 2.8 8.1 2.8c1.8 0 3.4.9 3.9 2.2.5-1.3 2.1-2.2 3.9-2.2 3.1 0 5.6 2.3 5.6 5.6 0 5.8-9.5 12.1-9.5 12.1z"
+        fill={filled ? '#f34949' : 'none'}
+        stroke={filled ? '#f34949' : 'currentColor'}
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M12 3v12M7.5 7.5 12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L11.6 6M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.6-1.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through to execCommand (older Safari / insecure contexts) */
+  }
+  try {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.setAttribute('readonly', '');
+    el.style.position = 'fixed';
+    el.style.opacity = '0';
+    document.body.appendChild(el);
+    el.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(el);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 export default function ListingDetailPage() {
   const { listingId = '' } = useParams<{ listingId: string }>();
   const navigate = useNavigate();
@@ -119,6 +188,36 @@ export default function ListingDetailPage() {
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [pickupDisplay, setPickupDisplay] = useState('—');
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
+  const canNativeShare =
+    typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  useEffect(() => {
+    if (!isAuthenticated || !listingId) {
+      setIsFavorite(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await listFavorites();
+        if (!cancelled) setIsFavorite(rows.some((r) => String(r.id) === listingId));
+      } catch {
+        if (!cancelled) setIsFavorite(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, listingId]);
+
+  useEffect(() => {
+    if (!shareNotice) return;
+    const t = window.setTimeout(() => setShareNotice(null), 2500);
+    return () => window.clearTimeout(t);
+  }, [shareNotice]);
 
   useEffect(() => {
     if (!listingId) {
@@ -282,6 +381,52 @@ export default function ListingDetailPage() {
     navigate(`/find-your-car/${listingId}/checkout`, {
       state: { search: navState.search, dates, listing },
     });
+  };
+
+  const shareUrl = `${window.location.origin}/find-your-car/${encodeURIComponent(listingId)}`;
+
+  const onCopyLink = async () => {
+    const ok = await copyText(shareUrl);
+    setShareNotice(ok ? 'Link copied' : 'Could not copy link');
+  };
+
+  const onShare = async () => {
+    if (!listing) return;
+    if (!canNativeShare) {
+      await onCopyLink();
+      return;
+    }
+    try {
+      await navigator.share({
+        title: listing.title,
+        text: `Check out ${listing.title} on RentYourRide`,
+        url: shareUrl,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      await onCopyLink();
+    }
+  };
+
+  const onToggleFavorite = async () => {
+    if (!isAuthenticated) {
+      navigate('/login', {
+        state: withAuthBackground(location, { from: `/find-your-car/${listingId}` }),
+      });
+      return;
+    }
+    const wasFavorite = isFavorite;
+    setFavoriteBusy(true);
+    setIsFavorite(!wasFavorite);
+    try {
+      if (wasFavorite) await removeFavorite(listingId);
+      else await addFavorite(listingId);
+    } catch {
+      setIsFavorite(wasFavorite);
+      setShareNotice('Could not update favourites');
+    } finally {
+      setFavoriteBusy(false);
+    }
   };
 
   const backToListings = () => {
@@ -544,6 +689,43 @@ export default function ListingDetailPage() {
                   )}
                   <span className="car-trips">
                     {formatListingTripLabel(listing)}
+                  </span>
+                </div>
+
+                <div className="car-actions">
+                  {canNativeShare ? (
+                    <button
+                      type="button"
+                      className="car-action"
+                      onClick={() => void onShare()}
+                      aria-label="Share this listing"
+                    >
+                      <ShareIcon />
+                      Share
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="car-action"
+                    onClick={() => void onCopyLink()}
+                    aria-label="Copy link to this listing"
+                  >
+                    <LinkIcon />
+                    Copy link
+                  </button>
+                  <button
+                    type="button"
+                    className={`car-action${isFavorite ? ' car-action--on' : ''}`}
+                    onClick={() => void onToggleFavorite()}
+                    disabled={favoriteBusy}
+                    aria-pressed={isFavorite}
+                    aria-label={isFavorite ? 'Remove from favourites' : 'Save to favourites'}
+                  >
+                    <HeartIcon filled={isFavorite} />
+                    {isFavorite ? 'Saved' : 'Save'}
+                  </button>
+                  <span className="car-action-notice" role="status" aria-live="polite">
+                    {shareNotice}
                   </span>
                 </div>
 
