@@ -125,7 +125,38 @@ aws elbv2 delete-listener --listener-arn "$HTTP_LISTENER"
 # Optional: remove SG rules for port 80 (use revoke-security-group-ingress with the same IpPermissions)
 ```
 
+## Status (2026-09-26)
+
+Applied live on prod + dev ALBs (CLI above). Grok / RYRA-425 confirmed redirects work.
+
+## Persist in CoreStack CDK (required before next stack deploy)
+
+Live ALBs come from CDK path `CoreStack/RYRALBSetup` (legacy tree:
+`RentYourRideLegacy/Infrastructure-old/core/lib/constructs/alb.ts`).
+
+The template historically only opened **443** (the comment said “HTTP port 80” but the
+rule was `Port.tcp(443)`), and there was **no** port-80 listener — so a CoreStack
+redeploy that recreates the listener/SG from the old CDK would wipe this fix.
+
+Patch that construct before the next `cdk deploy` of CoreStack:
+
+```ts
+elbSecurityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(443));
+elbSecurityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(80));
+elbSecurityGroup.addIngressRule(Peer.anyIpv6(), Port.tcp(80));
+
+lb.addRedirect({
+  sourceProtocol: ApplicationProtocol.HTTP,
+  sourcePort: 80,
+  targetProtocol: ApplicationProtocol.HTTPS,
+  targetPort: 443,
+});
+```
+
+That file is **not** in `MoneyLikesMike/RentYourRide` (Infrastructure-old lives alongside
+the app monorepo). Update and redeploy CoreStack from the infra CDK package when ready;
+until then the live CLI change + this runbook are the operational source of truth.
+
 ## Notes
 
 - Repo scripts `apps/api/scripts/setup-{prod,dev}-alb.sh` only wire Nest `:8081` rules on the **443** listener; they do not own the CoreSt ALB resource.
-- After applying, prefer updating CoreStack so a future stack deploy does not drop the HTTP listener / SG rule. Until then, this runbook is the source of truth for the redirect.
