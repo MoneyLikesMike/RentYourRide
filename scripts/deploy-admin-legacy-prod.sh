@@ -129,6 +129,28 @@ for path in paths:
     else:
         raise SystemExit("profile AGE pattern not found")
 
+    # RYRA-419: flag likely email-domain typos in the Members list (API sends emailDomainTypo).
+    email_cell_old = 'jl.linkProfile(e.fullName,e.id),jl.spanEmail(e.email),jl.date(e.signUpDate'
+    email_cell_new = 'jl.linkProfile(e.fullName,e.id),i.a.createElement("span",{className:"header-title"},e.email||"-",e.emailDomainTypo?i.a.createElement("span",{className:"ryr-email-typo",title:"Possible email typo. Did you mean "+e.emailDomainTypo.suggestedEmail+"?",style:{marginLeft:6,padding:"1px 6px",borderRadius:10,background:"#fff4e5",color:"#b26a00",border:"1px solid #ffb74d",fontSize:11,whiteSpace:"nowrap"}},"\\u26a0 \\u2192 "+e.emailDomainTypo.suggestion):null),jl.date(e.signUpDate'
+    if 'ryr-email-typo' in text:
+        print("members email typo chip present")
+    elif email_cell_old in text:
+        text = text.replace(email_cell_old, email_cell_new, 1)
+        print("added members email typo chip")
+    else:
+        raise SystemExit("members email cell pattern not found")
+
+    # Filter lives in sort state because Table spreads state.sort into every getValues call.
+    members_head_old = 'i.a.createElement("h1",{className:"caption"},"Members"),s&&i.a.createElement(Ql,'
+    members_head_new = 'i.a.createElement("h1",{className:"caption"},"Members"),i.a.createElement("label",{className:"ryr-email-typo-filter",style:{display:"inline-flex",alignItems:"center",gap:6,margin:"0 0 12px",cursor:"pointer",fontSize:14}},i.a.createElement("input",{type:"checkbox",checked:!!r.sort.emailTypo,onChange:ev=>{const ns={...r.sort,page:1,emailTypo:ev.target.checked?!0:void 0};o({sort:ns}),n(ns)}}),"Email typos only"),s&&i.a.createElement(Ql,'
+    if 'ryr-email-typo-filter' in text:
+        print("members email typo filter present")
+    elif members_head_old in text:
+        text = text.replace(members_head_old, members_head_new, 1)
+        print("added members email typo filter")
+    else:
+        raise SystemExit("members header pattern not found")
+
     path.write_text(text)
     print("patched", path)
 
@@ -166,6 +188,8 @@ grep -q 'admin.rentyourride.ca' index.html
 grep -q 'DATE OF BIRTH' static/js/main.*.chunk.js
 grep -q 'province/state' static/js/main.*.chunk.js
 grep -q 'title:"gender"' static/js/main.*.chunk.js
+grep -q 'ryr-email-typo-filter' static/js/main.*.chunk.js
+grep -q 'emailDomainTypo' static/js/main.*.chunk.js
 
 echo "==> Packaging + uploading"
 rm -f /tmp/admin-legacy-dist.tgz
