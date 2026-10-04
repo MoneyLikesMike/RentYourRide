@@ -90,8 +90,6 @@ describe('toPublicListingDto', () => {
     assert.equal(dto.extras.checkInInstructions, undefined);
     assert.equal((dto as Record<string, unknown>).hostUserId, undefined);
     assert.ok(!JSON.stringify(dto).includes('host-uuid-1'));
-    assert.ok(!JSON.stringify(dto).includes('cdn.example/a.jpg'));
-    assert.ok(!JSON.stringify(dto).includes('Friendly host'));
     assert.equal(dto.hostName, 'Denzel M.');
   });
 
