@@ -151,6 +151,17 @@ for path in paths:
     else:
         raise SystemExit("members header pattern not found")
 
+    # The members saga whitelists query params; without this emailTypo never reaches the API.
+    saga_old = '(B.getMembers),{order:e,page:a,take:l,field:n,query:i})'
+    saga_new = '(B.getMembers),{order:e,page:a,take:l,field:n,query:i,emailTypo:t.emailTypo})'
+    if saga_new in text:
+        print("members saga passes emailTypo")
+    elif saga_old in text:
+        text = text.replace(saga_old, saga_new, 1)
+        print("members saga now passes emailTypo")
+    else:
+        raise SystemExit("members saga pattern not found")
+
     path.write_text(text)
     print("patched", path)
 
@@ -190,6 +201,7 @@ grep -q 'province/state' static/js/main.*.chunk.js
 grep -q 'title:"gender"' static/js/main.*.chunk.js
 grep -q 'ryr-email-typo-filter' static/js/main.*.chunk.js
 grep -q 'emailDomainTypo' static/js/main.*.chunk.js
+grep -q 'emailTypo:t.emailTypo' static/js/main.*.chunk.js
 
 echo "==> Packaging + uploading"
 rm -f /tmp/admin-legacy-dist.tgz
