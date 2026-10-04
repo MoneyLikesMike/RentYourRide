@@ -9,6 +9,7 @@
  * VehicleDetailScreen / search cards.
  */
 
+import { sanitizeHostBioForDisplay } from '../common/host-bio-display';
 import { honestHostRating } from '../common/listing-rating';
 import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
@@ -93,17 +94,17 @@ export type PublicListingDto = {
   hostTrips: number;
   hostRating: number;
   guestReviews: unknown[];
+  hostPhotoUri?: string;
   hostJoinedYear?: number;
+  hostBio: string;
   vehicleData?: Record<string, unknown>;
 };
 
 /**
  * Build a public listing payload from the entity. Does not include
- * hostEmail, hostPhone, hostUserId, hostPhotoUri, hostBio, vin, licensePlate,
- * licenseProvince, or check-in instructions. hostUserId, the avatar URL and
- * the bio would each let scrapers link one host across listings; confirmed
- * guests still get them via the booking snapshot. Call withApproximateLocation
- * at the public HTTP boundary.
+ * hostEmail, hostPhone, hostUserId, vin, licensePlate, licenseProvince, or
+ * check-in instructions. hostUserId is the raw user UUID and would let
+ * scrapers link one host across listings. Call withApproximateLocation at the public HTTP boundary.
  */
 export function toPublicListingDto(listing: ListingEntity): PublicListingDto {
   const h = listing.host;
@@ -141,7 +142,9 @@ export function toPublicListingDto(listing: ListingEntity): PublicListingDto {
     hostTrips: listing.hostTrips,
     hostRating: honestHostRating(listing.guestReviews),
     guestReviews: listing.guestReviews ?? [],
+    hostPhotoUri: h?.avatarUrl ?? undefined,
     hostJoinedYear: h?.createdAt ? h.createdAt.getFullYear() : undefined,
+    hostBio: sanitizeHostBioForDisplay(h?.aboutBio),
     vehicleData,
   };
 }
@@ -151,8 +154,6 @@ export const PUBLIC_LISTING_FORBIDDEN_KEYS = [
   'hostEmail',
   'hostPhone',
   'hostUserId',
-  'hostPhotoUri',
-  'hostBio',
   'email',
   'phone',
   'licensePlate',
