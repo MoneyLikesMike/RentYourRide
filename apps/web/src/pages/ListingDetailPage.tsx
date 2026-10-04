@@ -16,7 +16,6 @@ import { isGoogleMapsConfigured } from '../components/googleMaps';
 import ListingLocationMap from '../components/ListingLocationMap';
 import PageMeta, { SITE_ORIGIN } from '../components/PageMeta';
 import PhotoLightbox from '../components/PhotoLightbox';
-import SiteFooter from '../components/SiteFooter';
 import SiteHeader from '../components/SiteHeader';
 import SearchTimePicker, { snapSearchTime } from '../components/SearchTimePicker';
 import BookingCalendarModal from '../components/BookingCalendarModal';
@@ -965,8 +964,6 @@ export default function ListingDetailPage() {
           </>
         ) : null}
       </main>
-
-      <SiteFooter />
 
       <BookingCalendarModal
         open={calendarOpen}
