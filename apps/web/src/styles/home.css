@@ -1429,13 +1429,18 @@
   }
 
   .header-left {
-    width: 100%;
+    flex: 1 1 100%;
     flex-wrap: wrap;
   }
 
   .header-after-logo {
     max-width: none;
     width: 100%;
+  }
+
+  .navigation {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
   }
 
   .navigation .link {
