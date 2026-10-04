@@ -25,7 +25,7 @@ import {
   fullName,
 } from './admin.mapper';
 import { DiditService } from '../didit/didit.service';
-import { knownTypoDomains } from '../common/email-domain-typos';
+import { findEmailDomainTypo, knownTypoDomains } from '../common/email-domain-typos';
 
 @Injectable()
 export class AdminUsersService {
@@ -38,6 +38,23 @@ export class AdminUsersService {
     private readonly listings: Repository<ListingEntity>,
     private readonly didit: DiditService,
   ) {}
+
+  /**
+   * Domains on file that the admin chip would flag: the exact typo map plus
+   * near-misses, so the "Email typos" filter matches what the chip shows.
+   */
+  private async typoDomainsInUse(): Promise<string[]> {
+    const rows: { domain: string | null }[] = await this.users
+      .createQueryBuilder('user')
+      .select(`DISTINCT LOWER(SPLIT_PART(user.email, '@', 2))`, 'domain')
+      .where('user.email IS NOT NULL')
+      .getRawMany();
+    const flagged = new Set(knownTypoDomains());
+    for (const { domain } of rows) {
+      if (domain && findEmailDomainTypo(`x@${domain}`)) flagged.add(domain);
+    }
+    return [...flagged];
+  }
 
   async listMembers(
     opts: AdminUsersPageOptionsDto,
@@ -58,7 +75,7 @@ export class AdminUsersService {
     }
 
     if (opts.emailTypo) {
-      const domains = knownTypoDomains();
+      const domains = await this.typoDomainsInUse();
       qb.andWhere(
         `LOWER(SPLIT_PART(user.email, '@', 2)) IN (:...typoDomains)`,
         { typoDomains: domains },

@@ -5,14 +5,15 @@ import API from "../../api";
 import LoaderService from "../../services/loader";
 
 function* getMembers({ payload }) {
-  const { order, page, take, query, field } = payload;
+  const { order, page, take, query, field, emailTypo } = payload;
   LoaderService.show();
   const [data, error] = yield call(toResult(API.getMembers), {
     order,
     page,
     take,
     field,
-    query
+    query,
+    emailTypo
   });
 
   if (data) {
