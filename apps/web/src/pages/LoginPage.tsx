@@ -176,7 +176,7 @@ export default function LoginPage() {
           <img src="/close.png" alt="" />
         </button>
 
-        <h1 className="auth-caption">Log in to continue</h1>
+        <h1 className="auth-caption">{loginReturn.prompt ?? 'Log in to continue'}</h1>
 
         <div className="auth-field">
           <input

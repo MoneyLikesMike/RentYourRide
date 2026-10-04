@@ -206,7 +206,7 @@
   position: relative;
 }
 
-/* Mirrors the app hero chrome: 40px round buttons, top-right of the photo. */
+/* Mirrors the app hero chrome: round buttons, top-right of the photo. */
 .car-chrome {
   position: absolute;
   top: 0.75rem;
@@ -214,12 +214,12 @@
   z-index: 3;
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 12px;
 }
 
 .car-chrome-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   padding: 0;
@@ -232,9 +232,17 @@
   transition: background 0.15s ease;
 }
 
+.car-chrome-btn svg {
+  transition: transform 0.15s ease;
+}
+
 .car-chrome-btn:hover,
 .car-chrome-btn[aria-expanded='true'] {
   background: rgba(0, 0, 0, 0.62);
+}
+
+.car-chrome-btn:hover:not(:disabled) svg {
+  transform: scale(1.12);
 }
 
 .car-chrome-btn:disabled {
@@ -242,9 +250,17 @@
   cursor: default;
 }
 
+/* Dark inner + white outer ring stays visible on both dark and bright photos. */
 .car-chrome-btn:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
+  outline: 2px solid transparent;
+  box-shadow:
+    0 0 0 2px #17252a,
+    0 0 0 4px #fff;
+}
+
+.car-chrome-heart {
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 
 .car-share {
@@ -269,6 +285,8 @@
   align-items: center;
   gap: 0.6rem;
   width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
   padding: 0.55rem 0.7rem;
   border: none;
   border-radius: 0.45rem;
@@ -277,6 +295,7 @@
   font-family: 'Nunito', sans-serif;
   font-size: 0.92rem;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 

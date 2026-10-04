@@ -1982,8 +1982,8 @@
 }
 
 .your-rides-fav {
-  top: 1rem;
-  right: 1.1rem;
+  top: calc(1rem - 6px);
+  right: calc(1.1rem - 6px);
   left: auto;
 }
 

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 export const SITE_ORIGIN = 'https://www.rentyourride.ca';
 
-const DEFAULT_IMAGE = `${SITE_ORIGIN}/apple-touch-icon.png`;
+const DEFAULT_IMAGE = `${SITE_ORIGIN}/og-home.jpg`;
 const DEFAULT_DESCRIPTION =
   'Rent Your Ride is Canada’s peer-to-peer car rental marketplace. Rent vehicles from local hosts, or list your ride and start earning.';
 
@@ -10,7 +10,7 @@ type Props = {
   title: string;
   description?: string;
   canonical?: string;
-  /** Absolute URL for og:image / twitter:image. Falls back to the brand icon. */
+  /** Absolute URL for og:image / twitter:image. Falls back to the 1200x630 brand card. */
   image?: string;
   /** Keep the page out of search results (account, checkout, auth surfaces). */
   noindex?: boolean;

@@ -3,6 +3,8 @@ import type { Location } from 'react-router-dom';
 export type AuthLocationState = {
   backgroundLocation?: Location;
   from?: string;
+  /** Heading shown on the login modal, e.g. "Log in to save this car". */
+  prompt?: string;
   listingDetail?: unknown;
   checkout?: unknown;
 };

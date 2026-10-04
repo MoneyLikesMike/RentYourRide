@@ -12,6 +12,7 @@ import { ApiError } from '../api/http';
 import { formatLocationLabel, reverseGeocode } from '../api/maps';
 import { useAuth } from '../auth/AuthContext';
 import { withAuthBackground } from '../auth/authModal';
+import FavoriteHeartIcon from '../components/FavoriteHeartIcon';
 import { isGoogleMapsConfigured } from '../components/googleMaps';
 import ListingLocationMap from '../components/ListingLocationMap';
 import PageMeta, { SITE_ORIGIN } from '../components/PageMeta';
@@ -93,21 +94,54 @@ function TripChevron() {
   return <span className="car-trip-chevron" aria-hidden />;
 }
 
-/** Same glyphs and colours as the app's VehicleDetailScreen hero buttons. */
-const APP_HEART_COLOR = 'rgb(255, 178, 20)';
+const PENDING_FAVORITE_KEY = 'ryr.pendingFavorite';
+const PENDING_FAVORITE_TTL_MS = 30 * 60 * 1000;
+const CANONICAL_HOSTS = new Set([
+  'rentyourride.ca',
+  'www.rentyourride.ca',
+  'app.rentyourride.ca',
+]);
 
-function HeartIcon({ filled }: { filled: boolean }) {
+function rememberPendingFavorite(listingId: string) {
+  try {
+    sessionStorage.setItem(
+      PENDING_FAVORITE_KEY,
+      JSON.stringify({ listingId, at: Date.now() }),
+    );
+  } catch {
+    /* storage unavailable: the user just saves manually after login */
+  }
+}
+
+function takePendingFavorite(listingId: string): boolean {
+  try {
+    const raw = sessionStorage.getItem(PENDING_FAVORITE_KEY);
+    if (!raw) return false;
+    const pending = JSON.parse(raw) as { listingId?: string; at?: number };
+    if (pending.listingId !== listingId) return false;
+    sessionStorage.removeItem(PENDING_FAVORITE_KEY);
+    return Date.now() - (pending.at ?? 0) < PENDING_FAVORITE_TTL_MS;
+  } catch {
+    return false;
+  }
+}
+
+function listingShareUrl(listingId: string): string {
+  const origin = CANONICAL_HOSTS.has(window.location.hostname)
+    ? SITE_ORIGIN
+    : window.location.origin;
+  return `${origin}/find-your-car/${encodeURIComponent(listingId)}`;
+}
+
+function isTouchDevice(): boolean {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 21s-6.7-4.35-9.33-7.5C.5 10.85 1.1 7.2 3.9 5.55 5.7 4.5 8 4.85 9.5 6.4L12 9l2.5-2.6c1.5-1.55 3.8-1.9 5.6-.85 2.8 1.65 3.4 5.3 1.23 7.95C18.7 16.65 12 21 12 21z"
-        fill={filled ? APP_HEART_COLOR : 'transparent'}
-        stroke={APP_HEART_COLOR}
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-    </svg>
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches
   );
+}
+
+function canNativeShare(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 }
 
 function ShareIcon() {
@@ -141,6 +175,61 @@ function LinkIcon() {
         strokeWidth="1.8"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.1 5.1 0 0 0 1.1 2.7 11.7 11.7 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.3z"
+      />
+    </svg>
+  );
+}
+
+function FacebookIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M13.5 22v-8.2h2.8l.4-3.2h-3.2V8.5c0-.9.3-1.6 1.6-1.6h1.7V4.1a23 23 0 0 0-2.5-.1c-2.5 0-4.2 1.5-4.2 4.3v2.4H7.3v3.2h2.8V22h3.4z"
+      />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M17.8 3h3.1l-6.8 7.7L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.2-8.3L1.8 3h6.4l4.4 5.8L17.8 3zm-1.1 16.2h1.7L7.4 4.7H5.6l11.1 14.5z"
+      />
+    </svg>
+  );
+}
+
+function SmsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 5h16v11H9l-5 4V5z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function EmailIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.5 6.5L12 13l8.5-6.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -221,9 +310,6 @@ export default function ListingDetailPage() {
       document.removeEventListener('keydown', onKey);
     };
   }, [shareMenuOpen]);
-  const canNativeShare =
-    typeof navigator !== 'undefined' && typeof navigator.share === 'function';
-
   useEffect(() => {
     if (!isAuthenticated || !listingId) {
       setIsFavorite(false);
@@ -231,6 +317,14 @@ export default function ListingDetailPage() {
     }
     let cancelled = false;
     (async () => {
+      if (takePendingFavorite(listingId)) {
+        try {
+          await addFavorite(listingId);
+          if (!cancelled) setShareNotice('Saved to favourites');
+        } catch {
+          if (!cancelled) setShareNotice('Could not update favourites');
+        }
+      }
       try {
         const rows = await listFavorites();
         if (!cancelled) setIsFavorite(rows.some((r) => String(r.id) === listingId));
@@ -414,7 +508,48 @@ export default function ListingDetailPage() {
     });
   };
 
-  const shareUrl = `${window.location.origin}/find-your-car/${encodeURIComponent(listingId)}`;
+  const shareUrl = listingShareUrl(listingId);
+  const shareText = listing ? `Check out ${listing.title} on Rent Your Ride` : 'Rent Your Ride';
+  const shareTargets = [
+    {
+      label: 'WhatsApp',
+      icon: <WhatsAppIcon />,
+      href: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`,
+      external: true,
+    },
+    {
+      label: 'Facebook',
+      icon: <FacebookIcon />,
+      href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+      external: true,
+    },
+    {
+      label: 'X',
+      icon: <XIcon />,
+      href: `https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+      external: true,
+    },
+    {
+      label: 'SMS',
+      icon: <SmsIcon />,
+      href: `sms:?&body=${encodeURIComponent(`${shareText} ${shareUrl}`)}`,
+      external: false,
+    },
+    {
+      label: 'Email',
+      icon: <EmailIcon />,
+      href: `mailto:?subject=${encodeURIComponent(listing?.title ?? 'Rent Your Ride')}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`,
+      external: false,
+    },
+  ];
+
+  const onShareClick = () => {
+    if (isTouchDevice()) {
+      void (canNativeShare() ? onNativeShare() : onCopyLink());
+      return;
+    }
+    setShareMenuOpen((open) => !open);
+  };
 
   const onCopyLink = async () => {
     setShareMenuOpen(false);
@@ -428,7 +563,7 @@ export default function ListingDetailPage() {
     try {
       await navigator.share({
         title: listing.title,
-        text: `Check out ${listing.title} on RentYourRide`,
+        text: shareText,
         url: shareUrl,
       });
     } catch (err) {
@@ -439,8 +574,12 @@ export default function ListingDetailPage() {
 
   const onToggleFavorite = async () => {
     if (!isAuthenticated) {
+      rememberPendingFavorite(listingId);
       navigate('/login', {
-        state: withAuthBackground(location, { from: `/find-your-car/${listingId}` }),
+        state: withAuthBackground(location, {
+          from: `/find-your-car/${listingId}`,
+          prompt: 'Log in to save this car',
+        }),
       });
       return;
     }
@@ -619,7 +758,7 @@ export default function ListingDetailPage() {
                         <button
                           type="button"
                           className="car-chrome-btn"
-                          onClick={() => setShareMenuOpen((open) => !open)}
+                          onClick={onShareClick}
                           aria-label="Share"
                           aria-haspopup="menu"
                           aria-expanded={shareMenuOpen}
@@ -628,17 +767,6 @@ export default function ListingDetailPage() {
                         </button>
                         {shareMenuOpen ? (
                           <div className="car-share-menu" role="menu">
-                            {canNativeShare ? (
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="car-share-item"
-                                onClick={() => void onNativeShare()}
-                              >
-                                <ShareIcon />
-                                Share via…
-                              </button>
-                            ) : null}
                             <button
                               type="button"
                               role="menuitem"
@@ -648,6 +776,21 @@ export default function ListingDetailPage() {
                               <LinkIcon />
                               Copy link
                             </button>
+                            {shareTargets.map((target) => (
+                              <a
+                                key={target.label}
+                                role="menuitem"
+                                className="car-share-item"
+                                href={target.href}
+                                {...(target.external
+                                  ? { target: '_blank', rel: 'noopener noreferrer' }
+                                  : {})}
+                                onClick={() => setShareMenuOpen(false)}
+                              >
+                                {target.icon}
+                                {target.label}
+                              </a>
+                            ))}
                           </div>
                         ) : null}
                       </div>
@@ -659,7 +802,11 @@ export default function ListingDetailPage() {
                         aria-pressed={isFavorite}
                         aria-label={isFavorite ? 'Remove favourite' : 'Add favourite'}
                       >
-                        <HeartIcon filled={isFavorite} />
+                        <FavoriteHeartIcon
+                          filled={isFavorite}
+                          className="car-chrome-heart"
+                          size={22}
+                        />
                       </button>
                       {shareNotice ? (
                         <span className="car-chrome-notice" role="status" aria-live="polite">
