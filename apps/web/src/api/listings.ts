@@ -130,13 +130,14 @@ export async function getListing(id: string): Promise<ListingDetail> {
   });
 }
 
+/** Card/cover image: first photo, never a video URL (which breaks as an `<img>` source). */
 export function listingPhotoUrl(
   listing: Pick<ListingSummary, 'photos'>,
-  index = 0,
 ): string | null {
-  const photo = listing.photos?.[index];
-  if (!photo) return null;
-  return photo.uri || photo.url || null;
+  const items = listingMediaItems(listing);
+  const image = items.find((m) => m.type === 'image');
+  if (image) return image.url;
+  return items.find((m) => m.thumbnailUrl)?.thumbnailUrl || null;
 }
 
 export function isListingVideo(photo: ListingPhoto | string | null | undefined): boolean {
@@ -162,15 +163,6 @@ export function listingMediaItems(
       };
     })
     .filter((x): x is ListingMediaItem => x != null);
-}
-
-/** Prefer first image for cards so video URLs are not used as static `<img>` sources. */
-export function listingCoverUrl(
-  listing: Pick<ListingSummary, 'photos'>,
-): string | null {
-  const items = listingMediaItems(listing);
-  const image = items.find((m) => m.type === 'image');
-  return image?.url || items[0]?.url || null;
 }
 
 export function listingPhotoUrls(listing: Pick<ListingSummary, 'photos'>): string[] {
