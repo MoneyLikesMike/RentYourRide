@@ -42,12 +42,24 @@ export default function PhotoLightbox({
   onClose,
 }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const items = photos.map(normalizeItem);
   const total = items.length;
+  const currentUrl = items[index]?.url;
 
   useEffect(() => {
     closeRef.current?.focus();
   }, []);
+
+  // React doesn't reflect `muted` as an attribute, so the autoPlay attribute alone gets blocked.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = true;
+    video.play().catch(() => {
+      /* blocked: controls remain available */
+    });
+  }, [currentUrl]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -111,9 +123,11 @@ export default function PhotoLightbox({
         {current.type === 'video' ? (
           <video
             key={current.url}
+            ref={videoRef}
             className="lightbox-image lightbox-video"
             src={current.url}
             controls
+            loop
             playsInline
             muted
             preload="metadata"

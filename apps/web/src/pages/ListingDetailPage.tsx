@@ -426,6 +426,42 @@ export default function ListingDetailPage() {
     [listing],
   );
   const mainMedia = media[photoIndex] || media[0] || null;
+  const mainIsVideo = mainMedia?.type === 'video';
+
+  const mainVideoRef = useRef<HTMLVideoElement | null>(null);
+  const photoFrameRef = useRef<HTMLDivElement | null>(null);
+  const [photoInView, setPhotoInView] = useState(true);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const reduceMotion = useMemo(
+    () =>
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  );
+
+  useEffect(() => {
+    const el = photoFrameRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setPhotoInView(entry.intersectionRatio >= 0.4),
+      { threshold: [0, 0.4, 1] },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [status]);
+
+  const shouldAutoplay = mainIsVideo && photoInView && !lightboxOpen && !reduceMotion;
+
+  useEffect(() => {
+    const video = mainVideoRef.current;
+    if (!video) return;
+    if (shouldAutoplay) {
+      // Browsers can still refuse (e.g. data saver); the play badge stays as the fallback.
+      video.play().catch(() => setVideoPlaying(false));
+    } else {
+      video.pause();
+    }
+  }, [shouldAutoplay, mainMedia?.url]);
 
   const features = useMemo(() => {
     const keys = listing?.carFeatures ?? [];
@@ -752,7 +788,7 @@ export default function ListingDetailPage() {
             <div className="car-details-wrapper">
               <div className="left-details-column">
                 <div className="photo-wrapper">
-                  <div className="main-photo-frame">
+                  <div className="main-photo-frame" ref={photoFrameRef}>
                     <div className="car-chrome">
                       <div className="car-share" ref={shareMenuRef}>
                         <button
@@ -828,12 +864,16 @@ export default function ListingDetailPage() {
                         {mainMedia.type === 'video' ? (
                           <video
                             key={mainMedia.url}
+                            ref={mainVideoRef}
                             className="main-photo main-photo-video"
                             src={mainMedia.url}
                             muted
+                            loop
                             playsInline
                             preload="metadata"
                             controls={false}
+                            onPlay={() => setVideoPlaying(true)}
+                            onPause={() => setVideoPlaying(false)}
                           />
                         ) : (
                           <img
@@ -842,7 +882,7 @@ export default function ListingDetailPage() {
                             className="main-photo"
                           />
                         )}
-                        {mainMedia.type === 'video' ? (
+                        {mainIsVideo && !videoPlaying ? (
                           <span className="main-photo-play" aria-hidden>
                             ▶
                           </span>
