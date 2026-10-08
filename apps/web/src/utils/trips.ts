@@ -1,5 +1,6 @@
 import type { BookingDto } from '../api/bookings';
 import { ACTIVE_BOOKING_STATUSES } from '../api/bookings';
+import { isListingVideo } from '../api/listings';
 
 export function filterBookingsForGuest(
   bookings: BookingDto[],
@@ -229,7 +230,7 @@ export function coverUri(booking: BookingDto): string | null {
   const snap = booking.listingSnapshot;
   if (!snap) return null;
   if (typeof snap.coverUri === 'string' && snap.coverUri) return snap.coverUri;
-  const photo = snap.photos?.[0];
+  const photo = (snap.photos ?? []).find((p) => !isListingVideo(p));
   const uri = photo?.uri || photo?.url;
   return typeof uri === 'string' ? uri : null;
 }
