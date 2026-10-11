@@ -1,7 +1,7 @@
 import type { ContentBlock } from '../pages/legalContentTypes';
 
 export const TERMS_OF_SERVICE_BLOCKS: ContentBlock[] = [
-  { type: 'updated', text: 'Last updated: August 19, 2026' },
+  { type: 'updated', text: 'Last updated: October 11, 2026' },
 
   { type: 'section', title: '1. — Scope of RYR Services' },
   {
@@ -139,26 +139,26 @@ export const TERMS_OF_SERVICE_BLOCKS: ContentBlock[] = [
     text: 'Although we have taken reasonable and appropriate measures to protect your personal information, we cannot and do not guarantee that the personal information you provide will not be intercepted or accessed by others. Please see our Privacy Policy for details regarding the manner in which we collect and use information about you, maintain the confidentiality of your personally identifiable information, and use technology and procedures to maintain the security of the RYR Platform. Your access or use of the RYR Platform constitutes your agreement to the terms and conditions of our Privacy Policy, and our use of information gathered about you in accordance with that policy. Our Privacy Policy may be revised from time to time. We may notify you of the changes by mail, email, or by posting a modified Privacy Policy on our Site. Your continued use of the Site or the RYR Platform following such notification or posting will constitute your acceptance of the revised Privacy Policy. Accordingly, please check the Site regularly for revisions to the Privacy Policy. Websites linked to this Site may publish separate privacy and security policies in connection with your use of their sites and services. Please refer to their rules whenever you leave this Site. Our Privacy Policy is deemed incorporated by reference into this Agreement.',
   },
 
-  { type: 'section', title: '5. — Service Fees' },
+  { type: 'section', title: '5. — RYR Fees' },
   {
     type: 'sub',
     id: '5.1',
-    text: 'RYR may charge fees to Hosts (“Host Fees”) and/or Guests (“Guest Fees”) (collectively, “Service Fees”) in consideration for the use of the RYR Platform. More information about when Service Fees apply and how they are calculated can be found within our policies or guides.',
+    text: 'RYR may charge fees to Hosts (“Service Fees”) and/or Guests (“Guest Fees”) (collectively, “RYR Fees”) in consideration for the use of the RYR Platform. More information about when RYR Fees apply and how they are calculated can be found within our policies or guides.',
   },
   {
     type: 'sub',
     id: '5.2',
-    text: 'Any applicable Service Fees (including any applicable Taxes, as defined below) applicable to a Host or Guest in respect of an Offering will be displayed prior to a Host publishing or a Guest booking an Offering. RYR reserves the right to change the Service Fees at any time, provided that any such changes to the Service Fees shall not apply retroactively to any Offerings booked prior to the effective date of such change.',
+    text: 'Any applicable RYR Fees (including any applicable Taxes, as defined below) applicable to a Host or Guest in respect of an Offering will be displayed prior to a Host publishing or a Guest booking an Offering. RYR reserves the right to change the RYR Fees at any time, provided that any such changes to the RYR Fees shall not apply retroactively to any Offerings booked prior to the effective date of such change.',
   },
   {
     type: 'sub',
     id: '5.3',
-    text: 'You are responsible for paying any Service Fees that you owe to RYR. The applicable Service Fees are due and payable and collected by RYR Payments pursuant to these Terms. Except as otherwise provided in these Terms, Service Fees are non-refundable.',
+    text: 'You are responsible for paying any RYR Fees that you owe to RYR. The applicable RYR Fees are due and payable and collected by RYR Payments pursuant to these Terms. Except as otherwise provided in these Terms, RYR Fees are non-refundable.',
   },
   {
     type: 'sub',
     id: '5.4',
-    text: 'When you provide RYR a payment method, you authorize RYR, or third-party service providers acting on behalf of RYR, to store your payment credential for future use in the event you owe RYR any money. You authorize RYR to use stored payment credentials for balances, including for Trip costs, host fees, and guest fees (e.g., late fees, security deposits, processing fees and claims costs, and related administrative fees). In some cases, our payment processors have arrangements with card networks to automatically update stored payment credentials whenever you receive a new card (e.g., replacing an expired card or one that was reported lost or stolen) and we will rely on such updates to stored payment credentials for balances.',
+    text: 'When you provide RYR a payment method, you authorize RYR, or third-party service providers acting on behalf of RYR, to store your payment credential for future use in the event you owe RYR any money. You authorize RYR to use stored payment credentials for balances, including for Trip costs, service fees, and guest fees (e.g., late fees, security deposits, processing fees and claims costs, and related administrative fees). In some cases, our payment processors have arrangements with card networks to automatically update stored payment credentials whenever you receive a new card (e.g., replacing an expired card or one that was reported lost or stolen) and we will rely on such updates to stored payment credentials for balances.',
   },
   {
     type: 'sub',
@@ -195,7 +195,7 @@ export const TERMS_OF_SERVICE_BLOCKS: ContentBlock[] = [
   {
     type: 'sub',
     id: '6.6',
-    text: 'When you accept a booking request by a Guest, you are entering into a legally binding agreement with the Guest and are required to provide your Host Service(s) to the Guest as described in your Offering and pursuant to the Terms of the Rental Agreement. You also agree to pay the applicable Host Fee and any applicable Taxes, which will be collected pursuant to these Terms.',
+    text: 'When you accept a booking request by a Guest, you are entering into a legally binding agreement with the Guest and are required to provide your Host Service(s) to the Guest as described in your Offering and pursuant to the Terms of the Rental Agreement. You also agree to pay the applicable Service Fee and any applicable Taxes, which will be collected pursuant to these Terms.',
   },
   {
     type: 'sub',
@@ -320,7 +320,7 @@ export const TERMS_OF_SERVICE_BLOCKS: ContentBlock[] = [
   {
     type: 'sub',
     id: '9.1',
-    text: 'Hosts and Guests are responsible for any modifications to a booking that they make through the RYR Platform (“Booking Modifications”), and agree to pay any additional Offering Fees, Host Fees or Guest Fees and/or Taxes associated with such Booking Modifications.',
+    text: 'Hosts and Guests are responsible for any modifications to a booking that they make through the RYR Platform (“Booking Modifications”), and agree to pay any additional Offering Fees, Service Fees or Guest Fees and/or Taxes associated with such Booking Modifications.',
   },
   {
     type: 'sub',
@@ -456,12 +456,12 @@ export const TERMS_OF_SERVICE_BLOCKS: ContentBlock[] = [
   {
     type: 'sub',
     id: '12.13',
-    text: 'Your payout for a booking will be the Offering Fee less applicable Host Fees and Taxes. RYR is also entitled to withhold or deduct any other amounts owing by you to RYR or to other Users, including with respect to prior Offerings.',
+    text: 'Your payout for a booking will be the Offering Fee less applicable Service Fees and Taxes. RYR is also entitled to withhold or deduct any other amounts owing by you to RYR or to other Users, including with respect to prior Offerings.',
   },
   {
     type: 'sub',
     id: '12.14',
-    text: 'All amounts, including Guest Fees, Host Fees, Offering Fees and Taxes, referenced in the RYR Platform shall be in Canadian Dollars. The payment of all such Guest Fees, Host Fees, Offering Fees and Taxes remittance by RYR of payouts shall take place in Canadian Dollars.',
+    text: 'All amounts, including Guest Fees, Service Fees, Offering Fees and Taxes, referenced in the RYR Platform shall be in Canadian Dollars. The payment of all such Guest Fees, Service Fees, Offering Fees and Taxes remittance by RYR of payouts shall take place in Canadian Dollars.',
   },
   {
     type: 'sub',
@@ -616,7 +616,7 @@ export const TERMS_OF_SERVICE_BLOCKS: ContentBlock[] = [
       },
       {
         mark: '(p)',
-        text: 'use the RYR Platform to request, make or accept a booking independent of the RYR Platform, to circumvent any Service Fees or for any other reason;',
+        text: 'use the RYR Platform to request, make or accept a booking independent of the RYR Platform, to circumvent any RYR Fees or for any other reason;',
       },
       {
         mark: '(q)',
