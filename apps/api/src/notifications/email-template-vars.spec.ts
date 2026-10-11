@@ -10,6 +10,7 @@ import {
   guestBreakdownVars,
   hostBreakdownVars,
   listingVehicleVars,
+  reviewVars,
 } from './booking-context';
 import type { PinpointSubstitutions } from './template-variables.builder';
 
@@ -140,5 +141,35 @@ describe('new payment method email', () => {
 
   it('shows the time in Winnipeg time', () => {
     assert.equal(formatDateTime(Date.UTC(2026, 9, 11, 18, 8)), 'October 11, 2026 at 1:08 PM');
+  });
+});
+
+describe('review received emails', () => {
+  const reviewed = new BookingNotificationContext(
+    {
+      ...booking,
+      lifecycle: { guestReview: { rating: 4, text: 'Great car!' }, hostReview: { rating: 5, text: '' } },
+    } as unknown as BookingEntity,
+    guest,
+    host,
+  );
+
+  it('GuestNameWroteAReview', () =>
+    assertCovers('GuestNameWroteAReview', reviewed.reviewReceivedVars('guest'), 'ReviewTemplates'));
+  it('HostWroteYouAReview', () =>
+    assertCovers('HostWroteYouAReview', reviewed.reviewReceivedVars('host'), 'ReviewTemplates'));
+
+  it('shows stars, rating and comment', () => {
+    const v = reviewed.reviewReceivedVars('guest');
+    assert.deepEqual(v['Review.Stars'], ['★★★★☆']);
+    assert.deepEqual(v['Review.Rating'], ['4']);
+    assert.deepEqual(v['Review.Comment'], ['Great car!']);
+    assert.deepEqual(v['Vehicle.Model'], ['2019 Honda Civic']);
+  });
+
+  it('clamps rating and allows an empty comment', () => {
+    assert.deepEqual(reviewVars({ rating: 9 })['Review.Stars'], ['★★★★★']);
+    assert.deepEqual(reviewVars(undefined)['Review.Rating'], ['1']);
+    assert.deepEqual(reviewVars({ rating: 3, text: '  ' })['Review.Comment'], ['']);
   });
 });
