@@ -442,14 +442,6 @@
   padding: 0.65rem 0.75rem;
 }
 
-.checkout-card-warning {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #f9493a;
-}
-
 .checkout-card-element {
   padding: 0.85rem 1rem;
   border: 1px solid #a3a3a3;

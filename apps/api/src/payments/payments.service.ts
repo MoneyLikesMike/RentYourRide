@@ -3,12 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { guestIdentityNameParts } from '../common/guest-identity-name';
-import {
-  cardholderNameMatchesIdentity,
-  CARDHOLDER_LICENSE_NAME_MISMATCH_MESSAGE,
-  type IdentityNameParts,
-} from '../common/name-match';
 
 /** How long after Stripe creates a card we still treat it as newly added. */
 const NEW_CARD_WINDOW_MS = 30 * 60 * 1000;
@@ -39,54 +33,6 @@ export class PaymentsService {
     return !!this.stripe;
   }
 
-  /** When the guest has a verified license, card billing name must match that identity. */
-  private async identityForCardMatch(userId: string): Promise<IdentityNameParts | null> {
-    const user = await this.users.requireById(userId);
-    if (!user.licenseVerified) return null;
-    return guestIdentityNameParts(user);
-  }
-
-  private assertCardholderMatchesIdentity(
-    cardholderName: string | null | undefined,
-    identity: IdentityNameParts,
-  ): void {
-    if (!cardholderNameMatchesIdentity(cardholderName, identity)) {
-      throw new BadRequestException(CARDHOLDER_LICENSE_NAME_MISMATCH_MESSAGE);
-    }
-  }
-
-  /**
-   * Apple Pay / Google Pay often create Stripe PaymentMethods with an empty
-   * billing_details.name (device wallet does not always send cardholder name).
-   * Manual cards still require a matching name.
-   */
-  private isDeviceWalletWithoutCardholderName(
-    pm: Stripe.PaymentMethod,
-  ): boolean {
-    const wallet = pm.card?.wallet?.type;
-    if (wallet !== 'apple_pay' && wallet !== 'google_pay') return false;
-    return !(pm.billing_details?.name || '').trim();
-  }
-
-  private paymentMethodMatchesGuestIdentity(
-    pm: Stripe.PaymentMethod,
-    identity: IdentityNameParts,
-  ): boolean {
-    if (cardholderNameMatchesIdentity(pm.billing_details?.name, identity)) {
-      return true;
-    }
-    return this.isDeviceWalletWithoutCardholderName(pm);
-  }
-
-  private assertPaymentMethodMatchesIdentity(
-    pm: Stripe.PaymentMethod,
-    identity: IdentityNameParts,
-  ): void {
-    if (!this.paymentMethodMatchesGuestIdentity(pm, identity)) {
-      throw new BadRequestException(CARDHOLDER_LICENSE_NAME_MISMATCH_MESSAGE);
-    }
-  }
-
   private async assertPaymentMethodOwnedByUser(
     userId: string,
     paymentMethodId: string,
@@ -105,59 +51,6 @@ export class PaymentsService {
       throw new BadRequestException('Payment method not found');
     }
     return pm;
-  }
-
-  async assertPaymentMethodMatchesGuestIdentity(
-    userId: string,
-    paymentMethodId: string,
-  ): Promise<void> {
-    const identity = await this.identityForCardMatch(userId);
-    if (!identity || !this.stripe) return;
-    const pm = await this.assertPaymentMethodOwnedByUser(userId, paymentMethodId);
-    this.assertPaymentMethodMatchesIdentity(pm, identity);
-  }
-
-  async assertPaymentIntentMatchesGuestIdentity(
-    userId: string,
-    paymentIntentId: string,
-  ): Promise<void> {
-    const identity = await this.identityForCardMatch(userId);
-    if (!identity || !this.stripe) return;
-
-    const pi = await this.retrievePaymentIntent(paymentIntentId);
-    const pmRef = pi.payment_method;
-    const pmId = typeof pmRef === 'string' ? pmRef : pmRef?.id;
-    if (pmId) {
-      await this.assertPaymentMethodMatchesGuestIdentity(userId, pmId);
-      return;
-    }
-
-    const chargeId = this.chargeIdFromPi(pi);
-    if (chargeId) {
-      const charge = await this.stripe.charges.retrieve(chargeId);
-      const wallet = charge.payment_method_details?.card?.wallet?.type;
-      const chargeName = charge.billing_details?.name;
-      if (
-        !(chargeName || '').trim() &&
-        (wallet === 'apple_pay' || wallet === 'google_pay')
-      ) {
-        return;
-      }
-      this.assertCardholderMatchesIdentity(chargeName, identity);
-    }
-  }
-
-  private async detachPaymentMethod(paymentMethodId: string): Promise<void> {
-    if (!this.stripe) return;
-    try {
-      await this.stripe.paymentMethods.detach(paymentMethodId);
-    } catch (err) {
-      this.log.warn(
-        `Could not detach payment method ${paymentMethodId}: ${
-          err instanceof Error ? err.message : err
-        }`,
-      );
-    }
   }
 
   private async ensureStripeCustomer(userId: string) {
@@ -246,7 +139,6 @@ export class PaymentsService {
       customer: user.stripeCustomerId,
       type: 'card',
     });
-    const identity = await this.identityForCardMatch(userId);
     return pms.data.map((pm) => ({
       id: pm.id,
       type: 'card',
@@ -260,9 +152,6 @@ export class PaymentsService {
       country: pm.billing_details?.address?.country ?? null,
       postalCode: pm.billing_details?.address?.postal_code ?? null,
       walletType: pm.card?.wallet?.type ?? null,
-      cardholderMatchesLicense: identity
-        ? this.paymentMethodMatchesGuestIdentity(pm, identity)
-        : null,
     }));
   }
 
@@ -292,13 +181,6 @@ export class PaymentsService {
     const country = body.country?.trim().toUpperCase();
     const postalCode = body.postalCode?.trim();
 
-    if (name) {
-      const identity = await this.identityForCardMatch(userId);
-      if (identity) {
-        this.assertCardholderMatchesIdentity(name, identity);
-      }
-    }
-
     await this.stripe.paymentMethods.update(paymentMethodId, {
       billing_details: {
         ...(name ? { name } : {}),
@@ -319,14 +201,6 @@ export class PaymentsService {
     if (!user.stripeCustomerId) return { ok: false };
 
     const pm = await this.assertPaymentMethodOwnedByUser(userId, paymentMethodId);
-    try {
-      await this.assertPaymentMethodMatchesGuestIdentity(userId, paymentMethodId);
-    } catch (err) {
-      if (this.isFreshlyAdded(pm)) {
-        await this.detachPaymentMethod(paymentMethodId);
-      }
-      throw err;
-    }
 
     await this.stripe.customers.update(user.stripeCustomerId, {
       invoice_settings: { default_payment_method: paymentMethodId },
@@ -345,15 +219,7 @@ export class PaymentsService {
     const user = await this.users.requireById(userId);
     if (!user.stripeCustomerId) return { ok: false };
 
-    const pm = await this.assertPaymentMethodOwnedByUser(userId, paymentMethodId);
-    try {
-      await this.assertPaymentMethodMatchesGuestIdentity(userId, paymentMethodId);
-    } catch (err) {
-      if (this.isFreshlyAdded(pm)) {
-        await this.detachPaymentMethod(paymentMethodId);
-      }
-      throw err;
-    }
+    await this.assertPaymentMethodOwnedByUser(userId, paymentMethodId);
     this.notifyCardAdded(userId, paymentMethodId);
     return { ok: true };
   }
@@ -433,10 +299,6 @@ export class PaymentsService {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured');
     }
-    await this.assertPaymentMethodMatchesGuestIdentity(
-      opts.guestUserId,
-      opts.paymentMethodId,
-    );
     const fullAmountCents = Math.round(Number(opts.fullAmountCents));
     if (!Number.isFinite(fullAmountCents) || fullAmountCents < 50) {
       throw new BadRequestException('Invalid booking amount');
