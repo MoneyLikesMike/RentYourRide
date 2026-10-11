@@ -47,11 +47,11 @@ function resolveTimeLabel(ms: number, timeOverride?: string | null, tz = DEFAULT
 }
 
 function formatStartDate(ms: number, timeOverride?: string | null, tz = DEFAULT_TZ): string {
-  return `${formatDatePart(ms, tz)}. Start Time ${resolveTimeLabel(ms, timeOverride, tz)}`;
+  return `${formatDatePart(ms, tz)} at ${resolveTimeLabel(ms, timeOverride, tz)}`;
 }
 
 function formatEndDate(ms: number, timeOverride?: string | null, tz = DEFAULT_TZ): string {
-  return `${formatDatePart(ms, tz)}. End Time ${resolveTimeLabel(ms, timeOverride, tz)}`;
+  return `${formatDatePart(ms, tz)} at ${resolveTimeLabel(ms, timeOverride, tz)}`;
 }
 
 export function formatBookingStartDate(
