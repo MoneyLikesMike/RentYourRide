@@ -1,5 +1,5 @@
-/** Fallback for bookings priced before the API saved hostFee (mirrors apps/api host-earnings.ts). */
-const FALLBACK_HOST_FEE_RATE = 0.25;
+/** Fallback for bookings priced before the API saved serviceFee (mirrors apps/api host-earnings.ts). */
+const FALLBACK_SERVICE_FEE_RATE = 0.25;
 
 function cents(value) {
   const n = Number(value);
@@ -13,21 +13,21 @@ function cents(value) {
  */
 export function getHostEarningsBreakdown(booking) {
   const p = booking?.pricing || {};
-  if (p.hostFeeRate != null && p.hostFee != null && p.hostReceiveTotal != null) {
-    return { serviceFeeHost: Number(p.hostFee), net: Number(p.hostReceiveTotal) };
+  if (p.serviceFeeRate != null && p.serviceFee != null && p.hostReceiveTotal != null) {
+    return { serviceFee: Number(p.serviceFee), net: Number(p.hostReceiveTotal) };
   }
   const tripCents = Math.max(0, cents(p.discountedTripSubtotal));
   const extras = Array.isArray(booking?.extras) ? booking.extras : [];
   const extrasCents = extras.reduce((acc, e) => acc + Math.max(0, cents(e?.amount)), 0);
-  const feeCents = Math.round(tripCents * FALLBACK_HOST_FEE_RATE);
+  const feeCents = Math.round(tripCents * FALLBACK_SERVICE_FEE_RATE);
   return {
-    serviceFeeHost: feeCents / 100,
+    serviceFee: feeCents / 100,
     net: Math.max(0, tripCents - feeCents + extrasCents) / 100,
   };
 }
 
 export function getHostServiceFee(booking) {
-  return getHostEarningsBreakdown(booking).serviceFeeHost;
+  return getHostEarningsBreakdown(booking).serviceFee;
 }
 
 export function getHostNetEarnings(booking) {

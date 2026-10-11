@@ -96,7 +96,7 @@ function DetailBody() {
   const grandTotal = Number(
     pricing.grandTotal != null ? pricing.grandTotal : subtotal + tripFee,
   );
-  const { hostFee: serviceFeeHost, hostNet: hostEarnings } = getHostEarnings(
+  const { serviceFee, hostNet: hostEarnings } = getHostEarnings(
     pricing,
     extras,
   );
@@ -274,7 +274,7 @@ function DetailBody() {
           <>
             <p className="trips-detail-row">
               <span className="trips-detail-label">Service fee</span>
-              −{money(serviceFeeHost)}
+              −{money(serviceFee)}
             </p>
             <p className="trips-detail-row trips-detail-total">
               <span className="trips-detail-label">Your total earnings</span>

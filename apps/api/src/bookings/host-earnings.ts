@@ -1,7 +1,7 @@
 /**
  * Host earnings rule (Michael, Oct 11 2026):
- *   host = dailyRateTotal × (1 − HOST_FEE_RATE) + extras + delivery
- * RYR keeps HOST_FEE_RATE of the daily-rate total only. The guest trip fee
+ *   host = dailyRateTotal × (1 − SERVICE_FEE_RATE) + extras + delivery
+ * RYR keeps SERVICE_FEE_RATE of the daily-rate total only. The guest trip fee
  * (pricing.tripFee) stays with RYR and is never part of the base. Taxes are
  * never part of host earnings.
  *
@@ -9,27 +9,27 @@
  * prefer the values saved on pricing and fall back to this same rule.
  */
 
-export type HostFeeBase = 'discounted' | 'undiscounted';
+export type ServiceFeeBase = 'discounted' | 'undiscounted';
 
 /** Share of the daily-rate total RYR keeps. RYRA-116 may make this per host plan. */
-export const HOST_FEE_RATE = 0.25;
+export const SERVICE_FEE_RATE = 0.25;
 
 /** Daily-rate total after weekly/monthly discounts (Michael, Oct 11 2026). */
-export const HOST_FEE_BASE: HostFeeBase = 'discounted';
+export const SERVICE_FEE_BASE: ServiceFeeBase = 'discounted';
 
 export interface HostEarningsOptions {
   rate?: number;
-  base?: HostFeeBase;
+  base?: ServiceFeeBase;
 }
 
 export interface HostEarnings {
   dailyRateTotalCents: number;
-  hostFeeCents: number;
+  serviceFeeCents: number;
   extrasTotalCents: number;
   deliveryFeeCents: number;
   hostNetCents: number;
-  hostFeeRate: number;
-  hostFeeBase: HostFeeBase;
+  serviceFeeRate: number;
+  serviceFeeBase: ServiceFeeBase;
 }
 
 type PricingLike = Record<string, unknown> | null | undefined;
@@ -48,8 +48,8 @@ export function computeHostEarnings(
   opts: HostEarningsOptions = {},
 ): HostEarnings {
   const p = (pricing ?? {}) as Record<string, unknown>;
-  const rate = opts.rate ?? HOST_FEE_RATE;
-  const base = opts.base ?? HOST_FEE_BASE;
+  const rate = opts.rate ?? SERVICE_FEE_RATE;
+  const base = opts.base ?? SERVICE_FEE_BASE;
 
   const discountedCents = Math.max(0, toCents(p.discountedTripSubtotal));
   const undiscountedCents = hasNumber(p, 'baseTripSubtotal')
@@ -64,34 +64,34 @@ export function computeHostEarnings(
     ? Math.max(0, toCents(p.unlimitedKmFee) + toCents(p.prepaidFuelFee) + toCents(p.prepaidCleanFee))
     : Math.max(0, toCents(p.subtotal) - discountedCents - deliveryFeeCents);
 
-  const hostFeeCents = Math.round(dailyRateTotalCents * rate);
+  const serviceFeeCents = Math.round(dailyRateTotalCents * rate);
   const hostNetCents = Math.max(
     0,
-    discountedCents - hostFeeCents + extrasTotalCents + deliveryFeeCents,
+    discountedCents - serviceFeeCents + extrasTotalCents + deliveryFeeCents,
   );
 
   return {
     dailyRateTotalCents,
-    hostFeeCents,
+    serviceFeeCents,
     extrasTotalCents,
     deliveryFeeCents,
     hostNetCents,
-    hostFeeRate: rate,
-    hostFeeBase: base,
+    serviceFeeRate: rate,
+    serviceFeeBase: base,
   };
 }
 
 /**
  * Host earnings for saved pricing. Bookings priced under this rule carry
- * hostFeeRate/hostFeeBase and keep them; older bookings (whose hostReceiveTotal
+ * serviceFeeRate/serviceFeeBase and keep them; older bookings (whose hostReceiveTotal
  * was the full subtotal) are recomputed with the current rule.
  */
 export function hostEarningsForPricing(pricing: PricingLike): HostEarnings {
   const p = (pricing ?? {}) as Record<string, unknown>;
-  const savedRate = hasNumber(p, 'hostFeeRate') ? Number(p.hostFeeRate) : undefined;
+  const savedRate = hasNumber(p, 'serviceFeeRate') ? Number(p.serviceFeeRate) : undefined;
   const savedBase =
-    p.hostFeeBase === 'discounted' || p.hostFeeBase === 'undiscounted'
-      ? (p.hostFeeBase as HostFeeBase)
+    p.serviceFeeBase === 'discounted' || p.serviceFeeBase === 'undiscounted'
+      ? (p.serviceFeeBase as ServiceFeeBase)
       : undefined;
   return computeHostEarnings(p, { rate: savedRate, base: savedBase });
 }
@@ -109,9 +109,9 @@ export function hostEarningsPricingFields(pricing: PricingLike, opts: HostEarnin
   const e = computeHostEarnings(pricing, opts);
   return {
     hostReceiveTotal: e.hostNetCents / 100,
-    hostFee: e.hostFeeCents / 100,
-    hostFeeRate: e.hostFeeRate,
-    hostFeeBase: e.hostFeeBase,
+    serviceFee: e.serviceFeeCents / 100,
+    serviceFeeRate: e.serviceFeeRate,
+    serviceFeeBase: e.serviceFeeBase,
   };
 }
 
