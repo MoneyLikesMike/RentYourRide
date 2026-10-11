@@ -10,6 +10,7 @@ import {
   BookingNotificationContext,
   extensionPaymentDetails,
   formatBookingEndDate,
+  formatDateTime,
   guestBreakdownVars,
   hostBreakdownVars,
   listingVehicleVars,
@@ -673,15 +674,7 @@ export class NotificationsService {
     );
   }
 
-  newPaymentMethod(
-    userId: string,
-    card?: {
-      brand?: string;
-      createdAt?: string;
-      creationLocation?: string;
-      fromDevice?: string;
-    },
-  ): void {
+  newPaymentMethod(userId: string, card?: { brand?: string; createdAtMs?: number }): void {
     this.run(
       (async () => {
         const user = await this.users.findOne({ where: { id: userId } });
@@ -690,12 +683,7 @@ export class NotificationsService {
           .init()
           .setVariable('User.FirstName', user.firstName ?? '')
           .setVariable('Card.Brand', card?.brand ?? 'Card')
-          .setVariable('Card.CreatedAt', card?.createdAt ?? new Date().toUTCString())
-          .setVariable(
-            'Card.CreationLocation',
-            card?.creationLocation ?? 'Rent Your Ride',
-          )
-          .setVariable('Card.FromDevice', card?.fromDevice ?? 'Mobile App')
+          .setVariable('Card.CreatedAt', formatDateTime(card?.createdAtMs ?? Date.now()))
           .build();
         await this.notifyUser(user, {
           sms: SmsCopy.paymentMethodAdded(),

@@ -6,6 +6,7 @@ import type { BookingEntity } from '../entities/booking.entity';
 import type { UserEntity } from '../entities/user.entity';
 import {
   BookingNotificationContext,
+  formatDateTime,
   guestBreakdownVars,
   hostBreakdownVars,
   listingVehicleVars,
@@ -99,6 +100,16 @@ describe('listingVehicleVars', () => {
     assert.deepEqual(v['Vehicle.CoverImage'], ['https://x/y.jpg']);
   });
 
+  it('fixes all-caps makes but keeps acronyms and model codes', () => {
+    const name = (title: string) => listingVehicleVars({ title })['Vehicle.Model'][0];
+    assert.equal(name('2019 HONDA Civic'), '2019 Honda Civic');
+    assert.equal(name('2021 MERCEDES-BENZ C300'), '2021 Mercedes-Benz C300');
+    assert.equal(name('2020 KIA Soul'), '2020 Kia Soul');
+    assert.equal(name('2018 BMW X3'), '2018 BMW X3');
+    assert.equal(name('2022 TOYOTA RAV4'), '2022 Toyota RAV4');
+    assert.equal(name('2017 HONDA CR-V'), '2017 Honda CR-V');
+  });
+
   it('still sets both keys with no title or photos', () => {
     const v = listingVehicleVars({});
     assert.deepEqual(v['Vehicle.Model'], ['Vehicle']);
@@ -116,5 +127,18 @@ describe('guestBreakdownVars', () => {
     assert.deepEqual(v['Booking.Subtotal'], ['$195.00']);
     assert.deepEqual(v['Booking.TripFee'], ['$15.00']);
     assert.deepEqual(v['Booking.GuestPayTotal'], ['$210.00']);
+  });
+});
+
+describe('new payment method email', () => {
+  it('renders every variable', () =>
+    assertCovers(
+      'AccountActivityNewPaymentMethod',
+      { 'User.FirstName': ['Michael'], 'Card.Brand': ['Visa'], 'Card.CreatedAt': ['x'] },
+      'AccountTemplates',
+    ));
+
+  it('shows the time in Winnipeg time', () => {
+    assert.equal(formatDateTime(Date.UTC(2026, 9, 11, 18, 8)), 'October 11, 2026 at 1:08 PM');
   });
 });

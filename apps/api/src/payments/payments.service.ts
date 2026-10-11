@@ -245,9 +245,7 @@ export class PaymentsService {
         const last4 = pm.card?.last4 ? ` •••• ${pm.card.last4}` : '';
         this.notifications.newPaymentMethod(userId, {
           brand: `${brand}${last4}`,
-          createdAt: new Date(pm.created * 1000).toUTCString(),
-          creationLocation: 'Rent Your Ride',
-          fromDevice: 'Mobile App',
+          createdAtMs: pm.created * 1000,
         });
       })
       .catch(() => {
