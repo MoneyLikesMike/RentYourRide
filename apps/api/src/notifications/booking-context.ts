@@ -180,16 +180,13 @@ function selectedExtraCents(p: Record<string, unknown>, field: string, key: stri
 }
 
 /**
- * Host earnings breakdown rows, in the same order as the app's host booking screen.
- * Pinpoint templates hide a row with {{#eq Var ''}}{{else}}…{{/eq}}, so unselected
- * extras and a missing discount are set to ''.
+ * Line items shared by the host and guest breakdowns, in the same order as the
+ * app's booking screens. Pinpoint templates hide a row with
+ * {{#eq Var ''}}{{else}}…{{/eq}}, so unselected extras and a missing discount are
+ * set to ''. Every key is always set: Pinpoint drops the email if a variable the
+ * template uses is missing.
  */
-export function hostBreakdownVars(
-  pricing: Record<string, unknown> | null | undefined,
-  days: number,
-): PinpointSubstitutions {
-  const p = pricing ?? {};
-  const e = hostEarningsForPricing(p);
+function lineItemVars(p: Record<string, unknown>, days: number): PinpointSubstitutions {
   const discountedCents = centsOf(p.discountedTripSubtotal);
   const baseCents = p.baseTripSubtotal != null && p.baseTripSubtotal !== ''
     ? centsOf(p.baseTripSubtotal)
@@ -202,7 +199,7 @@ export function hostBreakdownVars(
   const kms = selectedExtraCents(p, 'unlimitedKmFee', 'kms');
   const fuel = selectedExtraCents(p, 'prepaidFuelFee', 'fuel');
   const clean = selectedExtraCents(p, 'prepaidCleanFee', 'clean');
-  const delivery = e.deliveryFeeCents;
+  const delivery = centsOf(p.selectedDeliveryFee);
   const optional = (cents: number) => [cents > 0 ? money(cents) : ''];
 
   let discountLabel = '';
@@ -223,10 +220,48 @@ export function hostBreakdownVars(
     'Booking.ExtraClean': optional(clean),
     'Booking.ExtraDelivery': optional(delivery),
     'Booking.HasExtras': [kms + fuel + clean + delivery > 0 ? 'yes' : ''],
+  };
+}
+
+/** Host earnings breakdown: line items, subtotal, service fee deduction, earnings. */
+export function hostBreakdownVars(
+  pricing: Record<string, unknown> | null | undefined,
+  days: number,
+): PinpointSubstitutions {
+  const p = pricing ?? {};
+  const e = hostEarningsForPricing(p);
+  return {
+    ...lineItemVars(p, days),
     'Booking.Subtotal': [money(e.hostNetCents + e.serviceFeeCents)],
     'Booking.ServiceFeeLabel': [`Service fee (${Math.round(e.serviceFeeRate * 100)}%)`],
     'Booking.ServiceFeeDeduction': [deduction(e.serviceFeeCents)],
     'Booking.HostRecieveTotal': [money(e.hostNetCents)],
+  };
+}
+
+/** Guest price breakdown: line items, subtotal, trip fee, total price. */
+export function guestBreakdownVars(
+  pricing: Record<string, unknown> | null | undefined,
+  days: number,
+): PinpointSubstitutions {
+  const p = pricing ?? {};
+  const items = lineItemVars(p, days);
+  const subtotalCents = p.subtotal != null && p.subtotal !== ''
+    ? centsOf(p.subtotal)
+    : centsOf(p.discountedTripSubtotal) +
+      selectedExtraCents(p, 'unlimitedKmFee', 'kms') +
+      selectedExtraCents(p, 'prepaidFuelFee', 'fuel') +
+      selectedExtraCents(p, 'prepaidCleanFee', 'clean') +
+      centsOf(p.selectedDeliveryFee);
+  const tripFeeCents = centsOf(p.tripFee);
+  const totalCents = p.grandTotal != null && p.grandTotal !== ''
+    ? centsOf(p.grandTotal)
+    : subtotalCents + tripFeeCents;
+  return {
+    ...items,
+    'Booking.Subtotal': [money(subtotalCents)],
+    'Booking.TripFee': [money(tripFeeCents)],
+    'Booking.GuestPayTotal': [money(totalCents)],
   };
 }
 
@@ -265,6 +300,14 @@ export class BookingNotificationContext {
     return formatEndDate(endMs(this.booking), dates.endTime, this.tz);
   }
 
+  hostBreakdown(): PinpointSubstitutions {
+    return hostBreakdownVars(pricing(this.booking), tripDays(this.booking));
+  }
+
+  guestBreakdown(): PinpointSubstitutions {
+    return guestBreakdownVars(pricing(this.booking), tripDays(this.booking));
+  }
+
   baseBookingVars(): PinpointSubstitutions {
     return new TemplateVariablesBuilder()
       .init()
@@ -293,7 +336,7 @@ export class BookingNotificationContext {
       .setMoneyVariable('Booking.DeliveryPrice', deliveryPrice(this.booking))
       .setMoneyVariable('Booking.ServiceFee', serviceFee(this.booking))
       .setMoneyVariable('Booking.HostRecieveTotal', hostReceiveTotal(this.booking))
-      .mergeWith(hostBreakdownVars(pricing(this.booking), tripDays(this.booking)))
+      .mergeWith(this.hostBreakdown())
       .build();
   }
 
@@ -308,6 +351,7 @@ export class BookingNotificationContext {
       .setMoneyVariable('Booking.DeliveryPrice', deliveryPrice(this.booking))
       .setMoneyVariable('Booking.TripFee', tripFee(this.booking))
       .setMoneyVariable('Booking.GuestPayTotal', guestPayTotal(this.booking))
+      .mergeWith(this.guestBreakdown())
       .build();
   }
 
@@ -321,7 +365,7 @@ export class BookingNotificationContext {
       .setMoneyVariable('Booking.DeliveryPrice', deliveryPrice(this.booking))
       .setMoneyVariable('Booking.ServiceFee', serviceFee(this.booking))
       .setMoneyVariable('Booking.HostRecieveTotal', hostReceiveTotal(this.booking))
-      .mergeWith(hostBreakdownVars(pricing(this.booking), tripDays(this.booking)))
+      .mergeWith(this.hostBreakdown())
       .build();
   }
 
@@ -356,6 +400,7 @@ export class BookingNotificationContext {
       .setVariable('Vehicle.CoverImage', coverImage(this.booking))
       .setVariable('Booking.StartDate', this.startLabel())
       .setVariable('Booking.EndDate', this.endLabel())
+      .mergeWith(this.guestBreakdown())
       .build();
   }
 
@@ -368,6 +413,7 @@ export class BookingNotificationContext {
       .setVariable('Vehicle.CoverImage', coverImage(this.booking))
       .setVariable('Booking.StartDate', this.startLabel())
       .setVariable('Booking.EndDate', this.endLabel())
+      .mergeWith(this.hostBreakdown())
       .build();
   }
 
@@ -378,7 +424,9 @@ export class BookingNotificationContext {
       .setVariable('Renter.FirstName', this.guest.firstName ?? '')
       .setVariable('Vehicle.Model', vehicleModel(this.booking))
       .setVariable('Vehicle.CoverImage', coverImage(this.booking))
+      .setVariable('Booking.StartDate', this.startLabel())
       .setVariable('Booking.EndDate', this.endLabel())
+      .mergeWith(this.guestBreakdown())
       .build();
   }
 
@@ -389,7 +437,9 @@ export class BookingNotificationContext {
       .setVariable('Renter.FirstName', this.guest.firstName ?? '')
       .setVariable('Vehicle.Model', vehicleModel(this.booking))
       .setVariable('Vehicle.CoverImage', coverImage(this.booking))
+      .setVariable('Booking.StartDate', this.startLabel())
       .setVariable('Booking.EndDate', this.endLabel())
+      .mergeWith(this.hostBreakdown())
       .build();
   }
 

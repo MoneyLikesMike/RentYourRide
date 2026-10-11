@@ -10,6 +10,7 @@ import {
   BookingNotificationContext,
   extensionPaymentDetails,
   formatBookingEndDate,
+  guestBreakdownVars,
   hostBreakdownVars,
 } from './booking-context';
 import { PinpointService } from './pinpoint.service';
@@ -845,18 +846,29 @@ export class NotificationsService {
         const guestSms = SmsCopy.extensionApprovedGuest(
           formatBookingEndDate(Number(ext.newEndMs)),
         );
+        const extPricing = (ext.pricing ?? {}) as Record<string, unknown>;
+        const extDays = Number(extPricing.tripDays ?? 0);
         const vars = new TemplateVariablesBuilder()
           .init()
           .setVariable('Renter.FirstName', ctx.guest.firstName ?? '')
           .setVariable('Host.FirstName', ctx.host.firstName ?? '')
+          .setVariable('Vehicle.Model', ctx.baseBookingVars()['Vehicle.Model']?.[0] ?? '')
+          .setVariable('Vehicle.CoverImage', ctx.baseBookingVars()['Vehicle.CoverImage']?.[0] ?? '')
+          .setVariable('Extension.StartDate', formatBookingEndDate(Number(ext.previousEndMs)))
           .setVariable('Extension.EndDate', formatBookingEndDate(Number(ext.newEndMs)))
           .build();
         await this.notifyUser(ctx.guest, {
           sms: guestSms,
-          email: { template: TemplateName.YourTripExtensionIsConfirmedGuest, vars },
+          email: {
+            template: TemplateName.YourTripExtensionIsConfirmedGuest,
+            vars: { ...vars, ...guestBreakdownVars(extPricing, extDays) },
+          },
         });
         await this.notifyUser(ctx.host, {
-          email: { template: TemplateName.YouConfirmedATripExtension, vars },
+          email: {
+            template: TemplateName.YouConfirmedATripExtension,
+            vars: { ...vars, ...hostBreakdownVars(extPricing, extDays) },
+          },
         });
       })(),
     );

@@ -58,5 +58,47 @@
     "subject": "{{Renter.FirstName}} Would Like To Extend Their Trip With Your Ride 😊",
     "htmlFile": "html/BookingTemplates/TripExtensionRequestHost.html",
     "textPart": "Your booking extension has been created."
+  },
+  {
+    "name": "BookingRequestConfirmedGuest",
+    "subject": "{{Host.FirstName}} Confirmed Your Booking Request ✅",
+    "htmlFile": "html/BookingTemplates/BookingRequestConfirmedGuest.html",
+    "textPart": "Your booking request has been approved."
+  },
+  {
+    "name": "YourTripIsBeginningSoonGuest",
+    "subject": "Your Trip with {{Host.FirstName}} is Beginning Soon 👀",
+    "htmlFile": "html/BookingTemplates/YourTripIsBeginningSoonGuest.html",
+    "textPart": "Your trip is beginning soon. Get ready!"
+  },
+  {
+    "name": "YourTripIsEndingSoonGuest",
+    "subject": "Your Trip with {{Host.FirstName}} is Ending Soon 👀",
+    "htmlFile": "html/BookingTemplates/YourTripIsEndingSoonGuest.html",
+    "textPart": "Your trip is ending soon. Don't forget to check out!"
+  },
+  {
+    "name": "TripBeginningSoonHost",
+    "subject": "Your Trip with {{Renter.FirstName}} is Beginning Soon 👀",
+    "htmlFile": "html/BookingTemplates/TripBeginningSoonHost.html",
+    "textPart": "Your trip is beginning soon. Get ready!"
+  },
+  {
+    "name": "YourTripIsEndingSoonHost",
+    "subject": "Your Trip with {{Renter.FirstName}} is Ending Soon 👀",
+    "htmlFile": "html/BookingTemplates/YourTripIsEndingSoonHost.html",
+    "textPart": "Your trip is ending soon. Don't forget to check out!"
+  },
+  {
+    "name": "YourTripExtensionIsConfirmedGuest",
+    "subject": "{{Host.FirstName}} Confirmed Your Trip Extension ✅",
+    "htmlFile": "html/BookingTemplates/YourTripExtensionIsConfirmedGuest.html",
+    "textPart": "Your booking extension has been approved."
+  },
+  {
+    "name": "YouConfirmedATripExtension",
+    "subject": "You Have Confirmed A Trip Extension ✅",
+    "htmlFile": "html/BookingTemplates/YouConfirmedATripExtension.html",
+    "textPart": "Your booking extension has been approved."
   }
 ]
