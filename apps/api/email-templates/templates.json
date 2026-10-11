@@ -112,5 +112,23 @@
     "subject": "Account Activity: New Payment Method",
     "htmlFile": "html/AccountTemplates/AccountActivityNewPaymentMethod.html",
     "textPart": "A new payment method has been added to your account."
+  },
+  {
+    "name": "YouSentAReservationRequest",
+    "subject": "You Sent A Booking Request",
+    "htmlFile": "html/BookingTemplates/YouSentAReservationRequest.html",
+    "textPart": "Your booking request has been created."
+  },
+  {
+    "name": "YourBookingRequestWasDenied",
+    "subject": "Your Booking Request Was Denied ⛔",
+    "htmlFile": "html/BookingTemplates/YourBookingRequestWasDenied.html",
+    "textPart": "Your booking request has been denied."
+  },
+  {
+    "name": "YouRequestedATripExtension",
+    "subject": "You Sent A Trip Extension Request",
+    "htmlFile": "html/BookingTemplates/YouRequestedATripExtension.html",
+    "textPart": "Your booking extension has been created."
   }
 ]
