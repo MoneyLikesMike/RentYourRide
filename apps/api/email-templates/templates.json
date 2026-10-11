@@ -100,5 +100,11 @@
     "subject": "You Have Confirmed A Trip Extension ✅",
     "htmlFile": "html/BookingTemplates/YouConfirmedATripExtension.html",
     "textPart": "Your booking extension has been approved."
+  },
+  {
+    "name": "ListingApproved",
+    "subject": "We Approved Your Listing! ✅",
+    "htmlFile": "html/ListingTemplates/ListingApproved.html",
+    "textPart": "Your listing has been approved."
   }
 ]

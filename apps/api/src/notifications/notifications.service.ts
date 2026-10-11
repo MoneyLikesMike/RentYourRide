@@ -12,6 +12,7 @@ import {
   formatBookingEndDate,
   guestBreakdownVars,
   hostBreakdownVars,
+  listingVehicleVars,
 } from './booking-context';
 import { PinpointService } from './pinpoint.service';
 import { TemplateName } from './template-names';
@@ -535,14 +536,15 @@ export class NotificationsService {
     );
   }
 
-  listingApproved(hostUserId: string): void {
+  listingApproved(listing: ListingEntity): void {
     this.run(
       (async () => {
-        const user = await this.users.findOne({ where: { id: hostUserId } });
+        const user = await this.users.findOne({ where: { id: listing.hostUserId } });
         if (!user) return;
         const vars = new TemplateVariablesBuilder()
           .init()
           .setVariable('Host.FirstName', user.firstName ?? '')
+          .mergeWith(listingVehicleVars(listing as unknown as Record<string, unknown>))
           .build();
         await this.notifyUser(user, {
           sms: SmsCopy.listingApproved(),

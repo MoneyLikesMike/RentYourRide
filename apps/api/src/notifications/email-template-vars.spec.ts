@@ -8,16 +8,17 @@ import {
   BookingNotificationContext,
   guestBreakdownVars,
   hostBreakdownVars,
+  listingVehicleVars,
 } from './booking-context';
 import type { PinpointSubstitutions } from './template-variables.builder';
 
 const DAY = 24 * 60 * 60 * 1000;
 const START = Date.UTC(2026, 10, 2, 16, 0);
-const TEMPLATES = join(__dirname, '..', '..', 'email-templates', 'html', 'BookingTemplates');
+const HTML = join(__dirname, '..', '..', 'email-templates', 'html');
 
 /** Variables a template renders, excluding Handlebars helpers. Pinpoint drops the email if any is missing. */
-function templateVars(name: string): string[] {
-  const html = readFileSync(join(TEMPLATES, `${name}.html`), 'utf8');
+function templateVars(name: string, folder = 'BookingTemplates'): string[] {
+  const html = readFileSync(join(HTML, folder, `${name}.html`), 'utf8');
   const vars = new Set<string>();
   for (const m of html.matchAll(/\{\{\s*(?:#eq\s+)?([A-Za-z][\w.]*)/g)) {
     if (m[1] !== 'else') vars.add(m[1]);
@@ -25,8 +26,8 @@ function templateVars(name: string): string[] {
   return [...vars];
 }
 
-function assertCovers(name: string, vars: PinpointSubstitutions) {
-  const missing = templateVars(name).filter((v) => !(v in vars));
+function assertCovers(name: string, vars: PinpointSubstitutions, folder?: string) {
+  const missing = templateVars(name, folder).filter((v) => !(v in vars));
   assert.deepEqual(missing, [], `${name} is missing variables`);
 }
 
@@ -79,6 +80,30 @@ describe('email templates get every variable they render', () => {
     assertCovers('YourTripExtensionIsConfirmedGuest', { ...extBase, ...guestBreakdownVars(pricing, 2) }));
   it('YouConfirmedATripExtension', () =>
     assertCovers('YouConfirmedATripExtension', { ...extBase, ...hostBreakdownVars(pricing, 2) }));
+
+  it('ListingApproved', () =>
+    assertCovers(
+      'ListingApproved',
+      {
+        'Host.FirstName': ['Michael'],
+        ...listingVehicleVars({ title: '2019 Honda Civic', photos: [{ uri: 'https://x/y.jpg' }] }),
+      },
+      'ListingTemplates',
+    ));
+});
+
+describe('listingVehicleVars', () => {
+  it('uses the listing title and first photo', () => {
+    const v = listingVehicleVars({ title: '2019 Honda Civic', photos: [{ uri: 'https://x/y.jpg' }] });
+    assert.deepEqual(v['Vehicle.Model'], ['2019 Honda Civic']);
+    assert.deepEqual(v['Vehicle.CoverImage'], ['https://x/y.jpg']);
+  });
+
+  it('still sets both keys with no title or photos', () => {
+    const v = listingVehicleVars({});
+    assert.deepEqual(v['Vehicle.Model'], ['Vehicle']);
+    assert.deepEqual(v['Vehicle.CoverImage'], ['']);
+  });
 });
 
 describe('guestBreakdownVars', () => {
