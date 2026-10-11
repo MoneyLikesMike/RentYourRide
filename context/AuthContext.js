@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { postJson } from '../services/authApi';
+import { onSessionExpired } from '../services/apiClient';
 import * as tokens from '../services/authTokens';
 import {
   configureGoogleSignIn,
@@ -126,6 +127,8 @@ export function AuthProvider({ children }) {
     setUser(null);
     resetToWelcome();
   }, []);
+
+  useEffect(() => onSessionExpired(() => void signOut()), [signOut]);
 
   /** Merge fields from GET/PATCH /me (or confirm-email-change) into stored auth user. */
   const applyUser = useCallback(async (apiUser) => {
