@@ -40,5 +40,23 @@
     "subject": "{{Renter.FirstName}} Has Checked Out",
     "htmlFile": "html/CheckOutBookingTemplate/Guest Checked Out Of Your Ride.html",
     "textPart": "{{Renter.FirstName}} has checked out of your ride."
+  },
+  {
+    "name": "BookingRequest",
+    "subject": "You Have A Booking Request 😊",
+    "htmlFile": "html/BookingTemplates/BookingRequest.html",
+    "textPart": "Your booking request has been created."
+  },
+  {
+    "name": "ConfirmedBookingRequestHost",
+    "subject": "You Have Confirmed {{Renter.FirstName}}'s Booking Request ✅",
+    "htmlFile": "html/BookingTemplates/ConfirmedBookingRequestHost.html",
+    "textPart": "Your booking request has been approved."
+  },
+  {
+    "name": "TripExtensionRequestHost",
+    "subject": "{{Renter.FirstName}} Would Like To Extend Their Trip With Your Ride 😊",
+    "htmlFile": "html/BookingTemplates/TripExtensionRequestHost.html",
+    "textPart": "Your booking extension has been created."
   }
 ]

@@ -78,8 +78,10 @@ function vehicleModel(booking: BookingEntity): string {
   const vd = (s.vehicleData ?? {}) as Record<string, unknown>;
   const make = String(vd.make ?? '').trim();
   const model = String(vd.model ?? '').trim();
-  if (make || model) return `${model} ${make}`.trim();
-  return String(s.title ?? 'Vehicle').trim();
+  const title = String(s.title ?? '').trim();
+  if (title) return title;
+  if (make || model) return `${make} ${model}`.trim();
+  return 'Vehicle';
 }
 
 function coverImage(booking: BookingEntity): string {
@@ -157,6 +159,77 @@ export function serviceFee(booking: BookingEntity): number {
   return hostEarningsForPricing(pricing(booking)).serviceFeeCents / 100;
 }
 
+function money(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+/** Accounting-style deduction, e.g. "($37.50)". */
+function deduction(cents: number): string {
+  return `(${money(cents)})`;
+}
+
+function centsOf(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.round(n * 100)) : 0;
+}
+
+function selectedExtraCents(p: Record<string, unknown>, field: string, key: string): number {
+  if (p[field] != null && p[field] !== '') return centsOf(p[field]);
+  const selected = p.selectedExtras as Array<{ key?: string; amount?: number }> | undefined;
+  return centsOf(selected?.find((e) => e.key === key)?.amount);
+}
+
+/**
+ * Host earnings breakdown rows, in the same order as the app's host booking screen.
+ * Pinpoint templates hide a row with {{#eq Var ''}}{{else}}…{{/eq}}, so unselected
+ * extras are set to ''.
+ */
+export function hostBreakdownVars(
+  pricing: Record<string, unknown> | null | undefined,
+  days: number,
+): PinpointSubstitutions {
+  const p = pricing ?? {};
+  const e = hostEarningsForPricing(p);
+  const discountedCents = centsOf(p.discountedTripSubtotal);
+  const baseCents = p.baseTripSubtotal != null && p.baseTripSubtotal !== ''
+    ? centsOf(p.baseTripSubtotal)
+    : discountedCents;
+  const savingsCents = Math.max(0, baseCents - discountedCents);
+  const pricePerDayCents = p.pricePerDay != null && p.pricePerDay !== ''
+    ? centsOf(p.pricePerDay)
+    : Math.round(baseCents / Math.max(1, days));
+
+  const kms = selectedExtraCents(p, 'unlimitedKmFee', 'kms');
+  const fuel = selectedExtraCents(p, 'prepaidFuelFee', 'fuel');
+  const clean = selectedExtraCents(p, 'prepaidCleanFee', 'clean');
+  const delivery = e.deliveryFeeCents;
+  const optional = (cents: number) => [cents > 0 ? money(cents) : ''];
+
+  let discountLabel = 'Discount';
+  if (savingsCents > 0) {
+    discountLabel = p.appliesMonthlyDiscount
+      ? `Monthly discount (${Number(p.monthlyDiscountPct ?? 0)}%)`
+      : `Weekly discount (${Number(p.weeklyDiscountPct ?? 0)}%)`;
+  }
+
+  return {
+    'Booking.PricePerDay': [money(pricePerDayCents)],
+    'Booking.TripDaysLabel': [`${days} ${days === 1 ? 'day' : 'days'}`],
+    'Booking.BaseTripSubtotal': [money(baseCents)],
+    'Booking.DiscountLabel': [discountLabel],
+    'Booking.DiscountAmount': [savingsCents > 0 ? deduction(savingsCents) : 'No discount applied'],
+    'Booking.ExtraKms': optional(kms),
+    'Booking.ExtraFuel': optional(fuel),
+    'Booking.ExtraClean': optional(clean),
+    'Booking.ExtraDelivery': optional(delivery),
+    'Booking.HasExtras': [kms + fuel + clean + delivery > 0 ? 'yes' : ''],
+    'Booking.Subtotal': [money(e.hostNetCents + e.serviceFeeCents)],
+    'Booking.ServiceFeeLabel': [`Service fee (${Math.round(e.serviceFeeRate * 100)}%)`],
+    'Booking.ServiceFeeDeduction': [deduction(e.serviceFeeCents)],
+    'Booking.HostRecieveTotal': [money(e.hostNetCents)],
+  };
+}
+
 /** Host-facing extension summary used by the extension request email. */
 export function extensionPaymentDetails(extPricing: Record<string, unknown> | null | undefined): string {
   const p = extPricing ?? {};
@@ -220,6 +293,7 @@ export class BookingNotificationContext {
       .setMoneyVariable('Booking.DeliveryPrice', deliveryPrice(this.booking))
       .setMoneyVariable('Booking.ServiceFee', serviceFee(this.booking))
       .setMoneyVariable('Booking.HostRecieveTotal', hostReceiveTotal(this.booking))
+      .mergeWith(hostBreakdownVars(pricing(this.booking), tripDays(this.booking)))
       .build();
   }
 
@@ -247,6 +321,7 @@ export class BookingNotificationContext {
       .setMoneyVariable('Booking.DeliveryPrice', deliveryPrice(this.booking))
       .setMoneyVariable('Booking.ServiceFee', serviceFee(this.booking))
       .setMoneyVariable('Booking.HostRecieveTotal', hostReceiveTotal(this.booking))
+      .mergeWith(hostBreakdownVars(pricing(this.booking), tripDays(this.booking)))
       .build();
   }
 

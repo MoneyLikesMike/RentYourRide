@@ -6,7 +6,7 @@ import {
   hostNetCentsForPricing,
   planExtensionHostPayout,
 } from './host-earnings';
-import { extensionPaymentDetails, serviceFee, hostReceiveTotal } from '../notifications/booking-context';
+import { extensionPaymentDetails, hostBreakdownVars, serviceFee, hostReceiveTotal } from '../notifications/booking-context';
 import { toAdminBookingRegistration, toAdminBookingRow } from '../admin/admin.mapper';
 import type { BookingEntity } from '../entities/booking.entity';
 import type { ListingEntity } from '../entities/listing.entity';
@@ -162,6 +162,62 @@ describe('extension host payout', () => {
 
   it('extension email shows the host share and service fee', () => {
     assert.equal(extensionPaymentDetails(ext), 'Trip days: 2\nYour earnings: $150.00\nService Fee: $50.00');
+  });
+});
+
+describe('hostBreakdownVars', () => {
+  it('no discount, only the selected extra shown, fee in parentheses', () => {
+    const v = hostBreakdownVars(
+      {
+        pricePerDay: 50,
+        baseTripSubtotal: 150,
+        discountedTripSubtotal: 150,
+        unlimitedKmFee: 0,
+        prepaidFuelFee: 0,
+        prepaidCleanFee: 20,
+        selectedDeliveryFee: 25,
+      },
+      3,
+    );
+    assert.deepEqual(v['Booking.TripDaysLabel'], ['3 days']);
+    assert.deepEqual(v['Booking.PricePerDay'], ['$50.00']);
+    assert.deepEqual(v['Booking.BaseTripSubtotal'], ['$150.00']);
+    assert.deepEqual(v['Booking.DiscountLabel'], ['Discount']);
+    assert.deepEqual(v['Booking.DiscountAmount'], ['No discount applied']);
+    assert.deepEqual(v['Booking.ExtraKms'], ['']);
+    assert.deepEqual(v['Booking.ExtraFuel'], ['']);
+    assert.deepEqual(v['Booking.ExtraClean'], ['$20.00']);
+    assert.deepEqual(v['Booking.ExtraDelivery'], ['$25.00']);
+    assert.deepEqual(v['Booking.HasExtras'], ['yes']);
+    assert.deepEqual(v['Booking.Subtotal'], ['$195.00']);
+    assert.deepEqual(v['Booking.ServiceFeeLabel'], ['Service fee (25%)']);
+    assert.deepEqual(v['Booking.ServiceFeeDeduction'], ['($37.50)']);
+    assert.deepEqual(v['Booking.HostRecieveTotal'], ['$157.50']);
+  });
+
+  it('weekly discount shown as a deduction, no extras section', () => {
+    const v = hostBreakdownVars(
+      {
+        pricePerDay: 50,
+        baseTripSubtotal: 400,
+        discountedTripSubtotal: 360,
+        weeklyDiscountPct: 10,
+        appliesMonthlyDiscount: false,
+      },
+      8,
+    );
+    assert.deepEqual(v['Booking.TripDaysLabel'], ['8 days']);
+    assert.deepEqual(v['Booking.DiscountLabel'], ['Weekly discount (10%)']);
+    assert.deepEqual(v['Booking.DiscountAmount'], ['($40.00)']);
+    assert.deepEqual(v['Booking.HasExtras'], ['']);
+    assert.deepEqual(v['Booking.Subtotal'], ['$360.00']);
+    assert.deepEqual(v['Booking.ServiceFeeDeduction'], ['($90.00)']);
+    assert.deepEqual(v['Booking.HostRecieveTotal'], ['$270.00']);
+  });
+
+  it('single day uses singular label', () => {
+    const v = hostBreakdownVars({ pricePerDay: 50, discountedTripSubtotal: 50 }, 1);
+    assert.deepEqual(v['Booking.TripDaysLabel'], ['1 day']);
   });
 });
 
