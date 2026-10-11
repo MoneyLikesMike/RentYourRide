@@ -188,7 +188,7 @@ export function toAdminBookingRow(booking: BookingEntity) {
     subtotal: Number(pricing.total ?? pricing.subtotal ?? 0),
     tripFee: Number(pricing.tripFee ?? pricing.serviceFee ?? 0),
     hostEarnings: hostNetDollarsForPricing(pricing),
-    hostFee: hostEarningsForPricing(pricing).hostFeeCents / 100,
+    serviceFee: hostEarningsForPricing(pricing).serviceFeeCents / 100,
     deliveryFee: Number(pricing.deliveryFee ?? 0),
     prePaidCleaningPrice: 0,
     prePaidFuelPrice: 0,

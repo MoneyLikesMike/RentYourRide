@@ -6,7 +6,7 @@ import {
   hostNetCentsForPricing,
   planExtensionHostPayout,
 } from './host-earnings';
-import { extensionPaymentDetails, hostFee, hostReceiveTotal } from '../notifications/booking-context';
+import { extensionPaymentDetails, serviceFee, hostReceiveTotal } from '../notifications/booking-context';
 import { toAdminBookingRegistration, toAdminBookingRow } from '../admin/admin.mapper';
 import type { BookingEntity } from '../entities/booking.entity';
 import type { ListingEntity } from '../entities/listing.entity';
@@ -63,13 +63,13 @@ const transferCents = (b: BookingEntity): number =>
     .hostReceiveCents.call({}, b);
 
 describe('host earnings rule', () => {
-  it('$100/day × 3 + $35 delivery + $50 clean: host $310, RYR host fee $75, guest trip fee $30', () => {
+  it('$100/day × 3 + $35 delivery + $50 clean: host $310, RYR service fee $75, guest trip fee $30', () => {
     const q = quote(3, { clean: true, delivery: true });
     assert.equal(q.tripDays, 3);
     assert.equal(q.hostReceiveTotal, 310);
-    assert.equal(q.hostFee, 75);
-    assert.equal(q.hostFeeRate, 0.25);
-    assert.equal(q.hostFeeBase, 'discounted');
+    assert.equal(q.serviceFee, 75);
+    assert.equal(q.serviceFeeRate, 0.25);
+    assert.equal(q.serviceFeeBase, 'discounted');
     assert.equal(q.tripFee, 30);
     assert.equal(q.grandTotal, 415);
   });
@@ -78,10 +78,10 @@ describe('host earnings rule', () => {
     const q = quote(7);
     assert.equal(q.appliesWeeklyDiscount, true);
     assert.equal(q.discountedTripSubtotal, 630);
-    assert.equal(q.hostFee, 157.5);
+    assert.equal(q.serviceFee, 157.5);
     assert.equal(q.hostReceiveTotal, 472.5);
     const undiscounted = computeHostEarnings(q, { base: 'undiscounted' });
-    assert.equal(undiscounted.hostFeeCents, 17500);
+    assert.equal(undiscounted.serviceFeeCents, 17500);
     assert.equal(undiscounted.hostNetCents, 45500);
   });
 
@@ -89,26 +89,26 @@ describe('host earnings rule', () => {
     const q = quote(30);
     assert.equal(q.appliesMonthlyDiscount, true);
     assert.equal(q.discountedTripSubtotal, 2400);
-    assert.equal(q.hostFee, 600);
+    assert.equal(q.serviceFee, 600);
     assert.equal(q.hostReceiveTotal, 1800);
     const undiscounted = computeHostEarnings(q, { base: 'undiscounted' });
-    assert.equal(undiscounted.hostFeeCents, 75000);
+    assert.equal(undiscounted.serviceFeeCents, 75000);
     assert.equal(undiscounted.hostNetCents, 165000);
   });
 
   it('extras and delivery are never part of the fee base', () => {
     const q = quote(3, { clean: true, fuel: true, km: true, delivery: true });
-    assert.equal(q.hostFee, 75);
+    assert.equal(q.serviceFee, 75);
     assert.equal(q.hostReceiveTotal, 225 + 50 + 80 + 150 + 35);
   });
 
   it('works in integer cents without float drift', () => {
     const e = computeHostEarnings({ discountedTripSubtotal: 0.1 + 0.2, subtotal: 0.3 });
-    assert.equal(e.hostFeeCents, 8);
+    assert.equal(e.serviceFeeCents, 8);
     assert.equal(e.hostNetCents, 22);
   });
 
-  it('old bookings (hostReceiveTotal = full subtotal, no hostFeeRate) are recomputed under the rule', () => {
+  it('old bookings (hostReceiveTotal = full subtotal, no serviceFeeRate) are recomputed under the rule', () => {
     const legacy = {
       discountedTripSubtotal: 300,
       selectedDeliveryFee: 35,
@@ -128,7 +128,7 @@ describe('extension host payout', () => {
   const ext = quote(2);
 
   it('prices an extension with the same rule', () => {
-    assert.equal(ext.hostFee, 50);
+    assert.equal(ext.serviceFee, 50);
     assert.equal(ext.hostReceiveTotal, 150);
     assert.equal(ext.tripFee, 20);
   });
@@ -160,7 +160,7 @@ describe('extension host payout', () => {
     assert.equal(planExtensionHostPayout({ approved: true, pricing: {}, sourceChargeId: null }), null);
   });
 
-  it('extension email shows the host share and host fee', () => {
+  it('extension email shows the host share and service fee', () => {
     assert.equal(extensionPaymentDetails(ext), 'Trip days: 2\nYour earnings: $150.00\nService Fee: $50.00');
   });
 });
@@ -252,7 +252,7 @@ describe('every surface shows the same host net for one booking', () => {
   const q = quote(3, { clean: true, delivery: true });
   const saved = { ...q, hostReceiveTotal: q.hostReceiveTotal };
   const legacySaved = (() => {
-    const { hostFee: _f, hostFeeRate: _r, hostFeeBase: _b, ...rest } = q;
+    const { serviceFee: _f, serviceFeeRate: _r, serviceFeeBase: _b, ...rest } = q;
     return { ...rest, hostReceiveTotal: q.subtotal };
   })();
 
@@ -275,13 +275,13 @@ describe('every surface shows the same host net for one booking', () => {
         assert.equal(value, 310, `${name} host net`);
       }
       const fees = {
-        hostEmail: hostFee(booking),
-        adminRow: toAdminBookingRow(booking).hostFee,
-        web: getHostEarnings(booking.pricing as Record<string, unknown>, q.selectedExtras as { amount: number }[]).hostFee,
+        hostEmail: serviceFee(booking),
+        adminRow: toAdminBookingRow(booking).serviceFee,
+        web: getHostEarnings(booking.pricing as Record<string, unknown>, q.selectedExtras as { amount: number }[]).serviceFee,
         mobile: getHostServiceFee(booking),
       };
       for (const [name, value] of Object.entries(fees)) {
-        assert.equal(value, 75, `${name} host fee`);
+        assert.equal(value, 75, `${name} service fee`);
       }
     });
   }

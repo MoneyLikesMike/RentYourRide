@@ -105,7 +105,7 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
     p.subtotal != null && p.subtotal !== '' ? p.subtotal : discountedTripSubtotal + extrasSum
   );
 
-  const serviceFeeHost = getHostServiceFee(booking);
+  const serviceFee = getHostServiceFee(booking);
   const yourTotalEarnings = getHostNetEarnings(booking);
 
   const kmIncludedDisplay = p.kmIncludedLabel || '—';
@@ -313,7 +313,7 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
               </View>
             </View>
             <Text style={[styles.summaryValue, styles.discountValue]}>
-              - ${serviceFeeHost.toFixed(2)}
+              - ${serviceFee.toFixed(2)}
             </Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
