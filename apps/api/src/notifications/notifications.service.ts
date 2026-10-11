@@ -10,6 +10,7 @@ import {
   BookingNotificationContext,
   extensionPaymentDetails,
   formatBookingEndDate,
+  hostBreakdownVars,
 } from './booking-context';
 import { PinpointService } from './pinpoint.service';
 import { TemplateName } from './template-names';
@@ -815,7 +816,9 @@ export class NotificationsService {
           .mergeWith(guestVars)
           .setVariable('Renter.Avatar', ctx.guest.avatarUrl ?? '')
           .setVariable('Renter.RequestMessage', ext.guestMessage ?? '')
+          .setVariable('Host.FirstName', ctx.host.firstName ?? '')
           .setVariable('Extension.PaymentDetails', this.extensionPaymentDetails(ext))
+          .mergeWith(this.extensionBreakdownVars(ext))
           .build();
         await this.notifyUser(ctx.guest, {
           sms: guestSms,
@@ -905,6 +908,11 @@ export class NotificationsService {
 
   private extensionPaymentDetails(ext: BookingExtensionEntity): string {
     return extensionPaymentDetails(ext.pricing as Record<string, unknown>);
+  }
+
+  private extensionBreakdownVars(ext: BookingExtensionEntity) {
+    const p = (ext.pricing ?? {}) as Record<string, unknown>;
+    return hostBreakdownVars(p, Number(p.tripDays ?? 0));
   }
 
   async markTripReminderSent(
