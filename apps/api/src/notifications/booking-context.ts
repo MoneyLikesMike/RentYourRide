@@ -73,8 +73,7 @@ function pricing(booking: BookingEntity): Record<string, unknown> {
   return (booking.pricing ?? {}) as Record<string, unknown>;
 }
 
-function vehicleModel(booking: BookingEntity): string {
-  const s = snap(booking);
+function vehicleModelOf(s: Record<string, unknown>): string {
   const vd = (s.vehicleData ?? {}) as Record<string, unknown>;
   const make = String(vd.make ?? '').trim();
   const model = String(vd.model ?? '').trim();
@@ -84,8 +83,7 @@ function vehicleModel(booking: BookingEntity): string {
   return 'Vehicle';
 }
 
-function coverImage(booking: BookingEntity): string {
-  const s = snap(booking);
+function coverImageOf(s: Record<string, unknown>): string {
   if (typeof s.coverImageUri === 'string' && s.coverImageUri.trim()) {
     return s.coverImageUri.trim();
   }
@@ -93,6 +91,23 @@ function coverImage(booking: BookingEntity): string {
   const first = photos?.[0];
   const raw = (first?.uri ?? first?.imageUrl ?? '').trim();
   return raw;
+}
+
+function vehicleModel(booking: BookingEntity): string {
+  return vehicleModelOf(snap(booking));
+}
+
+function coverImage(booking: BookingEntity): string {
+  return coverImageOf(snap(booking));
+}
+
+/** Vehicle.Model and Vehicle.CoverImage for emails about a listing (no booking yet). */
+export function listingVehicleVars(listing: Record<string, unknown>): PinpointSubstitutions {
+  return new TemplateVariablesBuilder()
+    .init()
+    .setVariable('Vehicle.Model', vehicleModelOf(listing))
+    .setVariable('Vehicle.CoverImage', coverImageOf(listing))
+    .build();
 }
 
 function avatar(user?: UserEntity | null): string {

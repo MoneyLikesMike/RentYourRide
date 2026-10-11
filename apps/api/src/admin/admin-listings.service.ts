@@ -57,7 +57,7 @@ export class AdminListingsService {
     const listing = await this.requireListing(id);
     listing.published = true;
     await this.listings.save(listing);
-    this.notifications.listingApproved(listing.hostUserId);
+    this.notifications.listingApproved(listing);
     return toAdminRideDetail(listing);
   }
 
