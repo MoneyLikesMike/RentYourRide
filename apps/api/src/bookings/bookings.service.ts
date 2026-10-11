@@ -795,10 +795,6 @@ export class BookingsService {
     if (pi.metadata?.guestId && pi.metadata.guestId !== guestId) {
       throw new BadRequestException('Invalid payment');
     }
-    await this.payments.assertPaymentIntentMatchesGuestIdentity(
-      guestId,
-      paymentIntentId,
-    );
     return pi.id;
   }
 

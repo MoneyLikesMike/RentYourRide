@@ -12,7 +12,6 @@ export type StripePaymentMethod = {
   cardholderName?: string | null;
   country?: string | null;
   postalCode?: string | null;
-  cardholderMatchesLicense?: boolean | null;
 };
 
 export async function createSetupIntent(): Promise<{

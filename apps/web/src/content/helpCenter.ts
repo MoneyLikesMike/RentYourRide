@@ -179,16 +179,6 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
   },
   {
-    id: 'card-name-match',
-    topic: 'payments',
-    audience: 'guest',
-    question: 'Does the name on my card have to match my license?',
-    answer: [
-      'Yes. For every booking, the cardholder name on your payment card must match the legal name on your verified driver\'s license. Enter that name exactly when you add or edit a card. If your legal name has changed, complete license verification again or contact support.',
-    ],
-    link: { label: 'Payment information', to: '/profile/payment-information' },
-  },
-  {
     id: 'fees',
     topic: 'payments',
     audience: 'both',

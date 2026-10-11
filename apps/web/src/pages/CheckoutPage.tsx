@@ -434,13 +434,6 @@ export default function CheckoutPage() {
       setSubmitError('Please introduce yourself before booking.');
       return;
     }
-    if (selectedMethod.cardholderMatchesLicense === false) {
-      setSubmitError(
-        'The name on your payment card must match the name on your verified driver\'s license. Edit the card or choose a different payment method.',
-      );
-      return;
-    }
-
     submittingRef.current = true;
     setSubmitting(true);
     setSubmitError(null);
@@ -823,11 +816,6 @@ export default function CheckoutPage() {
                               <span>
                                 XXXX - XXXX - XXXX - {m.last4}
                               </span>
-                              {m.cardholderMatchesLicense === false ? (
-                                <span className="checkout-card-warning">
-                                  Name does not match your verified license
-                                </span>
-                              ) : null}
                             </div>
                           </div>
                         </button>
