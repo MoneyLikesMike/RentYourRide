@@ -295,6 +295,17 @@ export function guestBreakdownVars(
   };
 }
 
+/** Review.Stars / Review.Rating / Review.Comment for the review-received emails. */
+export function reviewVars(review: { rating?: unknown; text?: unknown } | null | undefined): PinpointSubstitutions {
+  const rating = Math.min(5, Math.max(1, Math.round(Number(review?.rating) || 0)));
+  return new TemplateVariablesBuilder()
+    .init()
+    .setVariable('Review.Stars', '★'.repeat(rating) + '☆'.repeat(5 - rating))
+    .setVariable('Review.Rating', String(rating))
+    .setVariable('Review.Comment', String(review?.text ?? '').trim())
+    .build();
+}
+
 /** Host-facing extension summary used by the extension request email. */
 export function extensionPaymentDetails(extPricing: Record<string, unknown> | null | undefined): string {
   const p = extPricing ?? {};
@@ -418,6 +429,20 @@ export class BookingNotificationContext {
       .mergeWith(this.baseBookingVars())
       .setVariable('Renter.LastName', this.guest.lastName ?? '')
       .setVariable('Renter.Avatar', avatar(this.guest))
+      .build();
+  }
+
+  /** Review received: `role` is who wrote it. */
+  reviewReceivedVars(role: 'guest' | 'host'): PinpointSubstitutions {
+    const review = (this.booking.lifecycle ?? {})[`${role}Review`] as
+      | { rating?: unknown; text?: unknown }
+      | undefined;
+    return new TemplateVariablesBuilder()
+      .init()
+      .setVariable('Host.FirstName', this.host.firstName ?? '')
+      .setVariable('Renter.FirstName', this.guest.firstName ?? '')
+      .setVariable('Vehicle.Model', vehicleModel(this.booking))
+      .mergeWith(reviewVars(review))
       .build();
   }
 

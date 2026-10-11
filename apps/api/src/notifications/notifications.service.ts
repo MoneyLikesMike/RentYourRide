@@ -367,17 +367,13 @@ export class NotificationsService {
     );
   }
 
-  /** Host: email only (legacy review templates). */
+  /** Host: email only. */
   reviewByGuest(bookingId: string): void {
     this.run(
       (async () => {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
-        const vars = new TemplateVariablesBuilder()
-          .init()
-          .setVariable('Renter.FirstName', ctx.guest.firstName ?? '')
-          .setVariable('Host.FirstName', ctx.host.firstName ?? '')
-          .build();
+        const vars = ctx.reviewReceivedVars('guest');
         await this.notifyUser(ctx.host, {
           email: { template: TemplateName.GuestNameWroteAReview, vars },
         });
@@ -391,11 +387,7 @@ export class NotificationsService {
       (async () => {
         const ctx = await this.loadBooking(bookingId);
         if (!ctx) return;
-        const vars = new TemplateVariablesBuilder()
-          .init()
-          .setVariable('Host.FirstName', ctx.host.firstName ?? '')
-          .setVariable('Renter.FirstName', ctx.guest.firstName ?? '')
-          .build();
+        const vars = ctx.reviewReceivedVars('host');
         await this.notifyUser(ctx.guest, {
           email: { template: TemplateName.HostWroteYouAReview, vars },
         });

@@ -130,5 +130,17 @@
     "subject": "You Sent A Trip Extension Request",
     "htmlFile": "html/BookingTemplates/YouRequestedATripExtension.html",
     "textPart": "Your booking extension has been created."
+  },
+  {
+    "name": "HostWroteYouAReview",
+    "subject": "{{Host.FirstName}} Left You A Review ⭐",
+    "htmlFile": "html/ReviewTemplates/HostWroteYouAReview.html",
+    "textPart": "{{Host.FirstName}} left you a review."
+  },
+  {
+    "name": "GuestNameWroteAReview",
+    "subject": "{{Renter.FirstName}} Left You A Review ⭐",
+    "htmlFile": "html/ReviewTemplates/GuestNameWroteAReview.html",
+    "textPart": "{{Renter.FirstName}} left you a review."
   }
 ]
