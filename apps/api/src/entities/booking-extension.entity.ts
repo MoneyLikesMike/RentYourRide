@@ -38,6 +38,23 @@ export class BookingExtensionEntity {
   @Column({ name: 'stripe_payment_intent_id', type: 'varchar', length: 128, nullable: true })
   stripePaymentIntentId: string | null;
 
+  /** Guest charge for this extension; source_transaction for the host payout. */
+  @Column({ name: 'stripe_charge_id', type: 'varchar', length: 128, nullable: true })
+  stripeChargeId: string | null;
+
+  /** 'scheduled' once approved and paid; the RYRA-457 scheduler moves it to 'paid'. */
+  @Column({ name: 'host_payout_status', type: 'varchar', length: 16, nullable: true })
+  hostPayoutStatus: string | null;
+
+  @Column({ name: 'host_payout_cents', type: 'integer', nullable: true })
+  hostPayoutCents: number | null;
+
+  @Column({ name: 'host_payout_scheduled_at', type: 'timestamp', nullable: true })
+  hostPayoutScheduledAt: Date | null;
+
+  @Column({ name: 'host_transfer_id', type: 'varchar', length: 128, nullable: true })
+  hostTransferId: string | null;
+
   @Column({ name: 'guest_message', type: 'text', nullable: true })
   guestMessage: string | null;
 

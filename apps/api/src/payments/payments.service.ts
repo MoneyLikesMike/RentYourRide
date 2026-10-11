@@ -273,6 +273,11 @@ export class PaymentsService {
     return { ok: true };
   }
 
+  async chargeIdForPaymentIntent(paymentIntentId: string): Promise<string | null> {
+    const pi = await this.retrievePaymentIntent(paymentIntentId);
+    return this.chargeIdFromPi(pi);
+  }
+
   private chargeIdFromPi(pi: Stripe.PaymentIntent): string | null {
     const c = pi.latest_charge;
     if (!c) return null;

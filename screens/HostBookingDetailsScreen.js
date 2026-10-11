@@ -20,7 +20,7 @@ import { FONTS } from '../constants/fonts';
 import { SERVICE_FEE_DISCLOSURE_TEXT } from '../constants/serviceFeeDisclosure';
 import { useGuestBookings } from '../context/GuestBookingsContext';
 import { formatTripDateTime } from '../utils/guestBookingFormat';
-import { computeHostServiceFee, getHostNetEarnings } from '../utils/hostBookingEarnings';
+import { getHostServiceFee, getHostNetEarnings } from '../utils/hostBookingEarnings';
 import { listingFromBookingSnapshot } from '../utils/bookingListing';
 import { navigateToUserProfile, navigateToVehicleDetail } from '../utils/navigateRootStack';
 import { openBookingChat } from '../utils/openBookingChat';
@@ -105,7 +105,7 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
     p.subtotal != null && p.subtotal !== '' ? p.subtotal : discountedTripSubtotal + extrasSum
   );
 
-  const serviceFeeHost = computeHostServiceFee(discountedTripSubtotal);
+  const serviceFeeHost = getHostServiceFee(booking);
   const yourTotalEarnings = getHostNetEarnings(booking);
 
   const kmIncludedDisplay = p.kmIncludedLabel || '—';

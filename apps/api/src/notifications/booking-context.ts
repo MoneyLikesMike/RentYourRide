@@ -1,6 +1,7 @@
 import { BookingEntity } from '../entities/booking.entity';
 import { UserEntity } from '../entities/user.entity';
 import { getTripBillingDays } from '../bookings/trip-billing-days';
+import { hostEarningsForPricing, hostNetDollarsForPricing } from '../bookings/host-earnings';
 import { TemplateVariablesBuilder, PinpointSubstitutions } from './template-variables.builder';
 
 const DEFAULT_TZ = 'America/Winnipeg';
@@ -147,9 +148,21 @@ function deliveryPrice(booking: BookingEntity): number {
   return Number(s.deliveryPrice ?? pricing(booking).selectedDeliveryFee ?? 0);
 }
 
-function hostReceiveTotal(booking: BookingEntity): number {
-  const p = pricing(booking);
-  return Number(p.subtotal ?? p.discountedTripSubtotal ?? 0);
+export function hostReceiveTotal(booking: BookingEntity): number {
+  return hostNetDollarsForPricing(pricing(booking));
+}
+
+/** RYR host fee shown on host emails as Booking.ServiceFee. */
+export function hostFee(booking: BookingEntity): number {
+  return hostEarningsForPricing(pricing(booking)).hostFeeCents / 100;
+}
+
+/** Host-facing extension summary used by the extension request email. */
+export function extensionPaymentDetails(extPricing: Record<string, unknown> | null | undefined): string {
+  const p = extPricing ?? {};
+  const e = hostEarningsForPricing(p);
+  const tripDays = Number(p.tripDays ?? 0);
+  return `Trip days: ${tripDays}\nYour earnings: $${(e.hostNetCents / 100).toFixed(2)}\nService Fee: $${(e.hostFeeCents / 100).toFixed(2)}`;
 }
 
 export class BookingNotificationContext {
@@ -205,7 +218,7 @@ export class BookingNotificationContext {
       .setMoneyVariable('Booking.PurePrice', purePrice(this.booking))
       .mergeWith(extraVariables(this.booking))
       .setMoneyVariable('Booking.DeliveryPrice', deliveryPrice(this.booking))
-      .setMoneyVariable('Booking.ServiceFee', tripFee(this.booking))
+      .setMoneyVariable('Booking.ServiceFee', hostFee(this.booking))
       .setMoneyVariable('Booking.HostRecieveTotal', hostReceiveTotal(this.booking))
       .build();
   }
@@ -232,7 +245,7 @@ export class BookingNotificationContext {
       .setMoneyVariable('Booking.PurePrice', purePrice(this.booking))
       .mergeWith(extraVariables(this.booking))
       .setMoneyVariable('Booking.DeliveryPrice', deliveryPrice(this.booking))
-      .setMoneyVariable('Booking.ServiceFee', tripFee(this.booking))
+      .setMoneyVariable('Booking.ServiceFee', hostFee(this.booking))
       .setMoneyVariable('Booking.HostRecieveTotal', hostReceiveTotal(this.booking))
       .build();
   }

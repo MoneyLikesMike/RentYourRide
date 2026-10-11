@@ -34,6 +34,11 @@ import {
   redactListingSnapshotForViewer,
 } from './booking-snapshot-access';
 import { getTripBillingDays } from './trip-billing-days';
+import {
+  hostEarningsPricingFields,
+  hostNetCentsForPricing,
+  planExtensionHostPayout,
+} from './host-earnings';
 
 export { getTripBillingDays } from './trip-billing-days';
 
@@ -148,8 +153,15 @@ export class BookingsService {
     const subtotal = discountedTripSubtotal + extrasSubtotal;
     const tripFee = discountedTripSubtotal * 0.1;
     const grandTotal = subtotal + tripFee;
-    // Platform keeps tripFee; host earns trip + extras (legacy receiveTotal parity).
-    const hostReceiveTotal = Math.max(0, Number(subtotal.toFixed(2)));
+    const hostEarnings = hostEarningsPricingFields({
+      baseTripSubtotal,
+      discountedTripSubtotal,
+      unlimitedKmFee,
+      prepaidFuelFee,
+      prepaidCleanFee,
+      selectedDeliveryFee,
+      subtotal,
+    });
 
     const selectedExtras = [
       input.extraPrepaidClean
@@ -187,7 +199,7 @@ export class BookingsService {
       subtotal,
       tripFee,
       grandTotal,
-      hostReceiveTotal,
+      ...hostEarnings,
       kmIncludedLabel: input.extraUnlimitedKm
         ? 'Unlimited kms'
         : `${Math.round(kmPerDayNumber * tripDays)} km`,
@@ -208,9 +220,7 @@ export class BookingsService {
   }
 
   private hostReceiveCents(b: BookingEntity): number {
-    const p = (b.pricing || {}) as Record<string, unknown>;
-    const hostReceive = Number(p.hostReceiveTotal ?? p.subtotal ?? 0);
-    return this.dollarsToCents(hostReceive);
+    return hostNetCentsForPricing(b.pricing as Record<string, unknown>);
   }
 
   private guestPayCents(b: BookingEntity): number {
@@ -336,6 +346,9 @@ export class BookingsService {
         ...pricingIn,
         ...serverQuote,
         hostReceiveTotal: serverQuote.hostReceiveTotal,
+        hostFee: serverQuote.hostFee,
+        hostFeeRate: serverQuote.hostFeeRate,
+        hostFeeBase: serverQuote.hostFeeBase,
         grandTotal: serverQuote.grandTotal,
         tripFee: serverQuote.tripFee,
         subtotal: serverQuote.subtotal,
@@ -866,10 +879,7 @@ export class BookingsService {
       previousEndMs: String(currentEnd),
       newEndMs: String(newEndMs),
       status: 'pending',
-      pricing: {
-        ...quote,
-        hostReceiveTotal: quote.subtotal,
-      },
+      pricing: { ...quote },
       stripePaymentIntentId,
       guestMessage: body.guestMessage?.trim() || null,
     });
@@ -916,6 +926,21 @@ export class BookingsService {
         grandTotal: prevGrand + extGrand,
         extensionTotal: extGrand,
       };
+      ext.stripeChargeId = await this.extensionChargeId(ext);
+      const payout = planExtensionHostPayout({
+        approved: true,
+        pricing: ext.pricing,
+        sourceChargeId: ext.stripeChargeId,
+        existingPayoutStatus: ext.hostPayoutStatus,
+      });
+      if (payout) {
+        // TODO(RYRA-457): the payout scheduler transfers scheduled extension
+        // payouts with source_transaction = stripeChargeId, then sets
+        // hostTransferId and hostPayoutStatus = 'paid'. No transfer happens here.
+        ext.hostPayoutStatus = payout.status;
+        ext.hostPayoutCents = payout.amountCents;
+        ext.hostPayoutScheduledAt = new Date();
+      }
       await this.extensionsRepo.save(ext);
       await this.bookingsRepo.save(booking);
       await this.messaging.postBookingSystemMessage(
@@ -954,6 +979,21 @@ export class BookingsService {
     }
 
     return presentBooking(booking, hostId);
+  }
+
+  private async extensionChargeId(ext: BookingExtensionEntity): Promise<string | null> {
+    if (ext.stripeChargeId) return ext.stripeChargeId;
+    if (!ext.stripePaymentIntentId || !this.payments.isConfigured()) return null;
+    try {
+      return await this.payments.chargeIdForPaymentIntent(ext.stripePaymentIntentId);
+    } catch (err) {
+      this.log.warn(
+        `Extension ${ext.id}: could not read charge for ${ext.stripePaymentIntentId}: ${
+          err instanceof Error ? err.message : err
+        }`,
+      );
+      return null;
+    }
   }
 
   private async requireBookingForExtension(
