@@ -106,5 +106,11 @@
     "subject": "We Approved Your Listing! ✅",
     "htmlFile": "html/ListingTemplates/ListingApproved.html",
     "textPart": "Your listing has been approved."
+  },
+  {
+    "name": "AccountActivityNewPaymentMethod",
+    "subject": "Account Activity: New Payment Method",
+    "htmlFile": "html/AccountTemplates/AccountActivityNewPaymentMethod.html",
+    "textPart": "A new payment method has been added to your account."
   }
 ]

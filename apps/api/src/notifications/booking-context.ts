@@ -35,6 +35,11 @@ function formatTimePart(ms: number, tz = DEFAULT_TZ): string {
   }).format(new Date(ms));
 }
 
+/** e.g. "October 11, 2026 at 1:08 PM" in the booking timezone. */
+export function formatDateTime(ms: number, tz = DEFAULT_TZ): string {
+  return `${formatDatePart(ms, tz)} at ${formatTimePart(ms, tz)}`;
+}
+
 /** Prefer calendar startTime/endTime strings (mobile stores clock there; start/end are often midnight). */
 function resolveTimeLabel(ms: number, timeOverride?: string | null, tz = DEFAULT_TZ): string {
   const booked = typeof timeOverride === 'string' ? timeOverride.trim() : '';
@@ -73,13 +78,23 @@ function pricing(booking: BookingEntity): Record<string, unknown> {
   return (booking.pricing ?? {}) as Record<string, unknown>;
 }
 
+/** Vehicle decoders return makes in capitals ("HONDA"); keep short acronyms like BMW, GMC. */
+function tidyVehicleName(name: string): string {
+  const fix = (part: string) =>
+    /^[A-Z]{4,}$/.test(part) || part === 'KIA' ? part.charAt(0) + part.slice(1).toLowerCase() : part;
+  return name
+    .split(' ')
+    .map((word) => word.split('-').map(fix).join('-'))
+    .join(' ');
+}
+
 function vehicleModelOf(s: Record<string, unknown>): string {
   const vd = (s.vehicleData ?? {}) as Record<string, unknown>;
   const make = String(vd.make ?? '').trim();
   const model = String(vd.model ?? '').trim();
   const title = String(s.title ?? '').trim();
-  if (title) return title;
-  if (make || model) return `${make} ${model}`.trim();
+  if (title) return tidyVehicleName(title);
+  if (make || model) return tidyVehicleName(`${make} ${model}`.trim());
   return 'Vehicle';
 }
 
