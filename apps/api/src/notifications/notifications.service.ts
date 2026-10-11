@@ -6,7 +6,11 @@ import { LessThanOrEqual, Repository } from 'typeorm';
 import { BookingEntity } from '../entities/booking.entity';
 import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
-import { BookingNotificationContext, formatBookingEndDate } from './booking-context';
+import {
+  BookingNotificationContext,
+  extensionPaymentDetails,
+  formatBookingEndDate,
+} from './booking-context';
 import { PinpointService } from './pinpoint.service';
 import { TemplateName } from './template-names';
 import { TemplateVariablesBuilder } from './template-variables.builder';
@@ -900,11 +904,7 @@ export class NotificationsService {
   }
 
   private extensionPaymentDetails(ext: BookingExtensionEntity): string {
-    const p = ext.pricing as Record<string, unknown>;
-    const tripDays = Number(p.tripDays ?? 0);
-    const hostTotal = Number(p.hostReceiveTotal ?? p.subtotal ?? 0);
-    const tripFee = Number(p.tripFee ?? 0);
-    return `Trip days: ${tripDays}\nYour earnings: $${hostTotal}\nService Fee: $${tripFee}`;
+    return extensionPaymentDetails(ext.pricing as Record<string, unknown>);
   }
 
   async markTripReminderSent(

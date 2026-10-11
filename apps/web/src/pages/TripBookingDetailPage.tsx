@@ -11,6 +11,7 @@ import {
 import { ApiError } from '../api/http';
 import { useAuth } from '../auth/AuthContext';
 import ProfileLayout from '../components/ProfileLayout';
+import { getHostEarnings } from '../utils/hostEarnings';
 import {
   coverUri,
   formatTripDates,
@@ -95,10 +96,9 @@ function DetailBody() {
   const grandTotal = Number(
     pricing.grandTotal != null ? pricing.grandTotal : subtotal + tripFee,
   );
-  const serviceFeeHost = Math.max(0, discountedTripSubtotal * 0.25);
-  const hostEarnings = Math.max(
-    0,
-    discountedTripSubtotal - serviceFeeHost + extrasSum,
+  const { hostFee: serviceFeeHost, hostNet: hostEarnings } = getHostEarnings(
+    pricing,
+    extras,
   );
 
   const cardStatus = booking ? getTripCardStatus(booking) : null;

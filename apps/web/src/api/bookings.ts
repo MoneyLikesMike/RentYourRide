@@ -34,6 +34,9 @@ export type BookingQuote = {
   tripFee: number;
   grandTotal: number;
   hostReceiveTotal: number;
+  hostFee?: number;
+  hostFeeRate?: number;
+  hostFeeBase?: 'discounted' | 'undiscounted';
   kmIncludedLabel: string;
   selectedExtras: Array<{ key: string; label: string; amount: number }>;
   canDeliver: boolean;

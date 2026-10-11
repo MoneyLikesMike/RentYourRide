@@ -3,6 +3,7 @@ import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
 import { diditConsoleSessionUrl } from '../didit/didit.constants';
 import { findEmailDomainTypo } from '../common/email-domain-typos';
+import { hostEarningsForPricing, hostNetDollarsForPricing } from '../bookings/host-earnings';
 
 export function fullName(user: UserEntity | null | undefined): string {
   if (!user) return '';
@@ -186,7 +187,8 @@ export function toAdminBookingRow(booking: BookingEntity) {
     requestEnd: end,
     subtotal: Number(pricing.total ?? pricing.subtotal ?? 0),
     tripFee: Number(pricing.tripFee ?? pricing.serviceFee ?? 0),
-    hostEarnings: Number(pricing.hostEarnings ?? pricing.hostTotal ?? 0),
+    hostEarnings: hostNetDollarsForPricing(pricing),
+    hostFee: hostEarningsForPricing(pricing).hostFeeCents / 100,
     deliveryFee: Number(pricing.deliveryFee ?? 0),
     prePaidCleaningPrice: 0,
     prePaidFuelPrice: 0,
@@ -347,9 +349,7 @@ export function toAdminBookingRegistration(booking: BookingEntity) {
   const tripSubtotal = Number(pricing.subtotal ?? 0);
   const tripFee = Number(pricing.tripFee ?? pricing.serviceFee ?? 0);
   const grandTotal = Number(pricing.grandTotal ?? tripSubtotal + tripFee);
-  const hostEarnings = Number(
-    pricing.hostEarnings ?? pricing.hostTotal ?? Math.max(0, tripSubtotal),
-  );
+  const hostEarnings = hostNetDollarsForPricing(pricing);
   const pricePerDay = Number(pricing.pricePerDay ?? listing?.pricePerDay ?? 0) || 0;
   const deliveryFee = booking.deliveryEnabled
     ? Number(listing?.deliveryPrice ?? pricing.selectedDeliveryFee ?? 0)
