@@ -182,7 +182,7 @@ function selectedExtraCents(p: Record<string, unknown>, field: string, key: stri
 /**
  * Host earnings breakdown rows, in the same order as the app's host booking screen.
  * Pinpoint templates hide a row with {{#eq Var ''}}{{else}}…{{/eq}}, so unselected
- * extras are set to ''.
+ * extras and a missing discount are set to ''.
  */
 export function hostBreakdownVars(
   pricing: Record<string, unknown> | null | undefined,
@@ -205,7 +205,7 @@ export function hostBreakdownVars(
   const delivery = e.deliveryFeeCents;
   const optional = (cents: number) => [cents > 0 ? money(cents) : ''];
 
-  let discountLabel = 'Discount';
+  let discountLabel = '';
   if (savingsCents > 0) {
     discountLabel = p.appliesMonthlyDiscount
       ? `Monthly discount (${Number(p.monthlyDiscountPct ?? 0)}%)`
@@ -217,7 +217,7 @@ export function hostBreakdownVars(
     'Booking.TripDaysLabel': [`${days} ${days === 1 ? 'day' : 'days'}`],
     'Booking.BaseTripSubtotal': [money(baseCents)],
     'Booking.DiscountLabel': [discountLabel],
-    'Booking.DiscountAmount': [savingsCents > 0 ? deduction(savingsCents) : 'No discount applied'],
+    'Booking.DiscountAmount': [savingsCents > 0 ? deduction(savingsCents) : ''],
     'Booking.ExtraKms': optional(kms),
     'Booking.ExtraFuel': optional(fuel),
     'Booking.ExtraClean': optional(clean),

@@ -166,7 +166,7 @@ describe('extension host payout', () => {
 });
 
 describe('hostBreakdownVars', () => {
-  it('no discount, only the selected extra shown, fee in parentheses', () => {
+  it('no discount row, only the selected extra shown, fee in parentheses', () => {
     const v = hostBreakdownVars(
       {
         pricePerDay: 50,
@@ -182,8 +182,7 @@ describe('hostBreakdownVars', () => {
     assert.deepEqual(v['Booking.TripDaysLabel'], ['3 days']);
     assert.deepEqual(v['Booking.PricePerDay'], ['$50.00']);
     assert.deepEqual(v['Booking.BaseTripSubtotal'], ['$150.00']);
-    assert.deepEqual(v['Booking.DiscountLabel'], ['Discount']);
-    assert.deepEqual(v['Booking.DiscountAmount'], ['No discount applied']);
+    assert.deepEqual(v['Booking.DiscountAmount'], ['']);
     assert.deepEqual(v['Booking.ExtraKms'], ['']);
     assert.deepEqual(v['Booking.ExtraFuel'], ['']);
     assert.deepEqual(v['Booking.ExtraClean'], ['$20.00']);
