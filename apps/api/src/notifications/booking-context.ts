@@ -297,6 +297,55 @@ export function guestBreakdownVars(
   };
 }
 
+export type AgreementSection = { title: string; arr: Array<{ title: string; value: string }> };
+
+/**
+ * Admin rental agreement in the app's breakdown order. Rows with an empty value
+ * are dropped (no discount, unselected extras).
+ */
+export function agreementSections(
+  pricing: Record<string, unknown> | null | undefined,
+  days: number,
+  kmIncluded?: string,
+): AgreementSection[] {
+  const g = guestBreakdownVars(pricing, days);
+  const h = hostBreakdownVars(pricing, days);
+  const v = (vars: PinpointSubstitutions, key: string) => vars[key]?.[0] ?? '';
+  const rows = (items: Array<[string, string]>) =>
+    items.filter(([, value]) => value !== '').map(([title, value]) => ({ title, value }));
+  return [
+    {
+      title: 'Guest Pays',
+      arr: rows([
+        [`${v(g, 'Booking.PricePerDay')} × ${v(g, 'Booking.TripDaysLabel')}`, v(g, 'Booking.BaseTripSubtotal')],
+        [v(g, 'Booking.DiscountLabel'), v(g, 'Booking.DiscountAmount')],
+        ['Unlimited kms', v(g, 'Booking.ExtraKms')],
+        ['Pre paid fuel', v(g, 'Booking.ExtraFuel')],
+        ['Pre paid clean', v(g, 'Booking.ExtraClean')],
+        ['Delivery', v(g, 'Booking.ExtraDelivery')],
+        ['Subtotal', v(g, 'Booking.Subtotal')],
+        ['Trip fee', v(g, 'Booking.TripFee')],
+        ['Total', v(g, 'Booking.GuestPayTotal')],
+      ]),
+    },
+    {
+      title: 'Host Receives',
+      arr: rows([
+        ['Subtotal', v(h, 'Booking.Subtotal')],
+        [v(h, 'Booking.ServiceFeeLabel'), v(h, 'Booking.ServiceFeeDeduction')],
+        ['Host receives', v(h, 'Booking.HostRecieveTotal')],
+      ]),
+    },
+    {
+      title: 'Trip',
+      arr: rows([
+        ['Days', String(days)],
+        ['Kilometres included', kmIncluded ?? ''],
+      ]),
+    },
+  ];
+}
+
 /** Review.Stars / Review.Rating / Review.Comment for the review-received emails. */
 export function reviewVars(review: { rating?: unknown; text?: unknown } | null | undefined): PinpointSubstitutions {
   const rating = Math.min(5, Math.max(1, Math.round(Number(review?.rating) || 0)));
