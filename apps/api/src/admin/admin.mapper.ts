@@ -5,6 +5,7 @@ import { diditConsoleSessionUrl } from '../didit/didit.constants';
 import { findEmailDomainTypo } from '../common/email-domain-typos';
 import { hostEarningsForPricing, hostNetDollarsForPricing } from '../bookings/host-earnings';
 import { getTripBillingDays } from '../bookings/trip-billing-days';
+import { agreementSections } from '../notifications/booking-context';
 
 export function fullName(user: UserEntity | null | undefined): string {
   if (!user) return '';
@@ -356,6 +357,8 @@ export function toAdminBookingRegistration(booking: BookingEntity) {
     ? Number(listing?.deliveryPrice ?? pricing.selectedDeliveryFee ?? 0)
     : 0;
   const kmLimit = parseKmLimit(listing?.dailyKm) ?? 0;
+  const tripDays =
+    Number(pricing.tripDays) || getTripBillingDays(Number(dates.start), Number(dates.end));
 
   const registration = {
     id: booking.id,
@@ -365,9 +368,12 @@ export function toAdminBookingRegistration(booking: BookingEntity) {
     guestFullName: fullName(booking.guest),
     requestedStartDate: parseBookingDate(dates.start) ?? booking.createdAt,
     requestedEndDate: parseBookingDate(dates.end) ?? booking.createdAt,
-    tripDays:
-      Number(pricing.tripDays) ||
-      getTripBillingDays(Number(dates.start), Number(dates.end)),
+    tripDays,
+    agreementSections: agreementSections(
+      pricing,
+      tripDays,
+      typeof pricing.kmIncludedLabel === 'string' ? pricing.kmIncludedLabel : undefined,
+    ),
     introduceYourSelfMessage: booking.introMessage ?? '',
     tripFee: dollarsToCents(tripFee),
     deliveryFee: dollarsToCents(deliveryFee),

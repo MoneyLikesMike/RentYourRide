@@ -11,6 +11,7 @@ import {
   hostBreakdownVars,
   listingVehicleVars,
   reviewVars,
+  agreementSections,
 } from './booking-context';
 import type { PinpointSubstitutions } from './template-variables.builder';
 
@@ -193,5 +194,41 @@ describe('booking date labels', () => {
     );
     assert.equal(local.startLabel(), 'October 12, 2026 at 12:00 PM CT');
     assert.equal(local.endLabel(), 'October 13, 2026 at 12:00 PM CT');
+  });
+});
+
+describe('admin agreement sections', () => {
+  it('matches the app breakdown and hides empty rows', () => {
+    const sections = agreementSections(
+      { pricePerDay: 56, baseTripSubtotal: 56, discountedTripSubtotal: 56, subtotal: 56, tripFee: 5.6000000000000005, grandTotal: 61.6, selectedExtras: [] },
+      1,
+      '200 km',
+    );
+    assert.deepEqual(sections, [
+      {
+        title: 'Guest Pays',
+        arr: [
+          { title: '$56.00 × 1 day', value: '$56.00' },
+          { title: 'Subtotal', value: '$56.00' },
+          { title: 'Trip fee', value: '$5.60' },
+          { title: 'Total', value: '$61.60' },
+        ],
+      },
+      {
+        title: 'Host Receives',
+        arr: [
+          { title: 'Subtotal', value: '$56.00' },
+          { title: 'Service fee (25%)', value: '($14.00)' },
+          { title: 'Host receives', value: '$42.00' },
+        ],
+      },
+      {
+        title: 'Trip',
+        arr: [
+          { title: 'Days', value: '1' },
+          { title: 'Kilometres included', value: '200 km' },
+        ],
+      },
+    ]);
   });
 });

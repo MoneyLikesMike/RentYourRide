@@ -173,6 +173,35 @@ for path in paths:
     else:
         raise SystemExit("rental agreement days pattern not found")
 
+    # Rental agreement pricing: render the API's app-style breakdown (Guest Pays / Host Receives / Trip).
+    sections_old = ',s=[{title:"Pricing",arr:[{title:"Kilometres Included In The Trip"'
+    sections_new = ',s=l&&l.agreementSections||[{title:"Pricing",arr:[{title:"Kilometres Included In The Trip"'
+    if sections_new in text:
+        print("rental agreement already uses agreementSections")
+    elif sections_old in text:
+        text = text.replace(sections_old, sections_new, 1)
+        print("rental agreement now uses agreementSections")
+    else:
+        raise SystemExit("rental agreement sections pattern not found")
+
+    colon_old = 'i.a.createElement("span",{className:"price-title"},e.title,":")'
+    colon_new = 'i.a.createElement("span",{className:"price-title"},e.title)'
+    if colon_old in text:
+        text = text.replace(colon_old, colon_new, 1)
+        print("rental agreement rows use receipt style")
+    elif colon_new not in text:
+        raise SystemExit("rental agreement row title pattern not found")
+
+    total_old = '" ",(null===l||void 0===l?void 0:l.subtotal)/100," $")'
+    total_new = '" $"+((l&&l.subtotal||0)/100).toFixed(2))'
+    if total_new in text:
+        print("rental agreement total already formatted")
+    elif total_old in text:
+        text = text.replace(total_old, total_new, 1)
+        print("rental agreement total formatted as $0.00")
+    else:
+        raise SystemExit("rental agreement total pattern not found")
+
     path.write_text(text)
     print("patched", path)
 
@@ -199,6 +228,21 @@ for path in list(Path("static/js").glob("main.*.chunk.js")):
 
 index = Path("index.html")
 html = index.read_text()
+agreement_css = (
+    '<style id="ryr-agreement-breakdown">'
+    '.rental-agreement-wrapper .price-wrapper .pricing{min-width:16vw}'
+    '.rental-agreement-wrapper .price-wrapper .pricing .price-row{justify-content:space-between;width:100%;gap:2vw}'
+    '.rental-agreement-wrapper .price-wrapper .pricing .price-row .price-title,.rental-agreement-wrapper .price-wrapper .pricing .price-row .price-value{text-transform:none}'
+    '.rental-agreement-wrapper .price-wrapper .pricing:not(:last-child) .price-row:last-child'
+    '{border-top:.1vw solid #def2f1;padding-top:.6vw}'
+    '.rental-agreement-wrapper .price-wrapper .pricing:not(:last-child) .price-row:last-child span'
+    '{font-weight:800;color:#17252a}'
+    '</style>'
+)
+if 'ryr-agreement-breakdown' not in html:
+    html = html.replace("</head>", agreement_css + "</head>", 1)
+    index.write_text(html)
+    print("added agreement breakdown styles")
 if "service-worker.js?" not in html:
     html = html.replace("service-worker.js", "service-worker.js?v=license-fields")
     index.write_text(html)
