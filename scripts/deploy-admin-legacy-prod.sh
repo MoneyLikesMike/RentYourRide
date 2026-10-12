@@ -253,6 +253,9 @@ grep -q 'backend.rentyourride.ca' static/js/main.*.chunk.js
 grep -q 'admin.rentyourride.ca' index.html
 grep -q 'DATE OF BIRTH' static/js/main.*.chunk.js
 grep -q 'province/state' static/js/main.*.chunk.js
+grep -q 'l&&l.tripDays' static/js/main.*.chunk.js
+grep -q 'l&&l.agreementSections' static/js/main.*.chunk.js
+grep -q 'ryr-agreement-breakdown' index.html
 grep -q 'title:"gender"' static/js/main.*.chunk.js
 grep -q 'ryr-email-typo-filter' static/js/main.*.chunk.js
 grep -q 'emailDomainTypo' static/js/main.*.chunk.js
