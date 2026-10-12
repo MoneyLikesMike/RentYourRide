@@ -32,6 +32,7 @@ import {
   getListingDisplayRating,
   listingHasGuestReviews,
 } from '../utils/listingRating';
+import { carTimeNote } from '../utils/carTime';
 
 export type ListingDetailNavState = {
   search?: SearchNavState;
@@ -1092,6 +1093,7 @@ export default function ListingDetailPage() {
                     />
                   </div>
                 </div>
+                <p className="trip-time-note">{carTimeNote(listing.timeZone)}</p>
 
                 <div className="trip-field">
                   <span className="trip-label">

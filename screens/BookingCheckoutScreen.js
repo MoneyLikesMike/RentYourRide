@@ -48,6 +48,7 @@ import { listingPhotoUrls } from '../utils/listingPhotos';
 import { formatApproximatePickup } from '../utils/approximateLocation';
 import { resolveMediaUrl } from '../utils/mediaUrl';
 import { navigateToUserProfile, navigateToAddCard } from '../utils/navigateRootStack';
+import { carTimeNote } from '../utils/carTime';
 
 const scale = uiScale;
 // Match listing detail CTA: content band + flush yellow/teal into the home-indicator.
@@ -770,6 +771,7 @@ export default function BookingCheckoutScreen({ navigation, route }) {
             <Text style={styles.tripMetaDateLabel}>End</Text>
             <Text style={styles.tripMetaDateValue} numberOfLines={1}>{endDateTimeText}</Text>
           </View>
+          <Text style={styles.tripMetaTimeNote}>{carTimeNote(listing?.timeZone)}</Text>
         </TouchableOpacity>
 
         {canDeliver ? (
@@ -1320,6 +1322,12 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 12 * scale,
     color: '#6A6A6A',
+  },
+  tripMetaTimeNote: {
+    marginTop: 6 * scale,
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 11 * scale,
+    color: COLORS.GREENY_BLUE_TWO,
   },
   sectionBlock: {
     marginTop: 18 * scale,

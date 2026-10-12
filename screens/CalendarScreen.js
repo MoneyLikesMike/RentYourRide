@@ -26,6 +26,7 @@ import {
   getTimeToMinutes,
   isTodayDate,
 } from '../utils/bookingDatesDefaults';
+import { pickedDate } from '../utils/carTime';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
@@ -409,6 +410,8 @@ const CalendarScreen = ({ navigation, route }) => {
         end: selectionEnd.getTime(),
         startTime: tripStartTime,
         endTime: tripEndTime,
+        startDate: pickedDate(selectionStart),
+        endDate: pickedDate(selectionEnd),
       };
       const returnTo = route.params?.returnTo || 'SearchResultsScreen';
       const payload = { bookingDates };

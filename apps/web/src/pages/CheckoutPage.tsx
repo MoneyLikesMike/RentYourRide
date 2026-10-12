@@ -39,6 +39,7 @@ import {
   getListingDisplayRating,
   listingHasGuestReviews,
 } from '../utils/listingRating';
+import { carTimeNote, pickedDate } from '../utils/carTime';
 
 export type CheckoutNavState = {
   search?: SearchNavState;
@@ -215,6 +216,8 @@ export default function CheckoutPage() {
       end,
       startTime: formatTimeLabel(dates.start),
       endTime: formatTimeLabel(dates.end),
+      startDate: pickedDate(dates.start),
+      endDate: pickedDate(dates.end),
     };
   }, [dates?.start, dates?.end]);
 
@@ -616,6 +619,7 @@ export default function CheckoutPage() {
                   </span>
                 </div>
               </div>
+              <p className="trip-time-note">{carTimeNote(listing.timeZone)}</p>
 
               <div className="checkout-border" />
 

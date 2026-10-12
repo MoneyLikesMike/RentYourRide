@@ -34,6 +34,7 @@ import {
   redactListingSnapshotForViewer,
 } from './booking-snapshot-access';
 import { getTripBillingDays } from './trip-billing-days';
+import { listingTimeZone, normalizeBookingDates } from './booking-time';
 import {
   hostEarningsPricingFields,
   hostNetCentsForPricing,
@@ -252,12 +253,13 @@ export class BookingsService {
     }
 
     const key = idempotencyKey?.trim() || null;
-    const bookingDates = body.bookingDates as Record<string, unknown>;
-    const startMs = Number(bookingDates?.start);
-    const endMs = Number(bookingDates?.end);
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    const clientDates = body.bookingDates as Record<string, unknown>;
+    const bookingDates = normalizeBookingDates(clientDates, listingTimeZone(listing));
+    if (!bookingDates) {
       throw new BadRequestException('bookingDates.start and end required');
     }
+    const startMs = bookingDates.start;
+    const endMs = bookingDates.end;
 
     // Serialize all create attempts for this listing so overlapping trips
     // cannot charge twice under a race.
@@ -333,7 +335,7 @@ export class BookingsService {
       const extras = (body.extras as { key?: string }[] | undefined) || [];
       const serverQuote = this.quote(listing, {
         listingId: listing.id,
-        bookingDates: bookingDates as QuoteInput['bookingDates'],
+        bookingDates: clientDates as QuoteInput['bookingDates'],
         extraUnlimitedKm:
           extras.some((e) => e?.key === 'kms') || Number(pricingIn.unlimitedKmFee) > 0,
         extraPrepaidFuel:
@@ -365,7 +367,8 @@ export class BookingsService {
       const rentalDescription = formatRentalStripeDescription({
         host: listing.host,
         listing,
-        bookingDates: bookingDates as { start?: number; end?: number },
+        bookingDates,
+        tz: bookingDates.timeZone,
       });
 
       let stripePaymentIntentId: string | null = null;
@@ -451,7 +454,7 @@ export class BookingsService {
               }
             : {}),
         },
-        bookingDates,
+        bookingDates: { ...bookingDates },
         pickupAddress: (body.pickupAddress as string) || listing.pickupAddress,
         dropoffAddress: (body.dropoffAddress as string) || null,
         deliveryEnabled: Boolean(body.deliveryEnabled),

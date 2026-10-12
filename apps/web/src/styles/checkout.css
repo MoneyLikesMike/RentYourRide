@@ -113,6 +113,13 @@
   background: #f2f2f2;
 }
 
+.checkout-left .trip-time-note {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8125rem;
+  color: #3aafa9;
+  margin: 0.6rem 0 0;
+}
+
 .checkout-toggle-row {
   display: flex;
   justify-content: space-between;

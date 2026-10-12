@@ -22,6 +22,7 @@ export type ListingSummary = {
   photos?: ListingPhoto[];
   pricePerDay: number;
   pickupAddress?: string;
+  timeZone?: string;
   hostName?: string;
   hostTrips?: number;
   hostRating?: number;

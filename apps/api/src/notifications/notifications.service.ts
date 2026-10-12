@@ -9,7 +9,6 @@ import { UserEntity } from '../entities/user.entity';
 import {
   BookingNotificationContext,
   extensionPaymentDetails,
-  formatBookingEndDate,
   formatDateTime,
   guestBreakdownVars,
   hostBreakdownVars,
@@ -782,8 +781,8 @@ export class NotificationsService {
         if (!ext) return;
         const ctx = BookingNotificationContext.fromEntity(ext.booking);
         if (!ctx) return;
-        const startLabel = formatBookingEndDate(Number(ext.previousEndMs));
-        const endLabel = formatBookingEndDate(Number(ext.newEndMs));
+        const startLabel = ctx.dateTimeLabel(Number(ext.previousEndMs));
+        const endLabel = ctx.dateTimeLabel(Number(ext.newEndMs));
         const guestSms = SmsCopy.extensionCreatedGuest();
         const hostSms = SmsCopy.extensionCreatedHost(ctx.guest.firstName ?? 'Guest');
         const guestVars = new TemplateVariablesBuilder()
@@ -826,7 +825,7 @@ export class NotificationsService {
         const ctx = BookingNotificationContext.fromEntity(ext.booking);
         if (!ctx) return;
         const guestSms = SmsCopy.extensionApprovedGuest(
-          formatBookingEndDate(Number(ext.newEndMs)),
+          ctx.dateTimeLabel(Number(ext.newEndMs)),
         );
         const extPricing = (ext.pricing ?? {}) as Record<string, unknown>;
         const extDays = Number(extPricing.tripDays ?? 0);
@@ -836,8 +835,8 @@ export class NotificationsService {
           .setVariable('Host.FirstName', ctx.host.firstName ?? '')
           .setVariable('Vehicle.Model', ctx.baseBookingVars()['Vehicle.Model']?.[0] ?? '')
           .setVariable('Vehicle.CoverImage', ctx.baseBookingVars()['Vehicle.CoverImage']?.[0] ?? '')
-          .setVariable('Extension.StartDate', formatBookingEndDate(Number(ext.previousEndMs)))
-          .setVariable('Extension.EndDate', formatBookingEndDate(Number(ext.newEndMs)))
+          .setVariable('Extension.StartDate', ctx.dateTimeLabel(Number(ext.previousEndMs)))
+          .setVariable('Extension.EndDate', ctx.dateTimeLabel(Number(ext.newEndMs)))
           .build();
         await this.notifyUser(ctx.guest, {
           sms: guestSms,
@@ -864,8 +863,8 @@ export class NotificationsService {
         if (!ext) return;
         const ctx = BookingNotificationContext.fromEntity(ext.booking);
         if (!ctx) return;
-        const startLabel = formatBookingEndDate(Number(ext.previousEndMs));
-        const endLabel = formatBookingEndDate(Number(ext.newEndMs));
+        const startLabel = ctx.dateTimeLabel(Number(ext.previousEndMs));
+        const endLabel = ctx.dateTimeLabel(Number(ext.newEndMs));
         const guestVars = new TemplateVariablesBuilder()
           .init()
           .mergeWith(ctx.baseBookingVars())
