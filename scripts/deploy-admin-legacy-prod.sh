@@ -162,6 +162,17 @@ for path in paths:
     else:
         raise SystemExit("members saga pattern not found")
 
+    # Rental agreement "Days" was calendar days + 1 (a 24h trip showed 2); use the API's billed tripDays.
+    days_old = 'return Math.abs(e.diff(t,"days"))+1})()'
+    days_new = 'return l&&l.tripDays||Math.max(1,Math.ceil(Math.abs(t.diff(e,"hours",!0))/24))})()'
+    if days_new in text:
+        print("rental agreement days already use tripDays")
+    elif days_old in text:
+        text = text.replace(days_old, days_new, 1)
+        print("rental agreement days now use tripDays")
+    else:
+        raise SystemExit("rental agreement days pattern not found")
+
     path.write_text(text)
     print("patched", path)
 
