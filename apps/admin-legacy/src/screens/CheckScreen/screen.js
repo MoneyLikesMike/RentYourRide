@@ -32,9 +32,10 @@ const RentalAgreementWrapper = ({ params }) => {
   });
 
   const getDays = () => {
+    if (trip?.tripDays) return trip.tripDays;
     const start = moment(trip?.requestedStartDate);
     const end = moment(trip?.requestedEndDate);
-    return Math.abs(start.diff(end, "days")) + 1;
+    return Math.max(1, Math.ceil(Math.abs(end.diff(start, "hours", true)) / 24));
   };
 
   const rentalAgreement = [
