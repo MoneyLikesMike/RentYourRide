@@ -13,6 +13,7 @@ import { sanitizeHostBioForDisplay } from '../common/host-bio-display';
 import { honestHostRating } from '../common/listing-rating';
 import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
+import { listingTimeZone } from '../bookings/booking-time';
 
 /** Nested vehicleData keys safe for public browse. */
 export const PUBLIC_VEHICLE_DATA_KEYS = [
@@ -74,6 +75,7 @@ export function publicHostDisplayName(host?: UserEntity | null): string {
 export type PublicListingDto = {
   id: string;
   city: string;
+  timeZone: string;
   title: string;
   description: string;
   vehicleType: string;
@@ -121,6 +123,7 @@ export function toPublicListingDto(listing: ListingEntity): PublicListingDto {
   return {
     id: listing.id,
     city: listing.city,
+    timeZone: listingTimeZone(listing),
     title: listing.title,
     description: listing.description ?? '',
     vehicleType: listing.vehicleType,
