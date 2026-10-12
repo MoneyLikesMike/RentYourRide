@@ -2,6 +2,8 @@ import { BookingEntity } from '../entities/booking.entity';
 import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
 
+import { timeZoneShortName } from './booking-time';
+
 const DEFAULT_TZ = 'America/Winnipeg';
 
 function possessiveFirstName(firstName: string): string {
@@ -68,7 +70,7 @@ export function formatRentalStripeDescription(opts: {
   host?: UserEntity | null;
   listing?: ListingEntity | null;
   listingSnapshot?: Record<string, unknown> | null;
-  bookingDates?: { start?: number; end?: number; startTime?: string; endTime?: string };
+  bookingDates?: { start?: number; end?: number; startTime?: string; endTime?: string; timeZone?: string };
   tz?: string;
 }): string {
   const snapshot =
@@ -77,7 +79,8 @@ export function formatRentalStripeDescription(opts: {
   const dates = opts.bookingDates ?? {};
   const startMs = Number(dates.start);
   const endMs = Number(dates.end);
-  const tz = opts.tz ?? DEFAULT_TZ;
+  const tz = opts.tz ?? dates.timeZone ?? DEFAULT_TZ;
+  const zone = dates.timeZone ? ` ${timeZoneShortName(tz, startMs)}` : '';
 
   const owner = possessiveFirstName(hostFirstName(opts.host ?? opts.listing?.host, snapshot));
   const vehicle = vehicleLabelFromSnapshot(snapshot);
@@ -85,7 +88,7 @@ export function formatRentalStripeDescription(opts: {
   if (Number.isFinite(startMs) && Number.isFinite(endMs)) {
     const startLabel = formatBookingDateTimeLabel(startMs, tz, dates.startTime);
     const endLabel = formatBookingDateTimeLabel(endMs, tz, dates.endTime);
-    return `Rental of ${owner} ${vehicle} ${startLabel} - ${endLabel}`;
+    return `Rental of ${owner} ${vehicle} ${startLabel} - ${endLabel}${zone}`;
   }
 
   return `Rental of ${owner} ${vehicle}`;
@@ -103,6 +106,7 @@ export function formatRentalStripeDescriptionFromBooking(
       end?: number;
       startTime?: string;
       endTime?: string;
+      timeZone?: string;
     },
   });
 }

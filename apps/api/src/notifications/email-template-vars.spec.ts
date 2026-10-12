@@ -173,3 +173,25 @@ describe('review received emails', () => {
     assert.deepEqual(reviewVars({ rating: 3, text: '  ' })['Review.Comment'], ['']);
   });
 });
+
+describe('booking date labels', () => {
+  it('car-local bookings show the car timezone', () => {
+    const local = new BookingNotificationContext(
+      {
+        ...booking,
+        bookingDates: {
+          start: Date.parse('2026-10-12T17:00:00Z'),
+          end: Date.parse('2026-10-13T17:00:00Z'),
+          startTime: '12:00 PM',
+          endTime: '12:00 PM',
+          timeZone: 'America/Winnipeg',
+        },
+      } as unknown as BookingEntity,
+      guest,
+      host,
+      'America/Winnipeg',
+    );
+    assert.equal(local.startLabel(), 'October 12, 2026 at 12:00 PM CT');
+    assert.equal(local.endLabel(), 'October 13, 2026 at 12:00 PM CT');
+  });
+});

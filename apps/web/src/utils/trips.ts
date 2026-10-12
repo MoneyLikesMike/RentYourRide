@@ -203,11 +203,13 @@ export function listingTitle(booking: BookingDto): string {
 export function formatTripDates(booking: BookingDto): string {
   const bounds = getTripBoundsMs(booking);
   if (!bounds) return 'Dates TBD';
+  const timeZone = booking.bookingDates?.timeZone;
   const fmt = (ms: number) =>
     new Date(ms).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
+      ...(timeZone ? { timeZone } : {}),
     });
   return `${fmt(bounds.startMs)} – ${fmt(bounds.endMs)}`;
 }

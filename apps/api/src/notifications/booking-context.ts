@@ -1,6 +1,7 @@
 import { BookingEntity } from '../entities/booking.entity';
 import { UserEntity } from '../entities/user.entity';
 import { getTripBillingDays } from '../bookings/trip-billing-days';
+import { timeZoneShortName } from '../bookings/booking-time';
 import { hostEarningsForPricing, hostNetDollarsForPricing } from '../bookings/host-earnings';
 import { TemplateVariablesBuilder, PinpointSubstitutions } from './template-variables.builder';
 
@@ -10,6 +11,7 @@ type BookingDatesShape = {
   start?: number;
   end?: number;
   startTime?: string;
+  timeZone?: string;
   endTime?: string;
 };
 
@@ -324,12 +326,25 @@ export class BookingNotificationContext {
 
   static fromEntity(booking: BookingEntity): BookingNotificationContext | null {
     if (!booking.guest || !booking.host) return null;
-    return new BookingNotificationContext(booking, booking.guest, booking.host);
+    const tz = bookingDatesOf(booking).timeZone;
+    return new BookingNotificationContext(booking, booking.guest, booking.host, tz || DEFAULT_TZ);
+  }
+
+  /** Bookings created with server-computed car-local times (stored timeZone). */
+  private hasCarLocalTimes(): boolean {
+    return Boolean(bookingDatesOf(this.booking).timeZone);
+  }
+
+  /** "October 12, 2026 at 12:00 PM CT" for car-local bookings; legacy wording otherwise. */
+  dateTimeLabel(ms: number, legacyTimeOverride?: string | null): string {
+    if (this.hasCarLocalTimes()) {
+      return `${formatDateTime(ms, this.tz)} ${timeZoneShortName(this.tz, ms)}`.trim();
+    }
+    return formatEndDate(ms, legacyTimeOverride, this.tz);
   }
 
   startLabel(): string {
-    const dates = bookingDatesOf(this.booking);
-    return formatStartDate(startMs(this.booking), dates.startTime, this.tz);
+    return this.dateTimeLabel(startMs(this.booking), bookingDatesOf(this.booking).startTime);
   }
 
   vehicleLabel(): string {
@@ -337,8 +352,7 @@ export class BookingNotificationContext {
   }
 
   endLabel(): string {
-    const dates = bookingDatesOf(this.booking);
-    return formatEndDate(endMs(this.booking), dates.endTime, this.tz);
+    return this.dateTimeLabel(endMs(this.booking), bookingDatesOf(this.booking).endTime);
   }
 
   hostBreakdown(): PinpointSubstitutions {

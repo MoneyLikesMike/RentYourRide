@@ -11,6 +11,7 @@ import {
 import { sanitizeHostBioForDisplay } from '../common/host-bio-display';
 import { honestHostRating } from '../common/listing-rating';
 import { UserEntity } from './user.entity';
+import { listingTimeZone } from '../bookings/booking-time';
 
 @Entity('listings')
 export class ListingEntity {
@@ -115,6 +116,7 @@ export class ListingEntity {
     return {
       id: this.id,
       city: this.city,
+      timeZone: listingTimeZone(this),
       title: this.title,
       description: this.description ?? '',
       vehicleType: this.vehicleType,

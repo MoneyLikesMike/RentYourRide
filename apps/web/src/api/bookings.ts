@@ -5,6 +5,8 @@ export type BookingDatesInput = {
   end: number;
   startTime?: string;
   endTime?: string;
+  startDate?: string;
+  endDate?: string;
 };
 
 export type QuoteInput = {
@@ -71,6 +73,7 @@ export type BookingDates = {
   end?: number | string;
   startTime?: string;
   endTime?: string;
+  timeZone?: string;
 };
 
 export type ListingSnapshot = {
