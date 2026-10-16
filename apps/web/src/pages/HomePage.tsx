@@ -17,6 +17,8 @@ import TextDecorator from '../components/TextDecorator';
 import type { SearchNavState } from '../types/search';
 import { goToHomeTop } from '../utils/goToHomeTop';
 import {
+  END_SHIFTED_AFTER_START_MESSAGE,
+  ensureEndAfterStart,
   nextValidTripStart,
   todayDateInput,
   toDateInputValue,
@@ -115,6 +117,45 @@ export default function HomePage() {
   );
   const [error, setError] = useState<string | null>(null);
   const [howVideo, setHowVideo] = useState<'renting' | 'listing' | null>(null);
+
+  const syncEndAfterStart = (
+    nextStartDate: string,
+    nextStartTime: string,
+    nextEndDate: string,
+    nextEndTime: string,
+  ) => {
+    const start = combineLocal(nextStartDate, nextStartTime);
+    const end = combineLocal(nextEndDate, nextEndTime);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+    const fixed = ensureEndAfterStart(start, end);
+    if (fixed.shifted) {
+      setEndDate(toDateInput(fixed.end));
+      setEndTime(snapSearchTime(toTimeInput(fixed.end)));
+      setError(END_SHIFTED_AFTER_START_MESSAGE);
+    } else {
+      setError(null);
+    }
+  };
+
+  const onStartDateChange = (value: string) => {
+    setStartDate(value);
+    syncEndAfterStart(value, startTime, endDate, endTime);
+  };
+
+  const onStartTimeChange = (value: string) => {
+    setStartTime(value);
+    syncEndAfterStart(startDate, value, endDate, endTime);
+  };
+
+  const onEndDateChange = (value: string) => {
+    setEndDate(value);
+    syncEndAfterStart(startDate, startTime, value, endTime);
+  };
+
+  const onEndTimeChange = (value: string) => {
+    setEndTime(value);
+    syncEndAfterStart(startDate, startTime, endDate, value);
+  };
 
   useEffect(() => {
     const state = location.state as { openHowItWorks?: boolean } | null;
@@ -270,13 +311,13 @@ export default function HomePage() {
               <div className="select-wrapper">
                 <DateField
                   value={startDate}
-                  onChange={setStartDate}
+                  onChange={onStartDateChange}
                   min={todayDateInput()}
                   aria-label="Start date"
                 />
                 <SearchTimePicker
                   value={startTime}
-                  onChange={setStartTime}
+                  onChange={onStartTimeChange}
                   aria-label="Start time"
                 />
               </div>
@@ -287,13 +328,13 @@ export default function HomePage() {
               <div className="select-wrapper">
                 <DateField
                   value={endDate}
-                  onChange={setEndDate}
+                  onChange={onEndDateChange}
                   min={startDate || todayDateInput()}
                   aria-label="End date"
                 />
                 <SearchTimePicker
                   value={endTime}
-                  onChange={setEndTime}
+                  onChange={onEndTimeChange}
                   aria-label="End time"
                 />
               </div>

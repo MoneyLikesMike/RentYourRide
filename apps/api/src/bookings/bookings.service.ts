@@ -35,6 +35,7 @@ import {
 } from './booking-snapshot-access';
 import { getTripBillingDays } from './trip-billing-days';
 import {
+  isTripEndOnOrBeforeStart,
   isTripStartInPast,
   listingTimeZone,
   normalizeBookingDates,
@@ -128,6 +129,9 @@ export class BookingsService {
     }
     if (isTripStartInPast(Number(start))) {
       throw new BadRequestException('Trip start must be in the future');
+    }
+    if (isTripEndOnOrBeforeStart(Number(end), Number(start))) {
+      throw new BadRequestException('Trip end must be after start');
     }
     const pricePerDay = Number(listing.pricePerDay) || 40;
     const deliveryFee = Number(listing.deliveryPrice ?? 0) || 0;
@@ -267,6 +271,9 @@ export class BookingsService {
     }
     if (isTripStartInPast(bookingDates.start)) {
       throw new BadRequestException('Trip start must be in the future');
+    }
+    if (isTripEndOnOrBeforeStart(bookingDates.end, bookingDates.start)) {
+      throw new BadRequestException('Trip end must be after start');
     }
     const startMs = bookingDates.start;
     const endMs = bookingDates.end;

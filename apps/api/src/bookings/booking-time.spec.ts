@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  isTripEndOnOrBeforeStart,
   isTripStartInPast,
   listingTimeZone,
   normalizeBookingDates,
@@ -115,5 +116,22 @@ describe('isTripStartInPast', () => {
     assert.equal(isTripStartInPast(now, now), false);
     assert.equal(isTripStartInPast(now + 60_000, now), false);
     assert.equal(isTripStartInPast(Number.NaN, now), false);
+  });
+});
+
+describe('isTripEndOnOrBeforeStart', () => {
+  it('rejects end before start and equal instants; allows same-day later end', () => {
+    const start = Date.parse('2026-10-20T15:00:00.000Z');
+    assert.equal(isTripEndOnOrBeforeStart(start - 1, start), true);
+    assert.equal(isTripEndOnOrBeforeStart(start, start), true);
+    assert.equal(isTripEndOnOrBeforeStart(start + 60_000, start), false);
+    // Same calendar day, later wall time
+    assert.equal(
+      isTripEndOnOrBeforeStart(
+        Date.parse('2026-10-20T22:00:00.000Z'),
+        Date.parse('2026-10-20T15:00:00.000Z'),
+      ),
+      false,
+    );
   });
 });

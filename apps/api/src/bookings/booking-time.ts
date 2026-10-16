@@ -162,3 +162,8 @@ export function normalizeBookingDates(
 export function isTripStartInPast(startMs: number, nowMs = Date.now()): boolean {
   return Number.isFinite(startMs) && startMs < nowMs;
 }
+
+/** True when end is on or before start (RYRA-441). Same-day OK if end > start. */
+export function isTripEndOnOrBeforeStart(endMs: number, startMs: number): boolean {
+  return Number.isFinite(endMs) && Number.isFinite(startMs) && endMs <= startMs;
+}

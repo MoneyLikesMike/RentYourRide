@@ -169,8 +169,9 @@ export function getListingTripSubtotal(
   end: Date | null,
 ): number | null {
   if (!start || !end) return null;
-  // Never quote a trip that already started (RYRA-440).
+  // Never quote a trip that already started (RYRA-440) or has end ≤ start (RYRA-441).
   if (start.getTime() < Date.now()) return null;
+  if (end.getTime() <= start.getTime()) return null;
   const days = getTripBillingDays(start, end);
   if (!days) return null;
   const price = Number(listing.pricePerDay);
