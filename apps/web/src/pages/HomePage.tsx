@@ -16,17 +16,21 @@ import { AppStoreBadge, GooglePlayBadge } from '../components/StoreBadges';
 import TextDecorator from '../components/TextDecorator';
 import type { SearchNavState } from '../types/search';
 import { goToHomeTop } from '../utils/goToHomeTop';
-
-function pad(n: number): string {
-  return String(n).padStart(2, '0');
-}
+import {
+  nextValidTripStart,
+  todayDateInput,
+  toDateInputValue,
+  toTimeInputValue,
+  tripDatesErrorMessage,
+  validateTripDates,
+} from '../utils/tripDates';
 
 function toDateInput(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return toDateInputValue(d);
 }
 
 function toTimeInput(d: Date): string {
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return toTimeInputValue(d);
 }
 
 function combineLocal(dateStr: string, timeStr: string): Date {
@@ -44,10 +48,12 @@ function formatDisplayDate(iso: string): string {
 function DateField({
   value,
   onChange,
+  min,
   'aria-label': ariaLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
+  min?: string;
   'aria-label': string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -72,6 +78,7 @@ function DateField({
         type="date"
         className="dt-input"
         value={value}
+        min={min}
         onChange={(e) => onChange(e.target.value)}
         aria-label={ariaLabel}
       />
@@ -80,10 +87,7 @@ function DateField({
 }
 
 function defaultStart(): Date {
-  const d = new Date();
-  d.setMinutes(0, 0, 0);
-  d.setHours(d.getHours() + 1);
-  return d;
+  return nextValidTripStart();
 }
 
 function defaultEnd(start: Date): Date {
@@ -135,12 +139,9 @@ export default function HomePage() {
     const start = combineLocal(startDate, startTime);
     const end = combineLocal(endDate, endTime);
 
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      setError('Choose valid start and end dates.');
-      return null;
-    }
-    if (end <= start) {
-      setError('End must be after start.');
+    const issue = validateTripDates(start, end);
+    if (issue) {
+      setError(tripDatesErrorMessage(issue));
       return null;
     }
 
@@ -270,6 +271,7 @@ export default function HomePage() {
                 <DateField
                   value={startDate}
                   onChange={setStartDate}
+                  min={todayDateInput()}
                   aria-label="Start date"
                 />
                 <SearchTimePicker
@@ -286,6 +288,7 @@ export default function HomePage() {
                 <DateField
                   value={endDate}
                   onChange={setEndDate}
+                  min={startDate || todayDateInput()}
                   aria-label="End date"
                 />
                 <SearchTimePicker

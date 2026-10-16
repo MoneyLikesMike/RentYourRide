@@ -44,6 +44,14 @@ import {
   MAX_RESULT_DISTANCE_KM,
   SEARCH_RADIUS_KM,
 } from '../utils/searchLocation';
+import {
+  ensureTripDatesNotPast,
+  nextValidTripStart,
+  todayDateInput,
+  toDateInputValue,
+  toTimeInputValue,
+  validateTripDates,
+} from '../utils/tripDates';
 import HeartIcon from '../components/FavoriteHeartIcon';
 
 const VEHICLE_TYPE_OPTIONS = [
@@ -114,6 +122,38 @@ function combineLocal(dateStr: string, timeStr: string): Date | null {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
+function tripFieldsFromNav(navDates?: { start?: string; end?: string }) {
+  if (!navDates?.start && !navDates?.end) {
+    return {
+      startDate: '',
+      startTime: '10:00',
+      endDate: '',
+      endTime: '10:00',
+    };
+  }
+  const start =
+    combineLocal(toDateInput(navDates?.start), toTimeInput(navDates?.start)) ??
+    nextValidTripStart();
+  const endRaw = combineLocal(
+    toDateInput(navDates?.end),
+    toTimeInput(navDates?.end),
+  );
+  const end =
+    endRaw ??
+    (() => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + 1);
+      return d;
+    })();
+  const ensured = ensureTripDatesNotPast(start, end);
+  return {
+    startDate: toDateInputValue(ensured.start),
+    startTime: snapSearchTime(toTimeInputValue(ensured.start)),
+    endDate: toDateInputValue(ensured.end),
+    endTime: snapSearchTime(toTimeInputValue(ensured.end)),
+  };
+}
+
 /** en-CA → YYYY-MM-DD (avoids clipped native mm/dd/y placeholders). */
 function formatDisplayDateCa(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -128,10 +168,12 @@ function formatDisplayDateCa(iso: string): string {
 function SearchDateField({
   value,
   onChange,
+  min,
   'aria-label': ariaLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
+  min?: string;
   'aria-label': string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -156,6 +198,7 @@ function SearchDateField({
         type="date"
         className="fyc-dt-input"
         value={value}
+        min={min}
         onChange={(e) => onChange(e.target.value)}
         aria-label={ariaLabel}
         lang="en-CA"
@@ -420,17 +463,17 @@ export default function FindYourCarPage() {
     }
     return null;
   });
-  const [startDate, setStartDate] = useState(() =>
-    toDateInput(navState?.dates?.start),
+  const [startDate, setStartDate] = useState(
+    () => tripFieldsFromNav(navState?.dates).startDate,
   );
-  const [startTime, setStartTime] = useState(() =>
-    snapSearchTime(toTimeInput(navState?.dates?.start)),
+  const [startTime, setStartTime] = useState(
+    () => tripFieldsFromNav(navState?.dates).startTime,
   );
-  const [endDate, setEndDate] = useState(() =>
-    toDateInput(navState?.dates?.end),
+  const [endDate, setEndDate] = useState(
+    () => tripFieldsFromNav(navState?.dates).endDate,
   );
-  const [endTime, setEndTime] = useState(() =>
-    snapSearchTime(toTimeInput(navState?.dates?.end)),
+  const [endTime, setEndTime] = useState(
+    () => tripFieldsFromNav(navState?.dates).endTime,
   );
 
   const [searchCity, setSearchCity] = useState(initialCity);
@@ -823,6 +866,7 @@ export default function FindYourCarPage() {
               <SearchDateField
                 value={startDate}
                 onChange={setStartDate}
+                min={todayDateInput()}
                 aria-label="Start date"
               />
               <SearchTimePicker
@@ -840,6 +884,7 @@ export default function FindYourCarPage() {
               <SearchDateField
                 value={endDate}
                 onChange={setEndDate}
+                min={startDate || todayDateInput()}
                 aria-label="End date"
               />
               <SearchTimePicker
@@ -1323,15 +1368,19 @@ export default function FindYourCarPage() {
                 const isFav = favoriteIds.has(String(listing.id));
                 const tripStart = combineLocal(startDate, startTime);
                 const tripEnd = combineLocal(endDate, endTime);
+                const tripOk =
+                  tripStart &&
+                  tripEnd &&
+                  validateTripDates(tripStart, tripEnd) === null;
                 const specs = formatListingSpecsLine(listing);
                 const trust = formatListingTrustLine(listing);
                 const newHost = isNewHostListing(listing);
-                const tripSubtotal = getListingTripSubtotal(
-                  listing,
-                  tripStart,
-                  tripEnd,
-                );
-                const dateRange = formatCardDateRange(tripStart, tripEnd);
+                const tripSubtotal = tripOk
+                  ? getListingTripSubtotal(listing, tripStart, tripEnd)
+                  : null;
+                const dateRange = tripOk
+                  ? formatCardDateRange(tripStart, tripEnd)
+                  : null;
                 const origin =
                   typeof place?.latitude === 'number' &&
                   typeof place?.longitude === 'number'

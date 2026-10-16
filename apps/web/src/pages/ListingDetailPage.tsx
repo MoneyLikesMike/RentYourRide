@@ -33,6 +33,14 @@ import {
   listingHasGuestReviews,
 } from '../utils/listingRating';
 import { carTimeNote } from '../utils/carTime';
+import {
+  ensureTripDatesNotPast,
+  nextValidTripStart,
+  toDateInputValue,
+  toTimeInputValue,
+  tripDatesErrorMessage,
+  validateTripDates,
+} from '../utils/tripDates';
 
 export type ListingDetailNavState = {
   search?: SearchNavState;
@@ -69,6 +77,38 @@ function combineLocal(dateStr: string, timeStr: string): Date | null {
   const [hh, mm] = timeStr.split(':').map(Number);
   const dt = new Date(y!, (m ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0, 0, 0);
   return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function tripFieldsFromNav(navDates?: SearchTripDates) {
+  if (!navDates?.start && !navDates?.end) {
+    return {
+      startDate: '',
+      startTime: '10:00',
+      endDate: '',
+      endTime: '10:00',
+    };
+  }
+  const start =
+    combineLocal(toDateInput(navDates?.start), toTimeInput(navDates?.start)) ??
+    nextValidTripStart();
+  const endRaw = combineLocal(
+    toDateInput(navDates?.end),
+    toTimeInput(navDates?.end),
+  );
+  const end =
+    endRaw ??
+    (() => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + 1);
+      return d;
+    })();
+  const ensured = ensureTripDatesNotPast(start, end);
+  return {
+    startDate: toDateInputValue(ensured.start),
+    startTime: snapSearchTime(toTimeInputValue(ensured.start)),
+    endDate: toDateInputValue(ensured.end),
+    endTime: snapSearchTime(toTimeInputValue(ensured.end)),
+  };
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -278,15 +318,17 @@ export default function ListingDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [hostBioOpen, setHostBioOpen] = useState(false);
 
-  const [startDate, setStartDate] = useState(() =>
-    toDateInput(navState.dates?.start),
+  const [startDate, setStartDate] = useState(
+    () => tripFieldsFromNav(navState.dates).startDate,
   );
   const [startTime, setStartTime] = useState(
-    () => snapSearchTime(toTimeInput(navState.dates?.start) || '10:00'),
+    () => tripFieldsFromNav(navState.dates).startTime,
   );
-  const [endDate, setEndDate] = useState(() => toDateInput(navState.dates?.end));
+  const [endDate, setEndDate] = useState(
+    () => tripFieldsFromNav(navState.dates).endDate,
+  );
   const [endTime, setEndTime] = useState(
-    () => snapSearchTime(toTimeInput(navState.dates?.end) || '10:00'),
+    () => tripFieldsFromNav(navState.dates).endTime,
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [pickupDisplay, setPickupDisplay] = useState('—');
@@ -514,8 +556,13 @@ export default function ListingDetailPage() {
   const onCheckout = () => {
     const start = combineLocal(startDate, startTime);
     const end = combineLocal(endDate, endTime);
-    if (!start || !end || end <= start) {
+    if (!start || !end) {
       setError('Choose a valid start and end for your trip.');
+      return;
+    }
+    const issue = validateTripDates(start, end);
+    if (issue) {
+      setError(tripDatesErrorMessage(issue));
       return;
     }
     if (tripOverlapsBlocked(start.getTime(), end.getTime(), blockedCalendar)) {
