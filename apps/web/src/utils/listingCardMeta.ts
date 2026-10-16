@@ -162,12 +162,31 @@ function parseDiscountPercent(raw: unknown): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-/** Estimated trip total: discounted daily subtotal + 10% trip fee (no extras). */
+export type ListingTripTotal = {
+  /** rate × days + 10% trip fee, no weekly/monthly discount */
+  originalTotal: number;
+  /** Current card figure (discounted daily + 10% fee), whole dollars */
+  total: number;
+  /** True only when a discount applies and rounded original > total */
+  hasDiscount: boolean;
+};
+
+/** Whole dollars with $ and thousands separators ($1,030) — same style as daily rate. */
+export function formatCadDollars(amount: number): string {
+  const n = Math.round(Number(amount));
+  if (!Number.isFinite(n)) return '$0';
+  return `$${n.toLocaleString('en-US')}`;
+}
+
+/**
+ * Estimated trip total for search cards: discounted daily subtotal + 10% trip fee.
+ * Excludes optional extras (fuel/clean/unlimited km/delivery).
+ */
 export function getListingTripSubtotal(
   listing: ListingForCard,
   start: Date | null,
   end: Date | null,
-): number | null {
+): ListingTripTotal | null {
   if (!start || !end) return null;
   // Never quote a trip that already started (RYRA-440) or has end ≤ start (RYRA-441).
   if (start.getTime() < Date.now()) return null;
@@ -188,8 +207,10 @@ export function getListingTripSubtotal(
       ? 1 - weeklyPct / 100
       : 1;
   const discounted = Math.max(0, base * multiplier);
-  const tripFee = discounted * 0.1;
-  return Math.round(discounted + tripFee);
+  const originalTotal = Math.round(base + base * 0.1);
+  const total = Math.round(discounted + discounted * 0.1);
+  const hasDiscount = originalTotal > total;
+  return { originalTotal, total, hasDiscount };
 }
 
 export function getListingDistanceFromOrigin(

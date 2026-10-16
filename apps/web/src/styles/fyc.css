@@ -964,13 +964,47 @@
   font-weight: 600;
 }
 
-.fyc-trip-total {
+.fyc-trip-price {
+  position: relative;
   margin: 0.15rem 0 0;
+  text-align: right;
+  max-width: 11.5rem;
+  margin-left: auto;
+}
+
+.fyc-trip-total-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0;
   font-family: 'Nunito', sans-serif;
   font-size: 0.8rem;
+  line-height: 1.25;
+}
+
+.fyc-trip-original {
+  color: #8e8e8e;
   font-weight: 600;
-  color: #388d89;
-  text-align: right;
+  text-decoration: line-through;
+}
+
+.fyc-trip-now {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.fyc-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .fyc-card-footer {

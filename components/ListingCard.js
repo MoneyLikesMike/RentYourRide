@@ -6,6 +6,7 @@ import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { getListingDisplayRating, listingHasGuestReviews } from '../utils/listingRating';
 import {
+  formatCadDollars,
   formatListingSpecsLine,
   formatListingTrustLine,
   formatCardDateRange,
@@ -66,7 +67,13 @@ export default function ListingCard({
   const specs = formatListingSpecsLine(listing);
   const trustLine = formatListingTrustLine(listing);
   const newHost = isNewHostListing(listing);
-  const tripSubtotal = getListingTripSubtotal(listing, bookingDates);
+  const tripTotal = getListingTripSubtotal(listing, bookingDates);
+  const tripA11yLabel =
+    tripTotal == null
+      ? undefined
+      : tripTotal.hasDiscount
+        ? `Original price ${formatCadDollars(tripTotal.originalTotal)} CAD, now ${formatCadDollars(tripTotal.total)} CAD trip`
+        : `${formatCadDollars(tripTotal.total)} CAD trip`;
   const dateRange = formatCardDateRange(bookingDates);
   const distance =
     distanceKmProp != null
@@ -124,7 +131,7 @@ export default function ListingCard({
           style={{
             position: 'relative',
             width: '100%',
-            paddingRight: 120,
+            paddingRight: 148,
           }}
         >
           <Text style={styles.cardTitle}>{listing.title || 'Vehicle'}</Text>
@@ -134,6 +141,7 @@ export default function ListingCard({
               top: 0,
               right: 0,
               alignItems: 'flex-end',
+              maxWidth: 148,
             }}
           >
             <Text style={styles.cardPrice} numberOfLines={1}>
@@ -141,10 +149,27 @@ export default function ListingCard({
               <Text style={styles.cardPriceCurrency}> CAD</Text>
               <Text style={styles.cardPriceUnit}> / day</Text>
             </Text>
-            {tripSubtotal != null ? (
-              <Text style={styles.tripTotal} numberOfLines={1}>
-                ${tripSubtotal} trip
-              </Text>
+            {tripTotal != null ? (
+              <View
+                style={styles.tripPriceBlock}
+                accessible
+                accessibilityLabel={tripA11yLabel}
+              >
+                <View style={styles.tripTotalRow}>
+                  {tripTotal.hasDiscount ? (
+                    <Text style={styles.tripOriginal} importantForAccessibility="no">
+                      {formatCadDollars(tripTotal.originalTotal)}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.tripNow} importantForAccessibility="no">
+                    <Text style={styles.tripNowAmount}>
+                      {formatCadDollars(tripTotal.total)}
+                    </Text>
+                    <Text style={styles.tripNowCurrency}> CAD</Text>
+                    <Text style={styles.tripNowUnit}> trip</Text>
+                  </Text>
+                </View>
+              </View>
             ) : null}
           </View>
         </View>
@@ -303,12 +328,42 @@ const styles = StyleSheet.create({
     color: 'rgb(142,142,142)',
     letterSpacing: -0.3,
   },
-  tripTotal: {
+  tripPriceBlock: {
+    marginTop: 2,
+    alignItems: 'flex-end',
+    maxWidth: 148,
+  },
+  tripTotalRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  tripOriginal: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
     fontSize: 12,
+    color: 'rgb(142,142,142)',
+    textDecorationLine: 'line-through',
+  },
+  tripNow: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 12,
+  },
+  tripNowAmount: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 12,
     color: 'rgb(56,141,137)',
-    marginTop: 2,
-    textAlign: 'right',
+  },
+  tripNowCurrency: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 12,
+    color: COLORS.MANGO_TWO,
+  },
+  tripNowUnit: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 12,
+    color: 'rgb(142,142,142)',
   },
   footerLine: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,

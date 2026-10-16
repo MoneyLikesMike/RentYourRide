@@ -10,7 +10,7 @@
     "build:prod": "tsc --noEmit && vite build --mode production",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "../api/node_modules/.bin/tsx --test src/utils/tripDates.spec.ts"
+    "test": "../api/node_modules/.bin/tsx --test src/utils/tripDates.spec.ts src/utils/listingCardMeta.spec.ts"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.1",

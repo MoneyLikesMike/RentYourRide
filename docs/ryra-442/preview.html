@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>RYRA-442 card price preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../apps/web/src/styles/fyc.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #f7f7f7;
+        font-family: Nunito, sans-serif;
+      }
+      h1 {
+        font-size: 1.1rem;
+        margin: 0 0 16px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+      .fyc-car-wrapper {
+        width: 320px;
+        background: #fff;
+        border: 1px solid #e8e8e8;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .fyc-car-img {
+        display: block;
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        background: #d9d9d9;
+      }
+      .fyc-car-description {
+        display: block;
+        padding: 12px 14px 16px;
+        text-decoration: none;
+        color: inherit;
+      }
+      .label {
+        width: 100%;
+        font-size: 0.85rem;
+        color: #666;
+        margin: 8px 0 0;
+      }
+      .rn-card {
+        width: 320px;
+        background: #fff;
+        border: 1px solid #e8e8e8;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .rn-body {
+        padding: 12px 14px 16px;
+      }
+      .rn-title-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .rn-title {
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .rn-price {
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .rn-day {
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .rn-day .amt {
+        color: rgb(56, 141, 137);
+      }
+      .rn-day .cad {
+        color: rgb(255, 187, 46);
+      }
+      .rn-day .unit {
+        color: rgb(142, 142, 142);
+        font-size: 13px;
+      }
+      .rn-trip-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-top: 2px;
+        align-items: baseline;
+      }
+      .rn-orig {
+        color: rgb(142, 142, 142);
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: line-through;
+      }
+      .rn-trip {
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .rn-trip .amt {
+        color: rgb(56, 141, 137);
+      }
+      .rn-trip .cad {
+        color: rgb(255, 187, 46);
+        font-weight: 600;
+      }
+      .rn-trip .unit {
+        color: rgb(142, 142, 142);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Web — Find Your Car cards</h1>
+    <div class="row">
+      <article class="fyc-car-wrapper" id="web-discounted">
+        <div class="fyc-car-img-wrap">
+          <div class="fyc-car-img" style="background: linear-gradient(135deg,#5a7,#8cb)"></div>
+        </div>
+        <div class="fyc-car-description">
+          <div class="fyc-title-price-row">
+            <p class="fyc-card-title-text">2019 Ford Escape</p>
+            <div class="fyc-price-block">
+              <p class="fyc-price-cad">
+                <span class="fyc-price">$56</span>
+                <span class="fyc-cad">CAD</span>
+                <span class="fyc-per-day"> / day</span>
+              </p>
+              <div class="fyc-trip-price">
+                <p class="fyc-sr-only">
+                  Original price $493 CAD, now $444 CAD trip
+                </p>
+                <p class="fyc-trip-total-row" aria-hidden="true">
+                  <span class="fyc-trip-original">$493</span>
+                  <span class="fyc-trip-now">
+                    <span class="fyc-price">$444</span>
+                    <span class="fyc-cad"> CAD</span>
+                    <span class="fyc-per-day"> trip</span>
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+          <p class="fyc-card-specs">SUV · AWD · 5 seats</p>
+          <p class="fyc-card-footer">Jun 1–9 · 2.4 km away</p>
+        </div>
+      </article>
+
+      <article class="fyc-car-wrapper" id="web-plain">
+        <div class="fyc-car-img-wrap">
+          <div class="fyc-car-img" style="background: linear-gradient(135deg,#789,#abd)"></div>
+        </div>
+        <div class="fyc-car-description">
+          <div class="fyc-title-price-row">
+            <p class="fyc-card-title-text">2019 Ford Escape</p>
+            <div class="fyc-price-block">
+              <p class="fyc-price-cad">
+                <span class="fyc-price">$56</span>
+                <span class="fyc-cad">CAD</span>
+                <span class="fyc-per-day"> / day</span>
+              </p>
+              <div class="fyc-trip-price">
+                <p class="fyc-sr-only">$62 CAD trip</p>
+                <p class="fyc-trip-total-row" aria-hidden="true">
+                  <span class="fyc-trip-now">
+                    <span class="fyc-price">$62</span>
+                    <span class="fyc-cad"> CAD</span>
+                    <span class="fyc-per-day"> trip</span>
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+          <p class="fyc-card-specs">SUV · AWD · 5 seats</p>
+          <p class="fyc-card-footer">Jun 1–2 · 2.4 km away</p>
+        </div>
+      </article>
+    </div>
+
+    <p class="label">iOS / React Native card styling (same numbers &amp; $N CAD format)</p>
+    <div class="row">
+      <div class="rn-card" id="ios-discounted">
+        <div class="fyc-car-img" style="background: linear-gradient(135deg,#5a7,#8cb)"></div>
+        <div class="rn-body">
+          <div class="rn-title-row">
+            <div class="rn-title">2019 Ford Escape</div>
+            <div class="rn-price">
+              <div class="rn-day">
+                <span class="amt">$56</span><span class="cad"> CAD</span
+                ><span class="unit"> / day</span>
+              </div>
+              <div class="rn-trip-row">
+                <span class="rn-orig">$493</span>
+                <span class="rn-trip">
+                  <span class="amt">$444</span><span class="cad"> CAD</span
+                  ><span class="unit"> trip</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="rn-card" id="ios-plain">
+        <div class="fyc-car-img" style="background: linear-gradient(135deg,#789,#abd)"></div>
+        <div class="rn-body">
+          <div class="rn-title-row">
+            <div class="rn-title">2019 Ford Escape</div>
+            <div class="rn-price">
+              <div class="rn-day">
+                <span class="amt">$56</span><span class="cad"> CAD</span
+                ><span class="unit"> / day</span>
+              </div>
+              <div class="rn-trip-row">
+                <span class="rn-trip">
+                  <span class="amt">$62</span><span class="cad"> CAD</span
+                  ><span class="unit"> trip</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
