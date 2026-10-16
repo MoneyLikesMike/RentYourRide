@@ -123,7 +123,7 @@ const ProfileScreen = ({
             />
           </div>
           <div className="border" />
-          <a href="https://rentyourride.ca/" className="href" target="_blank">
+          <a href="https://www.rentyourride.ca/" className="href" target="_blank">
             <Button
               title="Sign In as user"
               type="transparent"

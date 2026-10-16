@@ -25,6 +25,7 @@ import { InAppNotificationEntity } from '../entities/in-app-notification.entity'
 import { NotificationDispatchClaimEntity } from '../entities/notification-dispatch-claim.entity';
 import { NotificationDispatchLogEntity } from '../entities/notification-dispatch-log.entity';
 import { SmsOutboxEntity } from '../entities/sms-outbox.entity';
+import { publicWebOrigin, welcomeEmailCtaUrls } from '../common/public-web-origin';
 import {
   HOST_CANCEL_CHANNELS,
   HOST_CANCEL_EMAIL_IS_TRANSACTIONAL,
@@ -687,13 +688,9 @@ export class NotificationsService {
 
   /** Public marketing / customer website origin (no trailing slash). */
   private webOrigin(): string {
-    const raw =
-      this.config.get<string>('PUBLIC_WEB_ORIGIN')?.trim() ||
-      this.config.get<string>('WEB_PUBLIC_ORIGIN')?.trim() ||
-      '';
-    if (raw) return raw.replace(/\/$/, '');
-    // Customer SPA hosts (password reset / verify-email links).
-    return 'https://app.rentyourride.ca';
+    return publicWebOrigin({
+      get: (key) => this.config.get<string>(key),
+    });
   }
 
   /**
@@ -757,14 +754,13 @@ export class NotificationsService {
    * Matches legacy timing: signup sends VerifyEmail, verification sends Welcome.
    */
   async emailVerifiedWelcome(user: Recipient): Promise<boolean> {
+    const env = { get: (key: string) => this.config.get<string>(key) };
+    const ctas = welcomeEmailCtaUrls(env);
     const vars = new TemplateVariablesBuilder()
       .init()
       .setVariable('User.FirstName', user.firstName ?? '')
-      .setVariable('Url.SearchYourCity', 'https://rentyourride.ca/find-your-car')
-      .setVariable(
-        'Url.ListYourRide',
-        'https://rentyourride.ca/profile/list-your-ride',
-      )
+      .setVariable('Url.SearchYourCity', ctas.searchYourCity)
+      .setVariable('Url.ListYourRide', ctas.listYourRide)
       .build();
     return this.pinpoint.sendTemplateEmail(
       user.email,
