@@ -112,9 +112,17 @@ function parseDiscountPercent(raw) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+/** CA$ + whole dollars with thousands separators (CA$1,030). */
+export function formatCadDollars(amount) {
+  const n = Math.round(Number(amount));
+  if (!Number.isFinite(n)) return 'CA$0';
+  return `CA$${n.toLocaleString('en-US')}`;
+}
+
 /**
  * Estimated trip total for search cards: discounted daily subtotal + 10% trip fee.
  * Excludes optional extras (fuel/clean/unlimited km/delivery).
+ * @returns {{ originalTotal: number, total: number, hasDiscount: boolean } | null}
  */
 export function getListingTripSubtotal(listing, bookingDates) {
   if (!bookingDates?.start || !bookingDates?.end) return null;
@@ -134,8 +142,10 @@ export function getListingTripSubtotal(listing, bookingDates) {
       ? 1 - weeklyPct / 100
       : 1;
   const discounted = Math.max(0, base * multiplier);
-  const tripFee = discounted * 0.1;
-  return Math.round(discounted + tripFee);
+  const originalTotal = Math.round(base + base * 0.1);
+  const total = Math.round(discounted + discounted * 0.1);
+  const hasDiscount = originalTotal > total;
+  return { originalTotal, total, hasDiscount };
 }
 
 export function getListingDistanceFromOrigin(listing, origin) {

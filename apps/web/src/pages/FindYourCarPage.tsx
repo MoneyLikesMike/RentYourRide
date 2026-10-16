@@ -35,6 +35,7 @@ import {
   formatListingSpecsLine,
   formatListingTrustLine,
   getListingDistanceFromOrigin,
+  formatCadDollars,
   getListingTripSubtotal,
   isNewHostListing,
 } from '../utils/listingCardMeta';
@@ -1423,7 +1424,7 @@ export default function FindYourCarPage() {
                 const specs = formatListingSpecsLine(listing);
                 const trust = formatListingTrustLine(listing);
                 const newHost = isNewHostListing(listing);
-                const tripSubtotal = tripOk
+                const tripTotal = tripOk
                   ? getListingTripSubtotal(listing, tripStart, tripEnd)
                   : null;
                 const dateRange = tripOk
@@ -1495,8 +1496,27 @@ export default function FindYourCarPage() {
                             <span className="fyc-cad">CAD</span>
                             <span className="fyc-per-day"> / day</span>
                           </p>
-                          {tripSubtotal != null ? (
-                            <p className="fyc-trip-total">${tripSubtotal} trip</p>
+                          {tripTotal != null ? (
+                            <div className="fyc-trip-price">
+                              <p className="fyc-sr-only">
+                                {tripTotal.hasDiscount
+                                  ? `Original price ${formatCadDollars(tripTotal.originalTotal)}, now ${formatCadDollars(tripTotal.total)} total before taxes`
+                                  : `${formatCadDollars(tripTotal.total)} total before taxes`}
+                              </p>
+                              <p className="fyc-trip-total-row" aria-hidden="true">
+                                {tripTotal.hasDiscount ? (
+                                  <span className="fyc-trip-original">
+                                    {formatCadDollars(tripTotal.originalTotal)}
+                                  </span>
+                                ) : null}
+                                <span className="fyc-trip-now">
+                                  {formatCadDollars(tripTotal.total)} total
+                                </span>
+                              </p>
+                              <p className="fyc-trip-before-taxes" aria-hidden="true">
+                                Before taxes
+                              </p>
+                            </div>
                           ) : null}
                         </div>
                       </div>
