@@ -8,9 +8,9 @@
 
 export type TripDatesIssue = 'invalid' | 'past_start' | 'end_before_start';
 
-/** Shown when we auto-move end after the user advances start past it. */
+/** Shown when we auto-fix end so it stays after start. */
 export const END_SHIFTED_AFTER_START_MESSAGE =
-  'End date moved to after start.';
+  'End updated to after start.';
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
@@ -68,9 +68,15 @@ export function clampTripStart(start: Date, now = new Date()): Date {
   return start;
 }
 
+function startOfLocalDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
 /**
- * If end is on or before start, move end to the same clock time one day later.
- * Call this when the user changes start (or picks an invalid end).
+ * If end is on or before start, nudge end forward so the range is valid.
+ * - Same calendar day (or equal times): bump end time by 1 hour so same-day
+ *   pickup/return still works.
+ * - End date before start date: move end to the day after start (same clock).
  */
 export function ensureEndAfterStart(
   start: Date,
@@ -83,7 +89,12 @@ export function ensureEndAfterStart(
     return { start, end, shifted: false };
   }
   const nextEnd = new Date(start);
-  nextEnd.setDate(nextEnd.getDate() + 1);
+  if (startOfLocalDay(end) < startOfLocalDay(start)) {
+    nextEnd.setDate(nextEnd.getDate() + 1);
+  } else {
+    // Same day with end time ≤ start time — keep the day, advance the clock.
+    nextEnd.setHours(nextEnd.getHours() + 1);
+  }
   return { start, end: nextEnd, shifted: true };
 }
 

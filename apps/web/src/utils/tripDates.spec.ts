@@ -40,7 +40,7 @@ describe('validateTripDates', () => {
 });
 
 describe('ensureEndAfterStart', () => {
-  it('shifts end forward when start moves past end', () => {
+  it('shifts end to the next day when end date is before start', () => {
     const start = new Date('2026-10-20T10:00:00');
     const end = new Date('2026-10-18T10:00:00');
     const fixed = ensureEndAfterStart(start, end);
@@ -48,9 +48,33 @@ describe('ensureEndAfterStart', () => {
     assert.equal(fixed.end.toISOString(), new Date('2026-10-21T10:00:00').toISOString());
   });
 
+  it('keeps same-day trips by bumping end time, not the date', () => {
+    const start = new Date('2026-10-20T10:00:00');
+    const end = new Date('2026-10-20T10:00:00');
+    const fixed = ensureEndAfterStart(start, end);
+    assert.equal(fixed.shifted, true);
+    assert.equal(fixed.end.toISOString(), new Date('2026-10-20T11:00:00').toISOString());
+  });
+
+  it('bumps end time on the same day when end time is earlier than start', () => {
+    const start = new Date('2026-10-20T14:00:00');
+    const end = new Date('2026-10-20T10:00:00');
+    const fixed = ensureEndAfterStart(start, end);
+    assert.equal(fixed.shifted, true);
+    assert.equal(fixed.end.toISOString(), new Date('2026-10-20T15:00:00').toISOString());
+  });
+
   it('leaves a valid range alone', () => {
     const start = new Date('2026-10-18T10:00:00');
     const end = new Date('2026-10-20T10:00:00');
+    const fixed = ensureEndAfterStart(start, end);
+    assert.equal(fixed.shifted, false);
+    assert.equal(fixed.end.getTime(), end.getTime());
+  });
+
+  it('leaves a valid same-day range alone', () => {
+    const start = new Date('2026-10-20T10:00:00');
+    const end = new Date('2026-10-20T18:00:00');
     const fixed = ensureEndAfterStart(start, end);
     assert.equal(fixed.shifted, false);
     assert.equal(fixed.end.getTime(), end.getTime());
