@@ -3,6 +3,7 @@ import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
 import { diditConsoleSessionUrl } from '../didit/didit.constants';
 import { findEmailDomainTypo } from '../common/email-domain-typos';
+import { publicWebUrl } from '../common/public-web-origin';
 import { hostEarningsForPricing, hostNetDollarsForPricing } from '../bookings/host-earnings';
 import { getTripBillingDays } from '../bookings/trip-billing-days';
 import { agreementSections } from '../notifications/booking-context';
@@ -136,7 +137,9 @@ export function toAdminProfile(user: UserEntity) {
       : '',
     // Legacy admin field name; now points at Didit Business Console.
     matiDashboardUrl: diditConsoleSessionUrl(user.diditSessionId),
-    referralLink: user.referralCode ? `https://rentyourride.ca/r/${user.referralCode}` : '',
+    referralLink: user.referralCode
+      ? publicWebUrl(`/r/${user.referralCode}`)
+      : '',
     avatar: adminAvatarDto(user.avatarUrl),
     role: user.role,
     isTextNotificationsTurnOn: settings.textNotif !== false,

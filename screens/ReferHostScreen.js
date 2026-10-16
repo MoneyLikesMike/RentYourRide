@@ -15,13 +15,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import { REFERRAL_INVITE_BASE } from '../constants/publicWeb';
 import ShareLinkModal from './ShareLinkModal';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = uiScale;
 
-const REFERRAL_BASE = 'https://rentyourride.com/invite';
 const CREDIT_DISPLAY = '$25';
 
 const HEADLINE_COLOR = 'rgb(14, 38, 43)';
@@ -45,8 +45,8 @@ export default function ReferHostScreen({ navigation }) {
   const route = useRoute();
   const referralCode = route.params?.referralCode?.trim?.() || '';
   const referralLink = useMemo(() => {
-    if (!referralCode) return REFERRAL_BASE;
-    return `${REFERRAL_BASE}?code=${encodeURIComponent(referralCode)}`;
+    if (!referralCode) return REFERRAL_INVITE_BASE;
+    return `${REFERRAL_INVITE_BASE}?code=${encodeURIComponent(referralCode)}`;
   }, [referralCode]);
   const hostShareMessage = useMemo(
     () => `List your vehicle on Rent Your Ride and earn. ${referralLink}`,

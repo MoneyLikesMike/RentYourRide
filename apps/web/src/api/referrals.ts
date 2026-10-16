@@ -1,4 +1,5 @@
 import { apiFetch } from './http';
+import { SITE_ORIGIN } from '../components/PageMeta';
 
 export type ReferralSummary = {
   referralCode: string;
@@ -18,8 +19,7 @@ export async function applyReferralCode(
   });
 }
 
+/** Shareable invite URL on the canonical www origin (apex deep links 404). */
 export function inviteLink(code: string): string {
-  const origin =
-    typeof window !== 'undefined' ? window.location.origin : 'https://app.rentyourride.ca';
-  return `${origin}/signup?ref=${encodeURIComponent(code)}`;
+  return `${SITE_ORIGIN}/invite?code=${encodeURIComponent(code)}`;
 }

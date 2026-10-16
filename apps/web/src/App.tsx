@@ -23,6 +23,7 @@ import ListYourRidePage from './pages/ListYourRidePage';
 import LoginPage from './pages/LoginPage';
 import PaymentInformationPage from './pages/PaymentInformationPage';
 import ProfileOverviewPage from './pages/ProfileOverviewPage';
+import ReferralLandingPage from './pages/ReferralLandingPage';
 import ReferralsCreditsPage from './pages/ReferralsCreditsPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import SignupPage from './pages/SignupPage';
@@ -159,6 +160,9 @@ function AppRoutes() {
         />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        {/* Referral / invite landings — keep the code (RYRA-437); apply credits = RYRA-100 */}
+        <Route path="/invite" element={<ReferralLandingPage />} />
+        <Route path="/r/:code" element={<ReferralLandingPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
