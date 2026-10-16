@@ -588,6 +588,33 @@
   flex-wrap: wrap;
 }
 
+/* Keep help scroll targets below the sticky site header (≈ logo + padding). */
+#help-answers,
+.help-answer {
+  scroll-margin-top: clamp(4.75rem, 7vw, 6.5rem);
+}
+
+#help-answers:focus {
+  outline: none;
+}
+
+#help-answers:focus-visible {
+  outline: 2px solid #19ac9d;
+  outline-offset: 4px;
+}
+
+.help-results-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .help-reset {
   border: 0;
   background: none;

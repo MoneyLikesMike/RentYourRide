@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ContentPageHero from '../components/ContentPageHero';
 import { isCrispConfigured, openCrispChat } from '../components/CrispChat';
@@ -17,6 +17,41 @@ import {
   type HelpAudience,
   type HelpTopicId,
 } from '../content/helpCenter';
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function scrollBehavior(): ScrollBehavior {
+  return prefersReducedMotion() ? 'auto' : 'smooth';
+}
+
+/** Sticky/fixed site header height so scroll targets aren't hidden under it. */
+function stickyHeaderInset(): number {
+  const header = document.querySelector('.header-wrapper');
+  if (!(header instanceof HTMLElement)) return 0;
+  const { position } = getComputedStyle(header);
+  if (position !== 'sticky' && position !== 'fixed') return 0;
+  return Math.ceil(header.getBoundingClientRect().height);
+}
+
+/** Keep scroll-margin in sync with the real header height (mobile vs desktop). */
+function applyHelpScrollMargin(el: HTMLElement) {
+  const inset = stickyHeaderInset();
+  el.style.scrollMarginTop = `${inset + 12}px`;
+}
+
+function isRangeFullyVisible(top: number, bottom: number, topInset: number): boolean {
+  const viewportBottom = window.innerHeight || document.documentElement.clientHeight;
+  return top >= topInset && bottom <= viewportBottom;
+}
+
+/** Run after the next paint so filtered/expanded DOM is laid out. */
+function afterPaint(run: () => void) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(run);
+  });
+}
 
 const AUDIENCES: { id: HelpAudience | 'all'; label: string }[] = [
   { id: 'all', label: 'Everyone' },
@@ -93,6 +128,9 @@ export default function ContactPage() {
   const [audience, setAudience] = useState<HelpAudience | 'all'>('all');
   const [topic, setTopic] = useState<HelpTopicId | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const answersHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  /** Tracks last topic so we only scroll on activation, not deselect / load / search. */
+  const previousTopicRef = useRef<HelpTopicId | null>(null);
 
   const byAudience = useMemo(
     () =>
@@ -127,6 +165,45 @@ export default function ContactPage() {
     setTopic((current) => (current === id ? null : id));
     setOpenId(null);
   };
+
+  // After a topic is selected (not deselected / reset / load), scroll answers into view.
+  useEffect(() => {
+    const previous = previousTopicRef.current;
+    previousTopicRef.current = topic;
+    if (!topic || topic === previous) return;
+    afterPaint(() => {
+      const heading = answersHeadingRef.current;
+      if (!heading) return;
+      applyHelpScrollMargin(heading);
+      heading.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+      heading.focus({ preventScroll: true });
+    });
+  }, [topic, results.length]);
+
+  // After an answer expands, scroll only if the question + panel aren't fully on screen.
+  useEffect(() => {
+    if (!openId) return;
+    afterPaint(() => {
+      const panel = document.getElementById(`help-panel-${openId}`);
+      const item = panel?.closest('.help-answer');
+      if (!(panel instanceof HTMLElement) || !(item instanceof HTMLElement)) return;
+      applyHelpScrollMargin(item);
+      const inset = stickyHeaderInset();
+      const top = item.getBoundingClientRect().top;
+      const bottom = panel.getBoundingClientRect().bottom;
+      if (isRangeFullyVisible(top, bottom, inset)) return;
+      item.scrollIntoView({
+        behavior: scrollBehavior(),
+        block: 'nearest',
+      });
+      // If sticky header still covers the question, nudge to start (honors scroll-margin-top).
+      afterPaint(() => {
+        if (item.getBoundingClientRect().top >= stickyHeaderInset()) return;
+        applyHelpScrollMargin(item);
+        item.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+      });
+    });
+  }, [openId]);
 
   return (
     <div className="content-page">
@@ -225,7 +302,12 @@ export default function ContactPage() {
 
         <section className="help-section" aria-labelledby="help-answers">
           <div className="help-results-head">
-            <h2 className="help-section-title" id="help-answers">
+            <h2
+              className="help-section-title"
+              id="help-answers"
+              ref={answersHeadingRef}
+              tabIndex={-1}
+            >
               {activeTopic ? activeTopic.label : 'Top questions'}
             </h2>
             {topic || searching ? (
@@ -242,6 +324,14 @@ export default function ContactPage() {
               </button>
             ) : null}
           </div>
+
+          <p className="help-results-live" aria-live="polite" aria-atomic="true">
+            {topic
+              ? `${results.length} ${
+                  results.length === 1 ? 'answer' : 'answers'
+                } for ${activeTopic?.label ?? 'this topic'}`
+              : ''}
+          </p>
 
           {results.length > 0 ? (
             <ul className="help-answers">
