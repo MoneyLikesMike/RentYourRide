@@ -72,8 +72,8 @@ export default function ListingCard({
     tripTotal == null
       ? undefined
       : tripTotal.hasDiscount
-        ? `Original price ${formatCadDollars(tripTotal.originalTotal)}, now ${formatCadDollars(tripTotal.total)} total before taxes`
-        : `${formatCadDollars(tripTotal.total)} total before taxes`;
+        ? `Original price ${formatCadDollars(tripTotal.originalTotal)} CAD, now ${formatCadDollars(tripTotal.total)} CAD trip`
+        : `${formatCadDollars(tripTotal.total)} CAD trip`;
   const dateRange = formatCardDateRange(bookingDates);
   const distance =
     distanceKmProp != null
@@ -162,12 +162,13 @@ export default function ListingCard({
                     </Text>
                   ) : null}
                   <Text style={styles.tripNow} importantForAccessibility="no">
-                    {formatCadDollars(tripTotal.total)} total
+                    <Text style={styles.tripNowAmount}>
+                      {formatCadDollars(tripTotal.total)}
+                    </Text>
+                    <Text style={styles.tripNowCurrency}> CAD</Text>
+                    <Text style={styles.tripNowUnit}> trip</Text>
                   </Text>
                 </View>
-                <Text style={styles.tripBeforeTaxes} importantForAccessibility="no">
-                  Before taxes
-                </Text>
               </View>
             ) : null}
           </View>
@@ -348,15 +349,21 @@ const styles = StyleSheet.create({
   tripNow: {
     fontFamily: FONTS.NUNITO_BOLD,
     fontSize: 12,
-    color: 'rgb(56,141,137)',
-    textDecorationLine: 'underline',
   },
-  tripBeforeTaxes: {
+  tripNowAmount: {
+    fontFamily: FONTS.NUNITO_BOLD,
+    fontSize: 12,
+    color: 'rgb(56,141,137)',
+  },
+  tripNowCurrency: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,
-    fontSize: 10,
+    fontSize: 12,
+    color: COLORS.MANGO_TWO,
+  },
+  tripNowUnit: {
+    fontFamily: FONTS.NUNITO_SEMIBOLD,
+    fontSize: 12,
     color: 'rgb(142,142,142)',
-    marginTop: 1,
-    textAlign: 'right',
   },
   footerLine: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,

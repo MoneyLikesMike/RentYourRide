@@ -171,11 +171,11 @@ export type ListingTripTotal = {
   hasDiscount: boolean;
 };
 
-/** CA$ + whole dollars with thousands separators (CA$1,030). */
+/** Whole dollars with $ and thousands separators ($1,030) — same style as daily rate. */
 export function formatCadDollars(amount: number): string {
   const n = Math.round(Number(amount));
-  if (!Number.isFinite(n)) return 'CA$0';
-  return `CA$${n.toLocaleString('en-US')}`;
+  if (!Number.isFinite(n)) return '$0';
+  return `$${n.toLocaleString('en-US')}`;
 }
 
 /**

@@ -58,8 +58,8 @@ module.exports = {
     },
   ],
   formatCases: [
-    { amount: 1030, expected: 'CA$1,030' },
-    { amount: 62, expected: 'CA$62' },
-    { amount: 444, expected: 'CA$444' },
+    { amount: 1030, expected: '$1,030' },
+    { amount: 62, expected: '$62' },
+    { amount: 444, expected: '$444' },
   ],
 };

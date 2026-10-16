@@ -1500,8 +1500,8 @@ export default function FindYourCarPage() {
                             <div className="fyc-trip-price">
                               <p className="fyc-sr-only">
                                 {tripTotal.hasDiscount
-                                  ? `Original price ${formatCadDollars(tripTotal.originalTotal)}, now ${formatCadDollars(tripTotal.total)} total before taxes`
-                                  : `${formatCadDollars(tripTotal.total)} total before taxes`}
+                                  ? `Original price ${formatCadDollars(tripTotal.originalTotal)} CAD, now ${formatCadDollars(tripTotal.total)} CAD trip`
+                                  : `${formatCadDollars(tripTotal.total)} CAD trip`}
                               </p>
                               <p className="fyc-trip-total-row" aria-hidden="true">
                                 {tripTotal.hasDiscount ? (
@@ -1510,11 +1510,12 @@ export default function FindYourCarPage() {
                                   </span>
                                 ) : null}
                                 <span className="fyc-trip-now">
-                                  {formatCadDollars(tripTotal.total)} total
+                                  <span className="fyc-price">
+                                    {formatCadDollars(tripTotal.total)}
+                                  </span>
+                                  <span className="fyc-cad"> CAD</span>
+                                  <span className="fyc-per-day"> trip</span>
                                 </span>
-                              </p>
-                              <p className="fyc-trip-before-taxes" aria-hidden="true">
-                                Before taxes
                               </p>
                             </div>
                           ) : null}

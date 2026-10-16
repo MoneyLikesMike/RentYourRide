@@ -94,6 +94,7 @@
         justify-content: flex-end;
         gap: 6px;
         margin-top: 2px;
+        align-items: baseline;
       }
       .rn-orig {
         color: rgb(142, 142, 142);
@@ -101,18 +102,21 @@
         font-weight: 600;
         text-decoration: line-through;
       }
-      .rn-now {
-        color: rgb(56, 141, 137);
+      .rn-trip {
         font-size: 12px;
         font-weight: 800;
-        text-decoration: underline;
+        white-space: nowrap;
       }
-      .rn-before {
-        color: rgb(142, 142, 142);
-        font-size: 10px;
+      .rn-trip .amt {
+        color: rgb(56, 141, 137);
+      }
+      .rn-trip .cad {
+        color: rgb(255, 187, 46);
         font-weight: 600;
-        text-align: right;
-        margin-top: 1px;
+      }
+      .rn-trip .unit {
+        color: rgb(142, 142, 142);
+        font-weight: 600;
       }
     </style>
   </head>
@@ -134,13 +138,16 @@
               </p>
               <div class="fyc-trip-price">
                 <p class="fyc-sr-only">
-                  Original price CA$493, now CA$444 total before taxes
+                  Original price $493 CAD, now $444 CAD trip
                 </p>
                 <p class="fyc-trip-total-row" aria-hidden="true">
-                  <span class="fyc-trip-original">CA$493</span>
-                  <span class="fyc-trip-now">CA$444 total</span>
+                  <span class="fyc-trip-original">$493</span>
+                  <span class="fyc-trip-now">
+                    <span class="fyc-price">$444</span>
+                    <span class="fyc-cad"> CAD</span>
+                    <span class="fyc-per-day"> trip</span>
+                  </span>
                 </p>
-                <p class="fyc-trip-before-taxes" aria-hidden="true">Before taxes</p>
               </div>
             </div>
           </div>
@@ -163,11 +170,14 @@
                 <span class="fyc-per-day"> / day</span>
               </p>
               <div class="fyc-trip-price">
-                <p class="fyc-sr-only">CA$62 total before taxes</p>
+                <p class="fyc-sr-only">$62 CAD trip</p>
                 <p class="fyc-trip-total-row" aria-hidden="true">
-                  <span class="fyc-trip-now">CA$62 total</span>
+                  <span class="fyc-trip-now">
+                    <span class="fyc-price">$62</span>
+                    <span class="fyc-cad"> CAD</span>
+                    <span class="fyc-per-day"> trip</span>
+                  </span>
                 </p>
-                <p class="fyc-trip-before-taxes" aria-hidden="true">Before taxes</p>
               </div>
             </div>
           </div>
@@ -177,7 +187,7 @@
       </article>
     </div>
 
-    <p class="label">iOS / React Native card styling (same numbers &amp; CA$ format)</p>
+    <p class="label">iOS / React Native card styling (same numbers &amp; $N CAD format)</p>
     <div class="row">
       <div class="rn-card" id="ios-discounted">
         <div class="fyc-car-img" style="background: linear-gradient(135deg,#5a7,#8cb)"></div>
@@ -190,10 +200,12 @@
                 ><span class="unit"> / day</span>
               </div>
               <div class="rn-trip-row">
-                <span class="rn-orig">CA$493</span>
-                <span class="rn-now">CA$444 total</span>
+                <span class="rn-orig">$493</span>
+                <span class="rn-trip">
+                  <span class="amt">$444</span><span class="cad"> CAD</span
+                  ><span class="unit"> trip</span>
+                </span>
               </div>
-              <div class="rn-before">Before taxes</div>
             </div>
           </div>
         </div>
@@ -209,9 +221,11 @@
                 ><span class="unit"> / day</span>
               </div>
               <div class="rn-trip-row">
-                <span class="rn-now">CA$62 total</span>
+                <span class="rn-trip">
+                  <span class="amt">$62</span><span class="cad"> CAD</span
+                  ><span class="unit"> trip</span>
+                </span>
               </div>
-              <div class="rn-before">Before taxes</div>
             </div>
           </div>
         </div>

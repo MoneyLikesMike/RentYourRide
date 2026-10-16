@@ -2,6 +2,8 @@
 
 Preview markup: [preview.html](./preview.html) (uses production FYC CSS + RN-equivalent styles).
 
+Discounted: struck-through `$493` then `$444 CAD trip` (same color tokens as daily rate). No underline, no “Before taxes”.
+
 | | Discounted (8-day Ford $56 / 10% weekly) | No discount (1-day) |
 |---|---|---|
 | Web | ![web discounted](./ryra-442-web-discounted.png) | ![web plain](./ryra-442-web-plain.png) |

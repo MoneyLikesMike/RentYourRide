@@ -991,18 +991,8 @@
 }
 
 .fyc-trip-now {
-  color: #388d89;
   font-weight: 800;
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
-}
-
-.fyc-trip-before-taxes {
-  margin: 0.1rem 0 0;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: #8e8e8e;
+  white-space: nowrap;
 }
 
 .fyc-sr-only {
