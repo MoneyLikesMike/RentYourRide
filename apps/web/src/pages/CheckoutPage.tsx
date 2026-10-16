@@ -40,6 +40,7 @@ import {
   listingHasGuestReviews,
 } from '../utils/listingRating';
 import { carTimeNote, pickedDate } from '../utils/carTime';
+import { validateTripDates } from '../utils/tripDates';
 
 export type CheckoutNavState = {
   search?: SearchNavState;
@@ -208,9 +209,11 @@ export default function CheckoutPage() {
 
   const bookingDates = useMemo(() => {
     if (!dates?.start || !dates?.end) return null;
-    const start = new Date(dates.start).getTime();
-    const end = new Date(dates.end).getTime();
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    const startDate = new Date(dates.start);
+    const endDate = new Date(dates.end);
+    if (validateTripDates(startDate, endDate)) return null;
+    const start = startDate.getTime();
+    const end = endDate.getTime();
     return {
       start,
       end,

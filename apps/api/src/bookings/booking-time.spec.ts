@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  isTripStartInPast,
   listingTimeZone,
   normalizeBookingDates,
   parseTimeLabel,
@@ -104,5 +105,15 @@ describe('timeZoneShortName', () => {
   it('uses generic names', () => {
     assert.equal(timeZoneShortName(WPG), 'CT');
     assert.equal(timeZoneShortName('America/Toronto'), 'ET');
+  });
+});
+
+describe('isTripStartInPast', () => {
+  it('rejects starts before now and allows starts at/after now', () => {
+    const now = Date.parse('2026-10-16T18:00:00.000Z');
+    assert.equal(isTripStartInPast(now - 1, now), true);
+    assert.equal(isTripStartInPast(now, now), false);
+    assert.equal(isTripStartInPast(now + 60_000, now), false);
+    assert.equal(isTripStartInPast(Number.NaN, now), false);
   });
 });

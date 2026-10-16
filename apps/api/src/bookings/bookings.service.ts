@@ -34,7 +34,11 @@ import {
   redactListingSnapshotForViewer,
 } from './booking-snapshot-access';
 import { getTripBillingDays } from './trip-billing-days';
-import { listingTimeZone, normalizeBookingDates } from './booking-time';
+import {
+  isTripStartInPast,
+  listingTimeZone,
+  normalizeBookingDates,
+} from './booking-time';
 import {
   hostEarningsPricingFields,
   hostNetCentsForPricing,
@@ -121,6 +125,9 @@ export class BookingsService {
     const end = input.bookingDates?.end;
     if (start == null || end == null) {
       throw new BadRequestException('bookingDates.start and end required');
+    }
+    if (isTripStartInPast(Number(start))) {
+      throw new BadRequestException('Trip start must be in the future');
     }
     const pricePerDay = Number(listing.pricePerDay) || 40;
     const deliveryFee = Number(listing.deliveryPrice ?? 0) || 0;
@@ -257,6 +264,9 @@ export class BookingsService {
     const bookingDates = normalizeBookingDates(clientDates, listingTimeZone(listing));
     if (!bookingDates) {
       throw new BadRequestException('bookingDates.start and end required');
+    }
+    if (isTripStartInPast(bookingDates.start)) {
+      throw new BadRequestException('Trip start must be in the future');
     }
     const startMs = bookingDates.start;
     const endMs = bookingDates.end;

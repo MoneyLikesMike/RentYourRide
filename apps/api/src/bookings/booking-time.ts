@@ -157,3 +157,8 @@ export function normalizeBookingDates(
     timeZone: tz,
   };
 }
+
+/** True when the trip start instant is strictly before `nowMs` (RYRA-440). */
+export function isTripStartInPast(startMs: number, nowMs = Date.now()): boolean {
+  return Number.isFinite(startMs) && startMs < nowMs;
+}
