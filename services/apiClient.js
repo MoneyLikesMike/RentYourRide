@@ -2,7 +2,27 @@ import { getApiBaseUrl } from '../constants/api';
 import * as tokens from './authTokens';
 import { ApiError, parseErrorMessage } from './authApi';
 
+export const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please log in again.';
+
 let refreshInFlight = null;
+const sessionExpiredListeners = new Set();
+
+/** Called when the server rejects the refresh token, so the user must log in again. */
+export function onSessionExpired(listener) {
+  sessionExpiredListeners.add(listener);
+  return () => sessionExpiredListeners.delete(listener);
+}
+
+async function expireSession() {
+  await tokens.clearTokens();
+  sessionExpiredListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch {
+      /* listener errors must not break the request */
+    }
+  });
+}
 
 async function postRefresh() {
   const rt = await tokens.getRefreshToken();
@@ -27,6 +47,10 @@ async function postRefresh() {
     parsed = text ? JSON.parse(text) : null;
   } catch {
     parsed = null;
+  }
+  if (res.status === 401) {
+    await expireSession();
+    return null;
   }
   if (!res.ok || !parsed?.accessToken || !parsed?.refreshToken) {
     return null;
@@ -92,7 +116,13 @@ export async function apiFetch(path, opts = {}) {
       });
     }
     const newAccess = await refreshInFlight;
-    if (newAccess) res = await doRequest(newAccess);
+    if (newAccess) {
+      res = await doRequest(newAccess);
+    } else if (!(await tokens.getRefreshToken())) {
+      const err = new ApiError(SESSION_EXPIRED_MESSAGE, 401, null);
+      err.sessionExpired = true;
+      throw err;
+    }
   }
 
   const text = await res.text();
@@ -108,4 +138,8 @@ export async function apiFetch(path, opts = {}) {
   }
 
   return parsed;
+}
+
+export async function startEmailVerification() {
+  return apiFetch('/v1/auth/start-email-verification', { method: 'POST' });
 }

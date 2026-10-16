@@ -67,26 +67,3 @@ export async function verifyEmail(token) {
 export async function confirmEmailChange(token) {
   return postJson('/v1/auth/confirm-email-change', { token: token.trim() });
 }
-
-export async function startEmailVerification(accessToken) {
-  const base = getApiBaseUrl();
-  const url = `${base}/v1/auth/start-email-verification`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const text = await res.text();
-  let parsed = null;
-  try {
-    parsed = text ? JSON.parse(text) : null;
-  } catch {
-    parsed = { raw: text };
-  }
-  if (!res.ok) {
-    throw new ApiError(parseErrorMessage(parsed), res.status, parsed);
-  }
-  return parsed;
-}

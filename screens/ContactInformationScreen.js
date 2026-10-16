@@ -8,8 +8,7 @@ import { FONTS } from '../constants/fonts';
 import { useAuth } from '../context/AuthContext';
 import { getMe } from '../services/usersApi';
 import { formatPhoneForDisplay } from '../utils/phoneFormat';
-import { startEmailVerification } from '../services/authApi';
-import * as tokens from '../services/authTokens';
+import { startEmailVerification } from '../services/apiClient';
 import ChangeEmailScreen from './ChangeEmailScreen';
 import Modal from 'react-native-modal';
 import ChangePasswordScreen from './ChangePasswordScreen';
@@ -50,9 +49,7 @@ export default function ContactInformationScreen({ navigation }) {
     if (emailVerifyBusy) return;
     setEmailVerifyBusy(true);
     try {
-      const access = await tokens.getAccessToken();
-      if (!access) throw new Error('Sign in again to verify your email.');
-      const result = await startEmailVerification(access);
+      const result = await startEmailVerification();
       if (result?.alreadyVerified) {
         Alert.alert('Already verified', 'Your email address is already verified.');
         return;
