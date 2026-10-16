@@ -45,11 +45,14 @@ import {
   SEARCH_RADIUS_KM,
 } from '../utils/searchLocation';
 import {
+  END_SHIFTED_AFTER_START_MESSAGE,
+  ensureEndAfterStart,
   ensureTripDatesNotPast,
   nextValidTripStart,
   todayDateInput,
   toDateInputValue,
   toTimeInputValue,
+  tripDatesErrorMessage,
   validateTripDates,
 } from '../utils/tripDates';
 import HeartIcon from '../components/FavoriteHeartIcon';
@@ -475,6 +478,7 @@ export default function FindYourCarPage() {
   const [endTime, setEndTime] = useState(
     () => tripFieldsFromNav(navState?.dates).endTime,
   );
+  const [dateHint, setDateHint] = useState<string | null>(null);
 
   const [searchCity, setSearchCity] = useState(initialCity);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
@@ -484,6 +488,49 @@ export default function FindYourCarPage() {
     'idle' | 'loading' | 'ok' | 'error' | 'needs-location'
   >('idle');
   const [error, setError] = useState<string | null>(null);
+
+  const syncEndAfterStart = (
+    nextStartDate: string,
+    nextStartTime: string,
+    nextEndDate: string,
+    nextEndTime: string,
+  ) => {
+    const start = combineLocal(nextStartDate, nextStartTime);
+    const end = combineLocal(nextEndDate, nextEndTime);
+    if (!start || !end) {
+      setDateHint(null);
+      return;
+    }
+    const fixed = ensureEndAfterStart(start, end);
+    if (fixed.shifted) {
+      setEndDate(toDateInputValue(fixed.end));
+      setEndTime(snapSearchTime(toTimeInputValue(fixed.end)));
+      setDateHint(END_SHIFTED_AFTER_START_MESSAGE);
+      return;
+    }
+    const issue = validateTripDates(start, end);
+    setDateHint(issue ? tripDatesErrorMessage(issue) : null);
+  };
+
+  const onStartDateChange = (value: string) => {
+    setStartDate(value);
+    syncEndAfterStart(value, startTime, endDate, endTime);
+  };
+
+  const onStartTimeChange = (value: string) => {
+    setStartTime(value);
+    syncEndAfterStart(startDate, value, endDate, endTime);
+  };
+
+  const onEndDateChange = (value: string) => {
+    setEndDate(value);
+    syncEndAfterStart(startDate, startTime, value, endTime);
+  };
+
+  const onEndTimeChange = (value: string) => {
+    setEndTime(value);
+    syncEndAfterStart(startDate, startTime, endDate, value);
+  };
 
   const [priceOpen, setPriceOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(
@@ -865,14 +912,14 @@ export default function FindYourCarPage() {
             <div className="fyc-dt-row">
               <SearchDateField
                 value={startDate}
-                onChange={setStartDate}
+                onChange={onStartDateChange}
                 min={todayDateInput()}
                 aria-label="Start date"
               />
               <SearchTimePicker
                 className="fyc-dt-control fyc-dt-control--time"
                 value={startTime}
-                onChange={setStartTime}
+                onChange={onStartTimeChange}
                 aria-label="Start time"
               />
             </div>
@@ -883,14 +930,14 @@ export default function FindYourCarPage() {
             <div className="fyc-dt-row">
               <SearchDateField
                 value={endDate}
-                onChange={setEndDate}
+                onChange={onEndDateChange}
                 min={startDate || todayDateInput()}
                 aria-label="End date"
               />
               <SearchTimePicker
                 className="fyc-dt-control fyc-dt-control--time"
                 value={endTime}
-                onChange={setEndTime}
+                onChange={onEndTimeChange}
                 aria-label="End time"
               />
             </div>
@@ -1330,6 +1377,7 @@ export default function FindYourCarPage() {
           ) : null}
         </div>
 
+        {dateHint ? <p className="fyc-banner-error">{dateHint}</p> : null}
         {error ? <p className="fyc-banner-error">{error}</p> : null}
 
         <div className="fyc-content-wrapper">

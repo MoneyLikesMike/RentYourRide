@@ -34,6 +34,8 @@ import {
 } from '../utils/listingRating';
 import { carTimeNote } from '../utils/carTime';
 import {
+  END_SHIFTED_AFTER_START_MESSAGE,
+  ensureEndAfterStart,
   ensureTripDatesNotPast,
   nextValidTripStart,
   toDateInputValue,
@@ -337,6 +339,37 @@ export default function ListingDetailPage() {
   const [shareNotice, setShareNotice] = useState<string | null>(null);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const shareMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const syncEndAfterStart = (
+    nextStartDate: string,
+    nextStartTime: string,
+    nextEndDate: string,
+    nextEndTime: string,
+  ) => {
+    const start = combineLocal(nextStartDate, nextStartTime);
+    const end = combineLocal(nextEndDate, nextEndTime);
+    if (!start || !end) return;
+    const fixed = ensureEndAfterStart(start, end);
+    if (fixed.shifted) {
+      setEndDate(toDateInputValue(fixed.end));
+      setEndTime(snapSearchTime(toTimeInputValue(fixed.end)));
+      setError(END_SHIFTED_AFTER_START_MESSAGE);
+    } else {
+      setError((prev) =>
+        prev === END_SHIFTED_AFTER_START_MESSAGE ? null : prev,
+      );
+    }
+  };
+
+  const onStartTimeChange = (value: string) => {
+    setStartTime(value);
+    syncEndAfterStart(startDate, value, endDate, endTime);
+  };
+
+  const onEndTimeChange = (value: string) => {
+    setEndTime(value);
+    syncEndAfterStart(startDate, startTime, endDate, value);
+  };
 
   useEffect(() => {
     if (!shareMenuOpen) return;
@@ -1114,7 +1147,7 @@ export default function ListingDetailPage() {
                     <SearchTimePicker
                       className="trip-control"
                       value={startTime}
-                      onChange={setStartTime}
+                      onChange={onStartTimeChange}
                       aria-label="Start time"
                     />
                   </div>
@@ -1135,7 +1168,7 @@ export default function ListingDetailPage() {
                     <SearchTimePicker
                       className="trip-control"
                       value={endTime}
-                      onChange={setEndTime}
+                      onChange={onEndTimeChange}
                       aria-label="End time"
                     />
                   </div>
@@ -1208,10 +1241,14 @@ export default function ListingDetailPage() {
         initialEnd={initialCalEnd}
         onClose={() => setCalendarOpen(false)}
         onConfirm={({ start, end }) => {
-          setStartDate(toDateInput(start.toISOString()));
-          setEndDate(toDateInput(end.toISOString()));
+          const nextStartDate = toDateInput(start.toISOString());
+          const nextEndDate = toDateInput(end.toISOString());
+          setStartDate(nextStartDate);
+          setEndDate(nextEndDate);
           setError(null);
           setCalendarOpen(false);
+          // Same calendar day can still leave end ≤ start once times apply.
+          syncEndAfterStart(nextStartDate, startTime, nextEndDate, endTime);
         }}
       />
     </div>
