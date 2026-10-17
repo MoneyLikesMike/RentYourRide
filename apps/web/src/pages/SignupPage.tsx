@@ -270,8 +270,7 @@ export default function SignupPage() {
         </div>
 
         <p className="auth-note">
-          You need to be at least 18. Other people who use Rent Your Ride won’t
-          see your birthday
+          You must be 18 or older to use Rent Your Ride.
         </p>
 
         <label className="auth-updates">

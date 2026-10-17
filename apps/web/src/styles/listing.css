@@ -712,6 +712,18 @@
   flex-shrink: 0;
 }
 
+.host-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #17252a;
+  line-height: 1;
+  user-select: none;
+}
+
 .host-information {
   display: flex;
   flex-direction: column;

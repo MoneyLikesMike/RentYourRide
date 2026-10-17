@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { resolveAvatarUrl } from '../api/users';
+import UserAvatar from './UserAvatar';
 import { withAuthBackground } from '../auth/authModal';
 import { useAuth } from '../auth/AuthContext';
 import { useMessagingUnread } from '../auth/MessagingUnreadContext';
@@ -65,7 +65,6 @@ export default function SiteHeader({ afterLogo }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const avatarSrc = resolveAvatarUrl(user?.avatarUrl);
   const avatarAlt = user?.firstName
     ? `${user.firstName}'s profile`
     : 'Profile';
@@ -158,8 +157,10 @@ export default function SiteHeader({ afterLogo }: Props) {
                 <span className="header-sandwich" aria-hidden>
                   <SandwichIcon />
                 </span>
-                <img
-                  src={avatarSrc}
+                <UserAvatar
+                  url={user?.avatarUrl}
+                  firstName={user?.firstName}
+                  lastName={user?.lastName}
                   alt={avatarAlt}
                   className="user-avatar"
                 />

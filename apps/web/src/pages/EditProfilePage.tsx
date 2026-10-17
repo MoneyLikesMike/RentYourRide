@@ -9,6 +9,7 @@ import {
 } from '../api/users';
 import { useAuth } from '../auth/AuthContext';
 import ProfileLayout from '../components/ProfileLayout';
+import UserAvatar from '../components/UserAvatar';
 
 function EditProfileForm({
   me,
@@ -32,8 +33,8 @@ function EditProfileForm({
     setClearAvatar(false);
   }, [me.id, me.aboutBio, me.avatarUrl]);
 
-  const displayAvatar = clearAvatar
-    ? '/no-avatar.jpg'
+  const photoUrl = clearAvatar
+    ? null
     : previewUrl || resolveAvatarUrl(me.avatarUrl);
 
   const onPickFile = (file: File | null) => {
@@ -89,7 +90,17 @@ function EditProfileForm({
         <h2 className="profile-section-title">Photo</h2>
         <div className="edit-photo-row">
           <div className="edit-avatar-wrap">
-            <img src={displayAvatar} alt="" className="edit-avatar" />
+            {photoUrl ? (
+              <img src={photoUrl} alt="" className="edit-avatar" />
+            ) : (
+              <UserAvatar
+                url={null}
+                firstName={me.firstName}
+                lastName={me.lastName}
+                name={me.fullName}
+                className="edit-avatar"
+              />
+            )}
             <span className="edit-avatar-fog" aria-hidden />
             <button
               type="button"
@@ -118,7 +129,7 @@ function EditProfileForm({
                   />
                   {me.avatarUrl && !clearAvatar ? (
                     <img
-                      src={resolveAvatarUrl(me.avatarUrl)}
+                      src={resolveAvatarUrl(me.avatarUrl) || undefined}
                       alt=""
                       className="edit-thumb"
                     />
@@ -126,7 +137,7 @@ function EditProfileForm({
                 </>
               ) : me.avatarUrl && !clearAvatar ? (
                 <img
-                  src={resolveAvatarUrl(me.avatarUrl)}
+                  src={resolveAvatarUrl(me.avatarUrl) || undefined}
                   alt=""
                   className="edit-thumb edit-thumb--active"
                 />

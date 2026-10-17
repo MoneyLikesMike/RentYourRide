@@ -31,6 +31,7 @@ import AddCardPanel from '../components/AddCardPanel';
 import PlacesAutocomplete from '../components/PlacesAutocomplete';
 import PageMeta from '../components/PageMeta';
 import SiteHeader from '../components/SiteHeader';
+import UserAvatar from '../components/UserAvatar';
 import type { SearchNavState, SearchTripDates } from '../types/search';
 import { sanitizeHostBioForDisplay } from '../utils/hostBioDisplay';
 import {
@@ -996,11 +997,12 @@ export default function CheckoutPage() {
             <div className="checkout-right">
               <h2 className="checkout-host-title">Hosted by</h2>
               <div className="checkout-host">
-                {listing.hostPhotoUri ? (
-                  <img src={listing.hostPhotoUri} alt="" />
-                ) : (
-                  <div className="checkout-host-avatar-empty" />
-                )}
+                <UserAvatar
+                  url={listing.hostPhotoUri}
+                  name={listing.hostName || 'Host'}
+                  className="checkout-host-avatar"
+                  initialsClassName="checkout-host-avatar checkout-host-avatar-empty checkout-host-avatar--initials"
+                />
                 <div className="checkout-host-info">
                   <span className="checkout-host-name">
                     {listing.hostName || 'Host'}
