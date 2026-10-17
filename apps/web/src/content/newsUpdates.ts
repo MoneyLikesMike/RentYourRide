@@ -1,3 +1,5 @@
+import { APP_STORE_URL } from '../constants/appStore';
+
 export type NewsUpdate = {
   id: string;
   /** ISO date — used for ordering and the displayed date. */
@@ -41,9 +43,9 @@ export const NEWS_UPDATES: NewsUpdate[] = [
     category: 'App',
     title: 'The app got an update',
     summary:
-      'Rent Your Ride for iPhone and Android brings a smoother check in and check out experience for every trip.',
+      'Rent Your Ride for iPhone brings a smoother check in and check out experience for every trip.',
     image: '/home/exotics.png',
-    href: 'https://apps.apple.com/us/app/rent-your-ride/id1495074000',
+    href: APP_STORE_URL,
   },
 ];
 

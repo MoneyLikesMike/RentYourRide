@@ -12,7 +12,8 @@ import CommunityExperiences from '../components/CommunityExperiences';
 import HomeDiscoveryStrips from '../components/HomeDiscoveryStrips';
 import PhoneMockup from '../components/PhoneMockup';
 import SiteHeader from '../components/SiteHeader';
-import { AppStoreBadge, GooglePlayBadge } from '../components/StoreBadges';
+import { AppStoreBadge } from '../components/StoreBadges';
+import { APP_STORE_URL } from '../constants/appStore';
 import TextDecorator from '../components/TextDecorator';
 import type { SearchNavState } from '../types/search';
 import { goToHomeTop } from '../utils/goToHomeTop';
@@ -266,20 +267,12 @@ export default function HomePage() {
 
           <div className="store-buttons">
             <a
-              href="https://apps.apple.com/us/app/rent-your-ride/id1495074000"
+              href={APP_STORE_URL}
               className="store-link"
               target="_blank"
               rel="noopener noreferrer"
             >
               <AppStoreBadge className="store-badge" />
-            </a>
-            <a
-              href="https://play.google.com/store/apps/details?id=com.rentyourrideca"
-              className="store-link"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <GooglePlayBadge className="store-badge" />
             </a>
           </div>
         </div>

@@ -3,12 +3,8 @@ import { withAuthBackground } from '../auth/authModal';
 import { useAuth } from '../auth/AuthContext';
 import { goToHomeTop } from '../utils/goToHomeTop';
 import { CONTACT_MAILTO } from './SiteHeader';
-import { AppStoreBadge, GooglePlayBadge } from './StoreBadges';
-
-const APP_STORE_URL =
-  'https://apps.apple.com/us/app/rent-your-ride/id1495074000';
-const PLAY_STORE_URL =
-  'https://play.google.com/store/apps/details?id=com.rentyourrideca';
+import { APP_STORE_URL } from '../constants/appStore';
+import { AppStoreBadge } from './StoreBadges';
 
 const HOME_TOP = '__home_top__';
 
@@ -85,14 +81,6 @@ export default function SiteFooter() {
                 rel="noopener noreferrer"
               >
                 <AppStoreBadge className="site-footer-store-badge" />
-              </a>
-              <a
-                href={PLAY_STORE_URL}
-                className="site-footer-store-link"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <GooglePlayBadge className="site-footer-store-badge" />
               </a>
             </div>
           </div>
