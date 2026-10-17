@@ -875,6 +875,7 @@ export default function FindYourCarPage() {
         showLabel={false}
         value={addressText}
         bias={placesBias}
+        listClosedToken={placesListClosedToken}
         onChange={(text) => {
           // Clearing the box must keep current results until a new place is chosen.
           setAddressText(text);
