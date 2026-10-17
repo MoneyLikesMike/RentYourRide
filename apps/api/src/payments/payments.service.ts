@@ -448,28 +448,80 @@ export class PaymentsService {
   }
 
   /**
-   * Host decline / cancel — release hold or refund captured charge.
-   * Returns the Stripe refund id when a refund object was created.
+   * Release a hold or refund a captured charge (full or partial).
+   * Only returns refundId when a Stripe Refund object was created.
    */
   async refundBookingPayment(
     paymentIntentId: string,
-    description?: string,
-  ): Promise<{ refundId: string | null }> {
-    if (!this.stripe || !paymentIntentId) return { refundId: null };
+    descriptionOrOpts?:
+      | string
+      | {
+          description?: string;
+          amountCents?: number | null;
+          reason?: string;
+          bookingId?: string;
+          idempotencyKey?: string;
+        },
+  ): Promise<{
+    refundId: string | null;
+    amountCents: number | null;
+    releasedHold: boolean;
+  }> {
+    if (!this.stripe || !paymentIntentId) {
+      return { refundId: null, amountCents: null, releasedHold: false };
+    }
+    const opts =
+      typeof descriptionOrOpts === 'string'
+        ? { description: descriptionOrOpts }
+        : descriptionOrOpts || {};
     try {
       const pi = await this.stripe.paymentIntents.retrieve(paymentIntentId);
-      if (description) {
-        await this.stripe.paymentIntents.update(paymentIntentId, { description });
+      if (opts.description) {
+        await this.stripe.paymentIntents.update(paymentIntentId, {
+          description: opts.description,
+        });
       }
       if (pi.status === 'requires_capture') {
-        await this.stripe.paymentIntents.cancel(paymentIntentId);
-        return { refundId: null };
+        await this.stripe.paymentIntents.cancel(
+          paymentIntentId,
+          {},
+          opts.idempotencyKey
+            ? { idempotencyKey: opts.idempotencyKey }
+            : undefined,
+        );
+        return { refundId: null, amountCents: null, releasedHold: true };
       }
       if (pi.status === 'succeeded') {
-        const refund = await this.stripe.refunds.create({ payment_intent: paymentIntentId });
-        return { refundId: refund.id ?? null };
+        const amount =
+          opts.amountCents != null && Number.isFinite(opts.amountCents)
+            ? Math.round(Number(opts.amountCents))
+            : undefined;
+        if (amount != null && amount <= 0) {
+          return { refundId: null, amountCents: null, releasedHold: false };
+        }
+        const captured = pi.amount_received || pi.amount || 0;
+        if (amount != null && amount > captured) {
+          throw new BadRequestException('Refund amount exceeds captured charge');
+        }
+        const refund = await this.stripe.refunds.create(
+          {
+            payment_intent: paymentIntentId,
+            ...(amount != null ? { amount } : {}),
+            ...(opts.reason
+              ? { metadata: { reason: opts.reason, bookingId: opts.bookingId || '' } }
+              : {}),
+          },
+          opts.idempotencyKey
+            ? { idempotencyKey: opts.idempotencyKey }
+            : undefined,
+        );
+        return {
+          refundId: refund.id ?? null,
+          amountCents: refund.amount ?? amount ?? captured,
+          releasedHold: false,
+        };
       }
-      return { refundId: null };
+      return { refundId: null, amountCents: null, releasedHold: false };
     } catch (err) {
       this.log.error(
         `Refund/cancel failed for ${paymentIntentId}`,
@@ -477,6 +529,54 @@ export class PaymentsService {
       );
       throw err;
     }
+  }
+
+  /** Claw back host Connect transfer after a guest refund/dispute. */
+  async reverseHostTransfer(opts: {
+    transferId: string;
+    amountCents: number;
+    bookingId: string;
+    refundId?: string | null;
+    idempotencyKey: string;
+  }): Promise<{ reversalId: string; amountCents: number }> {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+    const amount = Math.round(Number(opts.amountCents));
+    if (!Number.isFinite(amount) || amount < 1) {
+      throw new BadRequestException('Invalid reversal amount');
+    }
+    const reversal = await this.stripe.transfers.createReversal(
+      opts.transferId,
+      {
+        amount,
+        metadata: {
+          bookingId: opts.bookingId,
+          refundId: opts.refundId || '',
+        },
+      },
+      { idempotencyKey: opts.idempotencyKey },
+    );
+    return {
+      reversalId: reversal.id,
+      amountCents: reversal.amount ?? amount,
+    };
+  }
+
+  /** Unit-test seam — never call from production code. */
+  _setStripeForTests(stripe: Stripe | null) {
+    this.stripe = stripe;
+  }
+
+  constructWebhookEvent(rawBody: Buffer | string, signature: string): Stripe.Event {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+    const secret = this.config.get<string>('STRIPE_WEBHOOK_SECRET');
+    if (!secret?.trim()) {
+      throw new BadRequestException('STRIPE_WEBHOOK_SECRET is not configured');
+    }
+    return this.stripe.webhooks.constructEvent(rawBody, signature, secret.trim());
   }
 
   async retrievePaymentIntent(paymentIntentId: string): Promise<Stripe.PaymentIntent> {

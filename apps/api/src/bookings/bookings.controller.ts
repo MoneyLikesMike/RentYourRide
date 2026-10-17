@@ -63,6 +63,13 @@ export class BookingsController {
     return this.bookings.listForUser(user.id, r, status);
   }
 
+  @Get(':id/cancel-quote')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  async cancelQuote(@ReqUser() user: UserEntity, @Param('id') id: string) {
+    return this.bookings.cancelQuote(user.id, id);
+  }
+
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()

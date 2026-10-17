@@ -5,8 +5,10 @@ import {
   cancelBooking,
   declineBooking,
   getBooking,
+  getCancelQuote,
   respondExtension,
   type BookingDto,
+  type CancelQuoteDto,
 } from '../api/bookings';
 import { ApiError } from '../api/http';
 import { useAuth } from '../auth/AuthContext';
@@ -42,6 +44,8 @@ function DetailBody() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelQuote, setCancelQuote] = useState<CancelQuoteDto | null>(null);
+  const [cancelQuoteError, setCancelQuoteError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!bookingId) return;
@@ -153,7 +157,31 @@ function DetailBody() {
     );
   };
 
-  const onCancelConfirm = () =>
+  const openCancelModal = () => {
+    setCancelOpen(true);
+    setCancelQuote(null);
+    setCancelQuoteError(null);
+    void getCancelQuote(bookingId)
+      .then((q) => setCancelQuote(q))
+      .catch((err) =>
+        setCancelQuoteError(
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'Could not load refund estimate',
+        ),
+      );
+  };
+
+  const onCancelConfirm = () => {
+    if (cancelQuote?.requiresAdmin) {
+      setError(
+        'This trip has already started. Contact Rent Your Ride support to cancel.',
+      );
+      setCancelOpen(false);
+      return;
+    }
     void run(
       () => cancelBooking(bookingId),
       () => {
@@ -161,6 +189,7 @@ function DetailBody() {
         navigate('/profile/trips');
       },
     );
+  };
 
   if (loading) {
     return <p className="profile-status">Loading…</p>;
@@ -366,7 +395,7 @@ function DetailBody() {
             type="button"
             className="trips-btn trips-btn--danger"
             disabled={busy}
-            onClick={() => setCancelOpen(true)}
+            onClick={openCancelModal}
           >
             Cancel trip
           </button>
@@ -387,6 +416,19 @@ function DetailBody() {
               <Link to="/terms-conditions">cancellation policies</Link> and
               penalties.
             </p>
+            {cancelQuoteError ? (
+              <p className="trips-error">{cancelQuoteError}</p>
+            ) : cancelQuote ? (
+              <p>
+                {cancelQuote.requiresAdmin
+                  ? 'This trip has already started. Contact support to cancel.'
+                  : cancelQuote.guestRefundCents > 0
+                    ? `Estimated refund: $${cancelQuote.guestRefundDollars} CAD`
+                    : 'Estimated refund: $0.00 CAD'}
+              </p>
+            ) : (
+              <p>Loading refund estimate…</p>
+            )}
             <div className="trips-detail-actions">
               <button
                 type="button"
@@ -398,7 +440,12 @@ function DetailBody() {
               <button
                 type="button"
                 className="trips-btn trips-btn--danger"
-                disabled={busy}
+                disabled={
+                  busy ||
+                  !cancelQuote ||
+                  !!cancelQuoteError ||
+                  !!cancelQuote?.requiresAdmin
+                }
                 onClick={onCancelConfirm}
               >
                 Confirm cancel

@@ -24,6 +24,12 @@ export async function createBooking(body, idempotencyKey) {
   });
 }
 
+export async function getCancelQuote(id) {
+  return apiFetch(`/v1/bookings/${encodeURIComponent(id)}/cancel-quote`, {
+    method: 'GET',
+  });
+}
+
 export async function cancelBooking(id) {
   return apiFetch(`/v1/bookings/${encodeURIComponent(id)}/cancel`, {
     method: 'POST',
