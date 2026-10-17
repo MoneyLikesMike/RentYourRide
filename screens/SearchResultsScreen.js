@@ -37,6 +37,8 @@ import {
 import {
   buildListingsSearchParams,
   createSearchStateFromParams,
+  mergeSearchStateFromRoute,
+  searchReturnParamsFromState,
 } from '../utils/buildListingsSearchParams';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -309,30 +311,24 @@ export default function SearchResultsScreen({ navigation, route }) {
     await runListingsSearch(searchState);
   }, [searchState, runListingsSearch]);
 
-  // Sync when navigating here again with new Home params.
+  const searchStateRef = useRef(searchState);
+  searchStateRef.current = searchState;
+
+  // Sync from Home (full location). Never wipe place when params omit it.
   useEffect(() => {
-    const next = createSearchStateFromParams({
-      ...route.params,
-      bookingDates:
-        route.params?.bookingDates || searchState.bookingDates || DEFAULT_BOOKING_DATES,
+    setSearchState((prev) => {
+      const merged = mergeSearchStateFromRoute(prev, route.params || {});
+      searchStateRef.current = merged;
+      return merged;
     });
-    setSearchState((prev) => ({
-      ...next,
-      // Keep an edited distance if route didn't send one.
-      distance: route.params?.distance ?? route.params?.radiusKm ?? prev.distance ?? next.distance,
-      bookingDates: next.bookingDates || prev.bookingDates || DEFAULT_BOOKING_DATES,
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when route identity changes
   }, [
     route.params?.city,
     route.params?.locationQuery,
+    route.params?.label,
     route.params?.latitude,
     route.params?.longitude,
     route.params?.country,
   ]);
-
-  const searchStateRef = useRef(searchState);
-  searchStateRef.current = searchState;
   useFocusEffect(
     useCallback(() => {
       runListingsSearch(searchStateRef.current, {
@@ -427,13 +423,20 @@ export default function SearchResultsScreen({ navigation, route }) {
     };
   }, [searchOrigin]);
 
+  // Calendar apply: keep location (merge / searchReturnParams) and refresh results.
   useEffect(() => {
     const bookingDates = route.params?.bookingDates;
     if (!bookingDates || typeof bookingDates !== 'object') return;
     if (bookingDates.start == null || bookingDates.end == null) return;
-    setSearchState((prev) => ({ ...prev, bookingDates }));
+    const merged = mergeSearchStateFromRoute(searchStateRef.current, {
+      ...route.params,
+      bookingDates,
+    });
+    searchStateRef.current = merged;
+    setSearchState(merged);
+    runListingsSearch(merged);
     navigation.setParams({ bookingDates: undefined });
-  }, [navigation, route.params?.bookingDates]);
+  }, [navigation, route.params?.bookingDates, runListingsSearch]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -588,6 +591,7 @@ export default function SearchResultsScreen({ navigation, route }) {
                         mode: 'booking',
                         returnTo: 'SearchResultsScreen',
                         bookingSessionKey: Date.now(),
+                        searchReturnParams: searchReturnParamsFromState(searchState),
                       });
                     }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -685,6 +689,7 @@ export default function SearchResultsScreen({ navigation, route }) {
                         mode: 'booking',
                         returnTo: 'SearchResultsScreen',
                         bookingSessionKey: Date.now(),
+                        searchReturnParams: searchReturnParamsFromState(searchState),
                       });
                     }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

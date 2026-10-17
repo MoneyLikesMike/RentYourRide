@@ -419,7 +419,19 @@ const CalendarScreen = ({ navigation, route }) => {
       if (route.params?.listing) {
         payload.listing = route.params.listing;
       }
-      navigation.navigate(returnTo, payload);
+      // Round-trip search location when Calendar was opened from SearchResults —
+      // a bare `{ bookingDates }` navigate used to wipe city/coords on the stack.
+      if (
+        route.params?.searchReturnParams &&
+        typeof route.params.searchReturnParams === 'object'
+      ) {
+        Object.assign(payload, route.params.searchReturnParams);
+      }
+      navigation.navigate({
+        name: returnTo,
+        params: payload,
+        merge: true,
+      });
       return;
     }
     let finalBlockedRanges = blockedRanges;

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   buildListingsSearchParams,
   createSearchStateFromParams,
+  mergeSearchStateFromRoute,
 } = require('./buildListingsSearchParams');
 
 describe('buildListingsSearchParams', () => {
@@ -83,5 +84,25 @@ describe('createSearchStateFromParams', () => {
     assert.equal(state.latitude, 49.87);
     assert.equal(state.longitude, -97.3);
     assert.equal(state.distance, 500);
+  });
+});
+
+describe('mergeSearchStateFromRoute', () => {
+  it('dates-only Calendar return keeps Winnipeg location', () => {
+    const prev = createSearchStateFromParams({
+      city: 'Winnipeg',
+      locationQuery: 'Winnipeg, MB',
+      latitude: 49.89,
+      longitude: -97.14,
+      country: 'Canada',
+    });
+    const merged = mergeSearchStateFromRoute(prev, {
+      bookingDates: { start: 1, end: 2, startTime: '2:30 PM', endTime: '10:30 PM' },
+    });
+    assert.equal(merged.city, 'Winnipeg');
+    assert.equal(merged.label, 'Winnipeg, MB');
+    assert.equal(merged.latitude, 49.89);
+    assert.equal(merged.longitude, -97.14);
+    assert.equal(merged.bookingDates.start, 1);
   });
 });

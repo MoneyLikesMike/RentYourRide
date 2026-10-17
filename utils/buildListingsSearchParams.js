@@ -111,3 +111,56 @@ export function createSearchStateFromParams(params = {}) {
     region: trimStr(params.region) || trimStr(params.province),
   };
 }
+
+/** True when route params carry a real place (not a dates-only return from Calendar). */
+export function routeParamsHaveLocation(params = {}) {
+  const lat = finiteNumber(params.latitude);
+  const lon = finiteNumber(params.longitude);
+  return Boolean(
+    trimStr(params.city) ||
+      trimStr(params.locationQuery) ||
+      trimStr(params.label) ||
+      trimStr(params.fullAddress) ||
+      (lat != null && lon != null),
+  );
+}
+
+/**
+ * Merge route params into existing search state without wiping location when
+ * Calendar (or similar) navigates back with only `{ bookingDates }`.
+ */
+export function mergeSearchStateFromRoute(prev = {}, routeParams = {}) {
+  const next = createSearchStateFromParams(routeParams);
+  if (!routeParamsHaveLocation(routeParams)) {
+    return {
+      ...prev,
+      bookingDates: next.bookingDates || prev.bookingDates || null,
+    };
+  }
+  return {
+    ...prev,
+    ...next,
+    distance:
+      routeParams.distance ??
+      routeParams.radiusKm ??
+      prev.distance ??
+      next.distance,
+    bookingDates: next.bookingDates || prev.bookingDates || null,
+  };
+}
+
+/** Snapshot of location fields to round-trip through CalendarScreen. */
+export function searchReturnParamsFromState(state = {}) {
+  return {
+    city: state.city || undefined,
+    locationQuery: state.label || state.fullAddress || undefined,
+    label: state.label || undefined,
+    fullAddress: state.fullAddress || undefined,
+    latitude: state.latitude ?? undefined,
+    longitude: state.longitude ?? undefined,
+    country: state.country || undefined,
+    region: state.region || undefined,
+    distance: state.distance ?? undefined,
+    radiusKm: state.radiusKm ?? undefined,
+  };
+}
