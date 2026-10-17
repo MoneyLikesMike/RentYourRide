@@ -1,43 +1,55 @@
+import type { MouseEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { withAuthBackground } from '../auth/authModal';
 import { useAuth } from '../auth/AuthContext';
+import { APP_STORE_URL } from '../constants/appStore';
 import { goToHomeTop } from '../utils/goToHomeTop';
 import { CONTACT_MAILTO } from './SiteHeader';
-import { APP_STORE_URL } from '../constants/appStore';
 import { AppStoreBadge } from './StoreBadges';
 
-const HOME_TOP = '__home_top__';
+type FooterNavItem = {
+  title: string;
+  to: string;
+  /** Scroll to home search hero instead of a normal navigation. */
+  homeTop?: boolean;
+};
 
-const FOOTER_COLUMNS = [
+const FOOTER_COLUMNS: { caption: string; links: FooterNavItem[] }[] = [
   {
     caption: 'Get started',
     links: [
-      { title: 'Rent a Ride', path: HOME_TOP },
-      { title: 'List a Ride', path: '/profile/list-your-ride' },
+      { title: 'Rent a Ride', to: '/', homeTop: true },
+      { title: 'List a Ride', to: '/profile/list-your-ride' },
     ],
   },
   {
     caption: 'Company',
-    links: [{ title: 'About', path: '/about' }],
+    links: [{ title: 'About', to: '/about' }],
   },
   {
     caption: 'Learn more',
     links: [
-      { title: 'Learn', path: '/learn' },
-      { title: 'News', path: '/news' },
-      { title: 'How It Works', path: '/how-it-works' },
-      { title: 'FAQ', path: '/faq' },
-      { title: 'Insurance', path: '/insurance' },
-      { title: 'Policies', path: '/terms-conditions' },
+      { title: 'Learn', to: '/learn' },
+      { title: 'News', to: '/news' },
+      { title: 'How It Works', to: '/how-it-works' },
+      { title: 'FAQ', to: '/insurance#faq' },
+      { title: 'Insurance', to: '/insurance' },
+      { title: 'Policies', to: '/terms-conditions' },
     ],
   },
   {
     caption: 'Support',
-    links: [{ title: 'Contact Us', path: '/contact' }],
+    links: [{ title: 'Contact Us', to: '/contact' }],
   },
-] as const;
+];
 
 const AUTH_GATED = new Set(['/profile/list-your-ride']);
+
+function isPlainLeftClick(e: MouseEvent) {
+  return (
+    e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
+  );
+}
 
 export default function SiteFooter() {
   const location = useLocation();
@@ -46,19 +58,22 @@ export default function SiteFooter() {
 
   const backgroundImage = '/footer/footer.png';
 
-  const go = (path: string) => {
-    if (path === HOME_TOP) {
+  const onNavClick = (e: MouseEvent, item: FooterNavItem) => {
+    if (!isPlainLeftClick(e)) return;
+
+    if (item.homeTop) {
+      e.preventDefault();
       goToHomeTop(navigate, location.pathname);
       return;
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (!isAuthenticated && AUTH_GATED.has(path)) {
+
+    const pathOnly = item.to.split('#')[0] || item.to;
+    if (!isAuthenticated && AUTH_GATED.has(pathOnly)) {
+      e.preventDefault();
       navigate('/login', {
-        state: withAuthBackground(location, { from: path }),
+        state: withAuthBackground(location, { from: pathOnly }),
       });
-      return;
     }
-    navigate(path);
   };
 
   return (
@@ -90,14 +105,14 @@ export default function SiteFooter() {
               <div key={column.caption} className="site-footer-links">
                 <span className="site-footer-links-caption">{column.caption}</span>
                 {column.links.map((item) => (
-                  <button
+                  <Link
                     key={`${column.caption}-${item.title}`}
-                    type="button"
+                    to={item.to}
                     className="site-footer-link"
-                    onClick={() => go(item.path)}
+                    onClick={(e) => onNavClick(e, item)}
                   >
                     {item.title}
-                  </button>
+                  </Link>
                 ))}
               </div>
             ))}

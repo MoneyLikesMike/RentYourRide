@@ -18,7 +18,7 @@ const TOPICS = [
     points: ['List a ride in 5 steps', 'Book a ride in 5 steps', 'Check in & check out'],
   },
   {
-    to: '/faq',
+    to: '/insurance#faq',
     title: 'FAQ',
     description:
       'Answers to the questions we hear most from hosts and guests — refunds, requirements and trip changes.',
