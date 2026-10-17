@@ -358,11 +358,13 @@
 }
 
 .location-input-wrapper {
-  flex: 1.15;
-  min-width: 0;
+  /* Grow ahead of Start/End so the Where placeholder isn't truncated at ~1024px (RYRA-446). */
+  flex: 1.55 1 12rem;
+  min-width: 12rem;
+  max-width: none;
   position: relative;
   padding-right: 0.5vw;
-  max-width: 19vw;
+  z-index: 6;
 }
 
 .sort-border {
@@ -507,11 +509,16 @@
   border-radius: 0.75rem;
   box-shadow: 0 12px 28px rgba(23, 37, 42, 0.12);
   max-height: 16rem;
-  overflow: auto;
+  min-width: 100%;
+  width: max(100%, 16rem);
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .places-option {
   width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -524,7 +531,8 @@
   font-family: 'Nunito', sans-serif;
 }
 
-.places-option:hover {
+.places-option:hover,
+.places-option.is-active {
   background: #f9f9f9;
 }
 
@@ -532,12 +540,18 @@
   font-size: 0.9rem;
   font-weight: 700;
   color: #17252a;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .places-secondary {
   font-size: 0.75rem;
   font-weight: 600;
   color: #ababab;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .search-ride-btn {
@@ -1470,6 +1484,9 @@
   }
 
   .location-input-wrapper {
+    /* Stacked search bar: don't flex-grow (desktop flex: 1.55 1 12rem would stretch tall). */
+    flex: none;
+    min-width: 0;
     max-width: none;
     width: 100%;
   }
