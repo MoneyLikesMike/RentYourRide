@@ -104,10 +104,12 @@ export default function HomeScreen({ navigation }) {
   }, [loadDiscovery]);
 
   const runSearch = useCallback(
-    async (searchInput, explicitCity, coords = null) => {
+    async (searchInput, explicitCity, coords = null, meta = {}) => {
       const { city, query } = resolveSearchCity({
         city: explicitCity,
         query: typeof searchInput === 'string' ? searchInput : '',
+        country: meta.country,
+        region: meta.region,
       });
       const displayLocation = formatLocationLabel(city || query);
       if (!city) {
@@ -147,6 +149,8 @@ export default function HomeScreen({ navigation }) {
         navigation.navigate('SearchResultsScreen', {
           city,
           listings: merged,
+          country: meta.country || undefined,
+          locationQuery: typeof searchInput === 'string' ? searchInput : query,
           ...(origin
             ? { latitude: origin.latitude, longitude: origin.longitude }
             : {}),
@@ -160,10 +164,18 @@ export default function HomeScreen({ navigation }) {
 
   const handlePlaceSelected = useCallback(
     ({ selection }) => {
-      runSearch(selection.query, selection.city, {
-        latitude: selection.latitude,
-        longitude: selection.longitude,
-      });
+      runSearch(
+        selection.query,
+        selection.city,
+        {
+          latitude: selection.latitude,
+          longitude: selection.longitude,
+        },
+        {
+          country: selection.country,
+          region: selection.region || selection.province,
+        },
+      );
     },
     [runSearch],
   );
@@ -171,12 +183,16 @@ export default function HomeScreen({ navigation }) {
   const handleCurrentLocation = async () => {
     const loc = await resolveCurrentLocationQueryWithAlert();
     if (!loc) return;
-    runSearch(loc.query, loc.city, {
-      latitude: loc.latitude,
-      longitude: loc.longitude,
-    });
+    runSearch(
+      loc.query,
+      loc.city,
+      {
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+      },
+      { country: loc.country, region: loc.region },
+    );
   };
-
   const handleManualSearch = useCallback(
     (text) => {
       const trimmed = (text || '').trim();

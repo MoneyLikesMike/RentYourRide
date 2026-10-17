@@ -1,4 +1,8 @@
 import { apiFetch } from './http';
+import {
+  buildPlacesAutocompleteParams,
+  type PlacesAutocompleteBias,
+} from './placesAutocompleteParams';
 
 export type PlacePrediction = {
   description: string;
@@ -31,25 +35,33 @@ type DetailsResponse = {
   result?: PlaceDetailsResult;
 };
 
-const COMPONENTS = 'country:ca|country:us';
+export type PlacesAutocompleteOptions = {
+  sessionToken?: string;
+  bias?: PlacesAutocompleteBias | null;
+  signal?: AbortSignal;
+};
 
 export async function placesAutocomplete(
   input: string,
-  sessionToken?: string,
+  sessionTokenOrOptions?: string | PlacesAutocompleteOptions,
 ): Promise<PlacePrediction[]> {
   const q = input.trim();
   if (q.length < 2) return [];
 
-  const params = new URLSearchParams({
+  const options: PlacesAutocompleteOptions =
+    typeof sessionTokenOrOptions === 'string'
+      ? { sessionToken: sessionTokenOrOptions }
+      : sessionTokenOrOptions ?? {};
+
+  const params = buildPlacesAutocompleteParams({
     input: q,
-    language: 'en',
-    components: COMPONENTS,
+    sessionToken: options.sessionToken,
+    bias: options.bias,
   });
-  if (sessionToken) params.set('sessiontoken', sessionToken);
 
   const data = await apiFetch<AutocompleteResponse>(
     `v1/maps-proxy/api/place/autocomplete/json?${params}`,
-    { method: 'GET', auth: false },
+    { method: 'GET', auth: false, signal: options.signal },
   );
   return data.predictions ?? [];
 }

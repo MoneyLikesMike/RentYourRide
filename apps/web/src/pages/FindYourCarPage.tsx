@@ -446,6 +446,7 @@ export default function FindYourCarPage() {
   const [addressText, setAddressText] = useState(
     () => navState?.location.query || initialQuery || initialCity || '',
   );
+  const [placesListClosedToken, setPlacesListClosedToken] = useState(0);
   const [place, setPlace] = useState<ParsedPlace | null>(() => {
     if (navState?.location) {
       return {
@@ -829,6 +830,7 @@ export default function FindYourCarPage() {
       (text || addressText).split(',')[0]?.trim() ||
       (text || addressText).trim();
     if (!city) return;
+    setPlacesListClosedToken((n) => n + 1);
     setError(null);
     setSearchCity(city);
     setSearchQuery(parsed?.query || text || addressText.trim());
@@ -859,18 +861,26 @@ export default function FindYourCarPage() {
     });
   };
 
+  const placesBias =
+    place?.latitude != null && place?.longitude != null
+      ? { latitude: place.latitude, longitude: place.longitude }
+      : urlLatitude != null && urlLongitude != null
+        ? { latitude: urlLatitude, longitude: urlLongitude }
+        : null;
+
   const locationField = (
     <div className="fyc-header-where">
       <span className="option-caption">Where?</span>
       <PlacesAutocomplete
         showLabel={false}
         value={addressText}
+        bias={placesBias}
+        listClosedToken={placesListClosedToken}
         onChange={(text) => {
+          // Clearing the box must keep current results until a new place is chosen.
           setAddressText(text);
-          setPlace(null);
-          if (!text.trim()) {
-            setSearchCity('');
-            setSearchQuery('');
+          if (text.trim()) {
+            setPlace(null);
           }
         }}
         onPlaceSelected={(parsed) => {

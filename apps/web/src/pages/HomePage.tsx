@@ -108,6 +108,7 @@ export default function HomePage() {
 
   const [addressText, setAddressText] = useState('');
   const [place, setPlace] = useState<ParsedPlace | null>(null);
+  const [placesListClosedToken, setPlacesListClosedToken] = useState(0);
   const [startDate, setStartDate] = useState(() => toDateInput(initialStart));
   const [startTime, setStartTime] = useState(() =>
     snapSearchTime(toTimeInput(initialStart)),
@@ -205,6 +206,7 @@ export default function HomePage() {
 
   const goSearch = (vehicleType?: string[]) => {
     setError(null);
+    setPlacesListClosedToken((n) => n + 1);
     const city =
       place?.city?.trim() ||
       addressText.split(',')[0]?.trim() ||
@@ -291,9 +293,18 @@ export default function HomePage() {
             <div className="location-input-wrapper">
               <PlacesAutocomplete
                 value={addressText}
+                listClosedToken={placesListClosedToken}
+                bias={
+                  place?.latitude != null && place?.longitude != null
+                    ? {
+                        latitude: place.latitude,
+                        longitude: place.longitude,
+                      }
+                    : null
+                }
                 onChange={(text) => {
                   setAddressText(text);
-                  setPlace(null);
+                  if (text.trim()) setPlace(null);
                 }}
                 onPlaceSelected={onPlaceSelected}
               />

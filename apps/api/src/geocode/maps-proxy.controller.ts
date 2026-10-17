@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { GeocodeService } from './geocode.service';
 import { ListingsService } from '../listings/listings.service';
+import { buildLegacyAutocompleteQuery } from './places-autocomplete-query';
 
 @ApiTags('geocode')
 @Controller('maps-proxy/api/place')
@@ -14,7 +15,14 @@ export class MapsProxyController {
 
   @Get('autocomplete/json')
   async placesAutocomplete(@Query() query: Record<string, string>, @Res() res: Response) {
-    const json = await this.geocode.proxyGoogleMapsApi('place/autocomplete/json', query);
+    const normalized =
+      typeof query.input === 'string' && query.input.trim().length >= 2
+        ? buildLegacyAutocompleteQuery(query.input, query)
+        : query;
+    const json = await this.geocode.proxyGoogleMapsApi(
+      'place/autocomplete/json',
+      normalized,
+    );
     const predictions = json.predictions;
     const needsFallback =
       json.status === 'REQUEST_DENIED' ||
@@ -23,7 +31,7 @@ export class MapsProxyController {
       predictions.length === 0;
 
     if (needsFallback && typeof query.input === 'string' && query.input.trim().length >= 2) {
-      const modern = await this.geocode.placesAutocompleteNew(query.input, query);
+      const modern = await this.geocode.placesAutocompleteNew(query.input, normalized);
       if (modern?.status === 'OK' && Array.isArray(modern.predictions) && modern.predictions.length) {
         return res.status(200).json(modern);
       }

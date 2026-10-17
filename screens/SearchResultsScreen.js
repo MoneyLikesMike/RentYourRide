@@ -26,6 +26,7 @@ import ListingCard from '../components/ListingCard';
 import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocompleteField';
 import { resolveCurrentLocationQueryWithAlert, getCurrentCoordinates } from '../utils/currentLocation';
 import { formatLocationLabel, resolveSearchCity, isMarketplaceListing } from '../utils/searchLocation';
+import { formatSearchPlaceLabel } from '../utils/formatSearchPlaceLabel';
 import { searchListings } from '../services/listingsApi';
 import {
   createDefaultBookingDates,
@@ -122,6 +123,16 @@ export default function SearchResultsScreen({ navigation, route }) {
   const panelSlide = useRef(new Animated.Value(-SEARCH_PANEL_HEIGHT)).current;
   const [editingCity, setEditingCity] = useState(false);
   const [whereInput, setWhereInput] = useState(selectedCity ?? '');
+  const [selectedCountry, setSelectedCountry] = useState(
+    typeof country === 'string' ? country : '',
+  );
+  const [locationLabel, setLocationLabel] = useState(() =>
+    formatSearchPlaceLabel({
+      city,
+      country: typeof country === 'string' ? country : '',
+      query: typeof route.params?.locationQuery === 'string' ? route.params.locationQuery : city,
+    }),
+  );
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const [instantEnabled, setInstantEnabled] = useState(false);
   const [priceMin, setPriceMin] = useState(0);
@@ -135,10 +146,7 @@ export default function SearchResultsScreen({ navigation, route }) {
   const [carFeaturesExpanded, setCarFeaturesExpanded] = useState(false);
   const [kmPerDay, setKmPerDay] = useState(200 / KM_SLIDER_MAX); // 0-1, default 200
   const [kmTrackWidth, setKmTrackWidth] = useState(0);
-  const locationLabel = selectedCity ? `${selectedCity}, Canada` : 'Enter location';
-  const whereLabel = selectedCity
-    ? `250 Wincott Dr, ${selectedCity}, Canada`
-    : '250 Wincott Dr, Toronto, Canada';
+  const whereLabel = locationLabel;
   const { isFavorited, toggleFavorite } = useFavorites();
 
   const getDistanceLabel = (val) => {
@@ -243,7 +251,19 @@ export default function SearchResultsScreen({ navigation, route }) {
 
   useEffect(() => {
     setSelectedCity(city);
-  }, [city]);
+    const nextCountry = typeof country === 'string' ? country : '';
+    setSelectedCountry(nextCountry);
+    setLocationLabel(
+      formatSearchPlaceLabel({
+        city,
+        country: nextCountry,
+        query:
+          typeof route.params?.locationQuery === 'string'
+            ? route.params.locationQuery
+            : city,
+      }),
+    );
+  }, [city, country, route.params?.locationQuery]);
 
   // Prefer fresh route/search API results — never replace with stale AsyncStorage catalog alone.
   const refreshSearch = useCallback(
@@ -289,6 +309,13 @@ export default function SearchResultsScreen({ navigation, route }) {
     const raw = (whereInput ?? '').trim();
     const nextCity = raw.includes(',') ? raw.split(',')[0].trim() : raw || selectedCity;
     setSelectedCity(nextCity);
+    setLocationLabel(
+      formatSearchPlaceLabel({
+        city: nextCity,
+        country: selectedCountry,
+        query: raw || nextCity,
+      }),
+    );
     closeSearchPanel();
     setEditingCity(false);
   };
@@ -296,9 +323,22 @@ export default function SearchResultsScreen({ navigation, route }) {
   const handleUseCurrentLocation = async () => {
     const loc = await resolveCurrentLocationQueryWithAlert();
     if (!loc) return;
-    const { city, query } = resolveSearchCity({ city: loc.city, query: loc.query });
+    const { city: nextCity, query } = resolveSearchCity({
+      city: loc.city,
+      query: loc.query,
+      country: loc.country,
+    });
     setWhereInput(query || loc.query);
-    setSelectedCity(city || formatLocationLabel(loc.query));
+    setSelectedCity(nextCity || formatLocationLabel(loc.query));
+    setSelectedCountry(loc.country || '');
+    setLocationLabel(
+      formatSearchPlaceLabel({
+        city: nextCity || loc.city,
+        country: loc.country,
+        region: loc.region,
+        query: query || loc.query,
+      }),
+    );
     if (Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude)) {
       setSearchOrigin({ latitude: loc.latitude, longitude: loc.longitude });
     }
@@ -396,9 +436,20 @@ export default function SearchResultsScreen({ navigation, route }) {
                   <View style={styles.whereEditBlock}>
                     <GooglePlacesAutocompleteField
                       placeholder="City, airport, address, or hotel"
+                      biasLatitude={searchOrigin?.latitude}
+                      biasLongitude={searchOrigin?.longitude}
                       onPlaceSelected={({ selection }) => {
                         setWhereInput(selection.query);
                         setSelectedCity(selection.city || selection.query.split(',')[0].trim());
+                        setSelectedCountry(selection.country || '');
+                        setLocationLabel(
+                          formatSearchPlaceLabel({
+                            city: selection.city,
+                            country: selection.country,
+                            region: selection.region || selection.province,
+                            query: selection.query,
+                          }),
+                        );
                         if (
                           Number.isFinite(selection.latitude) &&
                           Number.isFinite(selection.longitude)
