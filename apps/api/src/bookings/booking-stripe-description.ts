@@ -117,10 +117,11 @@ export function formatRentalStripeDescriptionFromBooking(
  */
 export function formatTripOutcomeStripeDescription(opts: {
   outcome: 'Declined' | 'Cancelled';
-  by: 'host' | 'guest';
+  by: 'host' | 'guest' | 'admin';
   booking: BookingEntity;
   host?: UserEntity | null;
 }): string {
   const rental = formatRentalStripeDescriptionFromBooking(opts.booking, opts.host);
-  return `Trip ${opts.outcome} by ${opts.by} · ${rental}`;
+  const byLabel = opts.by === 'admin' ? 'Rent Your Ride' : opts.by;
+  return `Trip ${opts.outcome} by ${byLabel} · ${rental}`;
 }
