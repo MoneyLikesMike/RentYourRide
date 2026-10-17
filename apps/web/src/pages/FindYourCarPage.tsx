@@ -859,18 +859,25 @@ export default function FindYourCarPage() {
     });
   };
 
+  const placesBias =
+    place?.latitude != null && place?.longitude != null
+      ? { latitude: place.latitude, longitude: place.longitude }
+      : urlLatitude != null && urlLongitude != null
+        ? { latitude: urlLatitude, longitude: urlLongitude }
+        : null;
+
   const locationField = (
     <div className="fyc-header-where">
       <span className="option-caption">Where?</span>
       <PlacesAutocomplete
         showLabel={false}
         value={addressText}
+        bias={placesBias}
         onChange={(text) => {
+          // Clearing the box must keep current results until a new place is chosen.
           setAddressText(text);
-          setPlace(null);
-          if (!text.trim()) {
-            setSearchCity('');
-            setSearchQuery('');
+          if (text.trim()) {
+            setPlace(null);
           }
         }}
         onPlaceSelected={(parsed) => {

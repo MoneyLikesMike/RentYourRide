@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GeocodeCacheEntity } from '../entities/geocode-cache.entity';
+import {
+  buildLegacyAutocompleteQuery,
+  buildPlacesNewAutocompleteBody,
+} from './places-autocomplete-query';
 
 export type GeocodeResult = {
   formatted: string;
@@ -150,7 +154,13 @@ export class GeocodeService {
       throw new BadRequestException('Location search is not configured on the server');
     }
 
-    const params = this.mapsQueryToSearchParams(query, true, key);
+    // Autocomplete: drop legacy country filters; keep optional location bias only.
+    let forwardQuery = query;
+    if (apiPath === 'place/autocomplete/json' && typeof query.input === 'string') {
+      forwardQuery = buildLegacyAutocompleteQuery(query.input, query);
+    }
+
+    const params = this.mapsQueryToSearchParams(forwardQuery, true, key);
     const url = `https://maps.googleapis.com/maps/api/${apiPath}?${params.toString()}`;
 
     let json: Record<string, unknown>;
@@ -171,7 +181,7 @@ export class GeocodeService {
           ? json.error_message
           : 'Location search is not authorized on the server';
       this.log.warn(`Google Maps proxy (${apiPath}): ${message}`);
-      const bedev = await this.proxyGoogleMapsViaBedev(apiPath, query);
+      const bedev = await this.proxyGoogleMapsViaBedev(apiPath, forwardQuery);
       if (bedev) {
         this.log.log(`Google Maps proxy (${apiPath}): served via bedev fallback`);
         return bedev;
@@ -200,12 +210,8 @@ export class GeocodeService {
     const trimmed = input.trim();
     if (!key || trimmed.length < 2) return null;
 
-    const language = typeof query.language === 'string' ? query.language : 'en';
-    const body = {
-      input: trimmed,
-      includedRegionCodes: ['ca', 'us'],
-      languageCode: language,
-    };
+    const body = buildPlacesNewAutocompleteBody(trimmed, query);
+    const legacyFallback = buildLegacyAutocompleteQuery(trimmed, query);
 
     try {
       const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
@@ -218,11 +224,10 @@ export class GeocodeService {
       });
       const json = (await res.json()) as Record<string, unknown>;
       if (json.error || !res.ok) {
-        const bedev = await this.proxyGoogleMapsViaBedev('place/autocomplete/json', {
-          input: trimmed,
-          language,
-          components: 'country:ca|country:us',
-        });
+        const bedev = await this.proxyGoogleMapsViaBedev(
+          'place/autocomplete/json',
+          legacyFallback,
+        );
         if (bedev) return bedev;
         return null;
       }
@@ -269,11 +274,10 @@ export class GeocodeService {
         'Places API (New) autocomplete failed',
         err instanceof Error ? err.message : err,
       );
-      const bedev = await this.proxyGoogleMapsViaBedev('place/autocomplete/json', {
-        input: trimmed,
-        language: typeof query.language === 'string' ? query.language : 'en',
-        components: 'country:ca|country:us',
-      });
+      const bedev = await this.proxyGoogleMapsViaBedev(
+        'place/autocomplete/json',
+        legacyFallback,
+      );
       if (bedev) return bedev;
       return null;
     }
@@ -289,7 +293,6 @@ export class GeocodeService {
     url.searchParams.set('format', 'json');
     url.searchParams.set('addressdetails', '1');
     url.searchParams.set('limit', '8');
-    url.searchParams.set('countrycodes', 'ca,us');
 
     try {
       const res = await fetch(url.toString(), {

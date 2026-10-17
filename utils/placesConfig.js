@@ -1,6 +1,12 @@
 import Constants from 'expo-constants';
 import { getApiBaseUrl } from '../constants/api';
 
+export {
+  PLACES_BIAS_RADIUS_METERS,
+  PLACES_QUERY_DEFAULTS,
+  buildPlacesAutocompleteQuery,
+} from './placesAutocompleteQuery';
+
 /**
  * Places autocomplete uses Google's HTTP REST API from JavaScript. iOS/Android app
  * restrictions on API keys do NOT apply (Google sees "empty referer"). Always proxy
@@ -37,8 +43,3 @@ export function getGooglePlacesApiKey() {
   }
   return undefined;
 }
-
-export const PLACES_QUERY_DEFAULTS = {
-  language: 'en',
-  components: 'country:ca|country:us',
-};

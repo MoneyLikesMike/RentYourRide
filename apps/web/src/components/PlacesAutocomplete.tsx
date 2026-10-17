@@ -6,6 +6,7 @@ import {
   type ParsedPlace,
   type PlacePrediction,
 } from '../api/maps';
+import type { PlacesAutocompleteBias } from '../api/placesAutocompleteParams';
 
 type Props = {
   value: string;
@@ -15,6 +16,10 @@ type Props = {
   disabled?: boolean;
   /** Set false to hide the built-in "Where?" label. */
   showLabel?: boolean;
+  /** Soft ranking bias (current / last-searched location). Never restricts. */
+  bias?: PlacesAutocompleteBias | null;
+  /** Close the suggestion list (e.g. parent form submitted a search). */
+  listClosedToken?: number;
 };
 
 function newSessionToken(): string {
@@ -31,6 +36,8 @@ export default function PlacesAutocomplete({
   placeholder = 'Enter city, airport or address',
   disabled,
   showLabel = true,
+  bias = null,
+  listClosedToken = 0,
 }: Props) {
   const listId = useId();
   const inputId = `${listId}-input`;
@@ -41,12 +48,23 @@ export default function PlacesAutocomplete({
   const sessionRef = useRef(newSessionToken());
   const wrapRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<number | null>(null);
+  const requestIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const blurCloseTimerRef = useRef<number | null>(null);
+
+  const closeList = () => {
+    setOpen(false);
+    setActiveIndex(-1);
+  };
+
+  useEffect(() => {
+    closeList();
+  }, [listClosedToken]);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-        setActiveIndex(-1);
+        closeList();
       }
     };
     document.addEventListener('mousedown', onDoc);
@@ -55,6 +73,8 @@ export default function PlacesAutocomplete({
 
   useEffect(() => {
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    abortRef.current?.abort();
+    abortRef.current = null;
 
     const q = value.trim();
     if (q.length < 2) {
@@ -65,31 +85,43 @@ export default function PlacesAutocomplete({
     }
 
     setLoading(true);
+    const requestId = ++requestIdRef.current;
     debounceRef.current = window.setTimeout(async () => {
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
-        const rows = await placesAutocomplete(q, sessionRef.current);
+        const rows = await placesAutocomplete(q, {
+          sessionToken: sessionRef.current,
+          bias,
+          signal: controller.signal,
+        });
+        if (requestId !== requestIdRef.current) return;
         setPredictions(rows);
         setOpen(rows.length > 0);
         // Leave highlight unset until ArrowDown / hover so first ↓ picks the top result.
         setActiveIndex(-1);
-      } catch {
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        if (requestId !== requestIdRef.current) return;
         setPredictions([]);
         setActiveIndex(-1);
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
       }
     }, 280);
 
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
     };
-  }, [value]);
+  }, [value, bias?.latitude, bias?.longitude, bias?.radiusMeters]);
 
   const selectPrediction = async (row: PlacePrediction) => {
     onChange(row.description);
-    setOpen(false);
+    closeList();
     setPredictions([]);
-    setActiveIndex(-1);
     try {
       const details = await placeDetails(row.place_id, sessionRef.current);
       onPlaceSelected(parsePlaceDetails(details, row.description));
@@ -107,8 +139,7 @@ export default function PlacesAutocomplete({
     if (e.key === 'Escape') {
       if (listOpen) {
         e.preventDefault();
-        setOpen(false);
-        setActiveIndex(-1);
+        closeList();
       }
       return;
     }
@@ -134,8 +165,10 @@ export default function PlacesAutocomplete({
       if (listOpen && activeIndex >= 0 && predictions[activeIndex]) {
         e.preventDefault();
         void selectPrediction(predictions[activeIndex]!);
+        return;
       }
-      // Otherwise let the form submit (Search Ride).
+      // Form submit (Search Ride) — close suggestions so results stay visible.
+      closeList();
     }
   };
 
@@ -162,10 +195,20 @@ export default function PlacesAutocomplete({
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => {
+          if (blurCloseTimerRef.current) {
+            window.clearTimeout(blurCloseTimerRef.current);
+            blurCloseTimerRef.current = null;
+          }
           if (predictions.length) {
             setOpen(true);
-            if (activeIndex < 0) setActiveIndex(0);
           }
+        }}
+        onBlur={() => {
+          // Delay so option mousedown/click can run first.
+          blurCloseTimerRef.current = window.setTimeout(() => {
+            closeList();
+            blurCloseTimerRef.current = null;
+          }, 120);
         }}
         onKeyDown={onKeyDown}
       />
@@ -184,6 +227,10 @@ export default function PlacesAutocomplete({
                   aria-selected={selected}
                   className={`places-option${selected ? ' is-active' : ''}`}
                   onMouseEnter={() => setActiveIndex(index)}
+                  onMouseDown={(e) => {
+                    // Keep focus long enough for click; avoid blur-before-select.
+                    e.preventDefault();
+                  }}
                   onClick={() => void selectPrediction(row)}
                 >
                   <span className="places-main">

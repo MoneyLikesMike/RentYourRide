@@ -5,7 +5,7 @@ import { FONTS } from '../constants/fonts';
 import {
   getGooglePlacesApiKey,
   getGooglePlacesRequestUrl,
-  PLACES_QUERY_DEFAULTS,
+  buildPlacesAutocompleteQuery,
 } from '../utils/placesConfig';
 import { placeSelectionToSearchQuery } from '../utils/placeDetails';
 
@@ -33,6 +33,8 @@ export default function GooglePlacesAutocompleteField({
   inputStyle,
   initialValue = '',
   onChangeText,
+  biasLatitude,
+  biasLongitude,
 }) {
   const ref = useRef(null);
   const [sessionToken, setSessionToken] = useState(() => createSessionToken());
@@ -85,9 +87,12 @@ export default function GooglePlacesAutocompleteField({
         }}
         query={{
           key: useServerProxy ? 'via-server' : directApiKey,
-          ...PLACES_QUERY_DEFAULTS,
-          sessiontoken: sessionToken,
-          ...(types ? { types } : {}),
+          ...buildPlacesAutocompleteQuery({
+            sessiontoken: sessionToken,
+            types,
+            latitude: biasLatitude,
+            longitude: biasLongitude,
+          }),
         }}
         GooglePlacesDetailsQuery={{
           sessiontoken: sessionToken,
