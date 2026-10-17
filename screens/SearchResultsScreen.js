@@ -14,6 +14,7 @@ import {
   TextInput,
   Switch,
   PanResponder,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -25,7 +26,7 @@ import { useListings } from '../context/ListingsContext';
 import ListingCard from '../components/ListingCard';
 import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocompleteField';
 import { resolveCurrentLocationQueryWithAlert, getCurrentCoordinates } from '../utils/currentLocation';
-import { formatLocationLabel, resolveSearchCity, isMarketplaceListing } from '../utils/searchLocation';
+import { resolveSearchCity, isMarketplaceListing } from '../utils/searchLocation';
 import { formatSearchPlaceLabel } from '../utils/formatSearchPlaceLabel';
 import { searchListings } from '../services/listingsApi';
 import {
@@ -33,6 +34,10 @@ import {
   formatSearchDateRangeShort,
   formatSearchDatesDetail,
 } from '../utils/bookingDatesDefaults';
+import {
+  buildListingsSearchParams,
+  createSearchStateFromParams,
+} from '../utils/buildListingsSearchParams';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const scale = uiScale;
@@ -95,43 +100,49 @@ const COLOR_OPTIONS = [
 
 export default function SearchResultsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { city = '', listings: initialRouteListings = [], country } = route.params || {};
+  const { listings: initialRouteListings = [] } = route.params || {};
   const { getListingsByCity, mergeRemoteListings } = useListings();
-  const [selectedCity, setSelectedCity] = useState(city);
+  const [searchState, setSearchState] = useState(() =>
+    createSearchStateFromParams({
+      ...route.params,
+      bookingDates: route.params?.bookingDates || DEFAULT_BOOKING_DATES,
+    }),
+  );
   const [currentListings, setCurrentListings] = useState(() => {
     if (Array.isArray(initialRouteListings) && initialRouteListings.length > 0) {
       return initialRouteListings.filter(isMarketplaceListing);
     }
-    const key = (city || '').trim();
+    const key = (searchState.city || '').trim();
     return key ? getListingsByCity(key).filter(isMarketplaceListing) : [];
   });
-  const useMiles = country === 'US' || country === 'USA' || country === 'United States';
-  const [searchBookingDates, setSearchBookingDates] = useState(DEFAULT_BOOKING_DATES);
-  const [searchOrigin, setSearchOrigin] = useState(() => {
-    const lat = Number(route.params?.latitude);
-    const lon = Number(route.params?.longitude);
-    if (Number.isFinite(lat) && Number.isFinite(lon)) {
-      return { latitude: lat, longitude: lon };
-    }
-    return null;
-  });
-  const [dateRange, setDateRange] = useState(() => formatSearchDateRangeShort(DEFAULT_BOOKING_DATES));
-  const [datesDetailText, setDatesDetailText] = useState(() => formatSearchDatesDetail(DEFAULT_BOOKING_DATES));
+  const useMiles =
+    searchState.country === 'US' ||
+    searchState.country === 'USA' ||
+    searchState.country === 'United States';
+  const searchBookingDates = searchState.bookingDates || DEFAULT_BOOKING_DATES;
+  const searchOrigin =
+    Number.isFinite(searchState.latitude) && Number.isFinite(searchState.longitude)
+      ? { latitude: searchState.latitude, longitude: searchState.longitude }
+      : null;
+  const dateRange = formatSearchDateRangeShort(searchBookingDates);
+  const datesDetailText = formatSearchDatesDetail(searchBookingDates);
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
   const [refineModalVisible, setRefineModalVisible] = useState(false);
-  const [selectedDistance, setSelectedDistance] = useState(500);
+  const selectedDistance = searchState.distance ?? 500;
   const panelSlide = useRef(new Animated.Value(-SEARCH_PANEL_HEIGHT)).current;
   const [editingCity, setEditingCity] = useState(false);
-  const [whereInput, setWhereInput] = useState(selectedCity ?? '');
-  const [selectedCountry, setSelectedCountry] = useState(
-    typeof country === 'string' ? country : '',
-  );
-  const [locationLabel, setLocationLabel] = useState(() =>
+  const [whereInput, setWhereInput] = useState(searchState.label || searchState.city || '');
+  const locationLabel =
+    (searchState.label || '').trim() ||
     formatSearchPlaceLabel({
-      city,
-      country: typeof country === 'string' ? country : '',
-      query: typeof route.params?.locationQuery === 'string' ? route.params.locationQuery : city,
-    }),
+      city: searchState.city,
+      country: searchState.country,
+      region: searchState.region,
+      query: searchState.fullAddress || searchState.city,
+    });
+  const needsLocation = !(
+    (searchState.city || '').trim() ||
+    (Number.isFinite(searchState.latitude) && Number.isFinite(searchState.longitude))
   );
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const [instantEnabled, setInstantEnabled] = useState(false);
@@ -245,78 +256,123 @@ export default function SearchResultsScreen({ navigation, route }) {
     }).start();
   };
 
-  const handleSearch = () => {
-    closeSearchPanel();
-  };
-
-  useEffect(() => {
-    setSelectedCity(city);
-    const nextCountry = typeof country === 'string' ? country : '';
-    setSelectedCountry(nextCountry);
-    setLocationLabel(
-      formatSearchPlaceLabel({
-        city,
-        country: nextCountry,
-        query:
-          typeof route.params?.locationQuery === 'string'
-            ? route.params.locationQuery
-            : city,
-      }),
-    );
-  }, [city, country, route.params?.locationQuery]);
-
-  // Prefer fresh route/search API results — never replace with stale AsyncStorage catalog alone.
-  const refreshSearch = useCallback(
-    async (cityKey, routeListings) => {
-      const key = (cityKey || '').trim();
-      if (!key) return;
-      if (Array.isArray(routeListings) && routeListings.length > 0) {
-        setCurrentListings(routeListings.filter(isMarketplaceListing));
+  const runListingsSearch = useCallback(
+    async (state, { preferRouteListings = null } = {}) => {
+      const { params, reason } = buildListingsSearchParams(state);
+      if (!params) {
+        if (reason === 'empty') {
+          setCurrentListings([]);
+        }
+        return { ok: false, reason };
       }
+
+      if (Array.isArray(preferRouteListings) && preferRouteListings.length > 0) {
+        setCurrentListings(preferRouteListings.filter(isMarketplaceListing));
+      }
+
       try {
-        const remote = await searchListings({ city: key });
+        const remote = await searchListings(params);
         if (Array.isArray(remote)) {
           mergeRemoteListings(remote);
           setCurrentListings(remote.filter(isMarketplaceListing));
-          return;
+          return { ok: true };
         }
       } catch (_) {
         /* offline */
       }
-      if (!Array.isArray(routeListings) || routeListings.length === 0) {
-        setCurrentListings(getListingsByCity(key).filter(isMarketplaceListing));
+
+      if (!Array.isArray(preferRouteListings) || preferRouteListings.length === 0) {
+        const key = (state.city || '').trim();
+        setCurrentListings(
+          key ? getListingsByCity(key).filter(isMarketplaceListing) : [],
+        );
       }
+      return { ok: true };
     },
     [getListingsByCity, mergeRemoteListings],
   );
 
-  useEffect(() => {
-    refreshSearch(selectedCity, initialRouteListings);
-  }, [selectedCity, initialRouteListings, refreshSearch]);
+  const handleSearch = useCallback(async () => {
+    const { params, reason } = buildListingsSearchParams(searchState);
+    if (!params) {
+      if (reason === 'empty') {
+        Alert.alert(
+          'Add a location',
+          'Choose a place in Where before searching.',
+        );
+        setEditingCity(true);
+        return;
+      }
+    }
+    closeSearchPanel();
+    setEditingCity(false);
+    await runListingsSearch(searchState);
+  }, [searchState, runListingsSearch]);
 
+  // Sync when navigating here again with new Home params.
+  useEffect(() => {
+    const next = createSearchStateFromParams({
+      ...route.params,
+      bookingDates:
+        route.params?.bookingDates || searchState.bookingDates || DEFAULT_BOOKING_DATES,
+    });
+    setSearchState((prev) => ({
+      ...next,
+      // Keep an edited distance if route didn't send one.
+      distance: route.params?.distance ?? route.params?.radiusKm ?? prev.distance ?? next.distance,
+      bookingDates: next.bookingDates || prev.bookingDates || DEFAULT_BOOKING_DATES,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when route identity changes
+  }, [
+    route.params?.city,
+    route.params?.locationQuery,
+    route.params?.latitude,
+    route.params?.longitude,
+    route.params?.country,
+  ]);
+
+  const searchStateRef = useRef(searchState);
+  searchStateRef.current = searchState;
   useFocusEffect(
     useCallback(() => {
-      refreshSearch(selectedCity, route.params?.listings);
-    }, [selectedCity, route.params?.listings, refreshSearch]),
+      runListingsSearch(searchStateRef.current, {
+        preferRouteListings: route.params?.listings ?? initialRouteListings,
+      });
+    }, [route.params?.listings, initialRouteListings, runListingsSearch]),
   );
 
   const openWhereEdit = () => {
-    setWhereInput(selectedCity ?? '');
+    setWhereInput(searchState.label || searchState.city || '');
     setEditingCity(true);
   };
 
   const handleCityNext = () => {
     const raw = (whereInput ?? '').trim();
-    const nextCity = raw.includes(',') ? raw.split(',')[0].trim() : raw || selectedCity;
-    setSelectedCity(nextCity);
-    setLocationLabel(
-      formatSearchPlaceLabel({
-        city: nextCity,
-        country: selectedCountry,
-        query: raw || nextCity,
-      }),
-    );
-    closeSearchPanel();
+    if (!raw) {
+      setEditingCity(false);
+      return;
+    }
+    const { city: nextCity, query } = resolveSearchCity({
+      city: raw.includes(',') ? undefined : raw,
+      query: raw,
+      country: searchState.country,
+      region: searchState.region,
+    });
+    const label = formatSearchPlaceLabel({
+      city: nextCity,
+      country: searchState.country,
+      region: searchState.region,
+      query: query || raw,
+    });
+    setSearchState((prev) => ({
+      ...prev,
+      label: label === 'Enter location' ? raw : label,
+      fullAddress: raw,
+      city: nextCity || raw.split(',')[0].trim() || prev.city,
+      // Typed save without a place pick — drop stale coords so we don't search the old pin.
+      latitude: null,
+      longitude: null,
+    }));
     setEditingCity(false);
   };
 
@@ -327,41 +383,41 @@ export default function SearchResultsScreen({ navigation, route }) {
       city: loc.city,
       query: loc.query,
       country: loc.country,
+      region: loc.region,
+    });
+    const label = formatSearchPlaceLabel({
+      city: nextCity || loc.city,
+      country: loc.country,
+      region: loc.region,
+      query: query || loc.query,
     });
     setWhereInput(query || loc.query);
-    setSelectedCity(nextCity || formatLocationLabel(loc.query));
-    setSelectedCountry(loc.country || '');
-    setLocationLabel(
-      formatSearchPlaceLabel({
-        city: nextCity || loc.city,
-        country: loc.country,
-        region: loc.region,
-        query: query || loc.query,
-      }),
-    );
-    if (Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude)) {
-      setSearchOrigin({ latitude: loc.latitude, longitude: loc.longitude });
-    }
+    setSearchState((prev) => ({
+      ...prev,
+      label: label === 'Enter location' ? query || loc.query : label,
+      fullAddress: query || loc.query,
+      city: nextCity || loc.city || '',
+      country: loc.country || '',
+      region: loc.region || '',
+      latitude: Number.isFinite(loc.latitude) ? loc.latitude : null,
+      longitude: Number.isFinite(loc.longitude) ? loc.longitude : null,
+    }));
     setEditingCity(false);
-    closeSearchPanel();
   };
 
+  // If search has no coords yet, try device location quietly for distance labels only
+  // (does not change the search pin / query).
+  const [distanceLabelOrigin, setDistanceLabelOrigin] = useState(null);
   useEffect(() => {
-    const lat = Number(route.params?.latitude);
-    const lon = Number(route.params?.longitude);
-    if (Number.isFinite(lat) && Number.isFinite(lon)) {
-      setSearchOrigin({ latitude: lat, longitude: lon });
+    if (searchOrigin) {
+      setDistanceLabelOrigin(searchOrigin);
+      return undefined;
     }
-  }, [route.params?.latitude, route.params?.longitude]);
-
-  // If search has no coords yet, try device location quietly for distance labels.
-  useEffect(() => {
-    if (searchOrigin) return undefined;
     let cancelled = false;
     (async () => {
       try {
         const coords = await getCurrentCoordinates();
-        if (!cancelled && coords) setSearchOrigin(coords);
+        if (!cancelled && coords) setDistanceLabelOrigin(coords);
       } catch (_) {
         /* permission denied — hide distance */
       }
@@ -375,9 +431,7 @@ export default function SearchResultsScreen({ navigation, route }) {
     const bookingDates = route.params?.bookingDates;
     if (!bookingDates || typeof bookingDates !== 'object') return;
     if (bookingDates.start == null || bookingDates.end == null) return;
-    setSearchBookingDates(bookingDates);
-    setDateRange(formatSearchDateRangeShort(bookingDates));
-    setDatesDetailText(formatSearchDatesDetail(bookingDates));
+    setSearchState((prev) => ({ ...prev, bookingDates }));
     navigation.setParams({ bookingDates: undefined });
   }, [navigation, route.params?.bookingDates]);
 
@@ -439,28 +493,40 @@ export default function SearchResultsScreen({ navigation, route }) {
                       biasLatitude={searchOrigin?.latitude}
                       biasLongitude={searchOrigin?.longitude}
                       onPlaceSelected={({ selection }) => {
-                        setWhereInput(selection.query);
-                        setSelectedCity(selection.city || selection.query.split(',')[0].trim());
-                        setSelectedCountry(selection.country || '');
-                        setLocationLabel(
+                        const { city: nextCity, query } = resolveSearchCity({
+                          city: selection.city,
+                          query: selection.query,
+                          country: selection.country,
+                          region: selection.region || selection.province,
+                        });
+                        // Prefer the autocomplete place string (street + locality); never invent ", Canada".
+                        const display = (
+                          selection.query ||
+                          query ||
                           formatSearchPlaceLabel({
-                            city: selection.city,
+                            city: nextCity || selection.city,
                             country: selection.country,
                             region: selection.region || selection.province,
-                            query: selection.query,
-                          }),
-                        );
-                        if (
-                          Number.isFinite(selection.latitude) &&
-                          Number.isFinite(selection.longitude)
-                        ) {
-                          setSearchOrigin({
-                            latitude: selection.latitude,
-                            longitude: selection.longitude,
-                          });
-                        }
+                            query: selection.query || query,
+                          })
+                        ).trim();
+                        setWhereInput(display);
+                        setSearchState((prev) => ({
+                          ...prev,
+                          label: display || 'Enter location',
+                          fullAddress: display,
+                          city: nextCity || selection.city || '',
+                          country: selection.country || '',
+                          region:
+                            selection.region || selection.province || '',
+                          latitude: Number.isFinite(selection.latitude)
+                            ? selection.latitude
+                            : null,
+                          longitude: Number.isFinite(selection.longitude)
+                            ? selection.longitude
+                            : null,
+                        }));
                         setEditingCity(false);
-                        closeSearchPanel();
                       }}
                       containerStyle={{ marginTop: 8 }}
                       inputStyle={styles.inlineCityInput}
@@ -498,7 +564,13 @@ export default function SearchResultsScreen({ navigation, route }) {
                     <TouchableOpacity
                       key={String(val)}
                       style={[styles.distanceChip, selectedDistance === val && styles.distanceChipSelected]}
-                      onPress={() => setSelectedDistance(val)}
+                      onPress={() =>
+                        setSearchState((prev) => ({
+                          ...prev,
+                          distance: val,
+                          radiusKm: typeof val === 'number' ? val : null,
+                        }))
+                      }
                     >
                       <Text style={[styles.distanceChipText, selectedDistance === val && styles.distanceChipTextSelected]}>{getDistanceLabel(val)}</Text>
                     </TouchableOpacity>
@@ -896,7 +968,14 @@ export default function SearchResultsScreen({ navigation, route }) {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {currentListings.length === 0 ? (
+        {needsLocation ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>Add a location to search</Text>
+            <Text style={styles.emptySubtitle}>
+              Tap the search bar and choose Where to find rides nearby.
+            </Text>
+          </View>
+        ) : currentListings.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No rides in this area yet</Text>
             <Text style={styles.emptySubtitle}>Try another city or check back later.</Text>
@@ -908,7 +987,7 @@ export default function SearchResultsScreen({ navigation, route }) {
                 key={listing.id}
                 listing={listing}
                 bookingDates={searchBookingDates}
-                searchOrigin={searchOrigin}
+                searchOrigin={searchOrigin || distanceLabelOrigin}
                 onPress={() => navigation.navigate('VehicleDetailScreen', { listing, bookingDates: searchBookingDates })}
                 isFavorited={isFavorited(listing.id)}
                 onToggleFavorite={toggleFavorite}
