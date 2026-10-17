@@ -57,6 +57,14 @@ function TripsHubBody() {
           listHostListings().catch(() => []),
           payoutsAccountStatus().catch(() => null),
         ]);
+        const stripeReady = isPayoutAccountReady(status);
+        if (!stripeReady) {
+          try {
+            sessionStorage.removeItem('ryr_payout_setup_complete');
+          } catch {
+            /* ignore */
+          }
+        }
         let local = false;
         try {
           local = sessionStorage.getItem('ryr_payout_setup_complete') === '1';
@@ -64,9 +72,7 @@ function TripsHubBody() {
           local = false;
         }
         if (!cancelled) {
-          setCanUseListingsHub(
-            listings.length > 0 || isPayoutAccountReady(status) || local,
-          );
+          setCanUseListingsHub(listings.length > 0 || stripeReady || local);
         }
       } finally {
         if (!cancelled) setLoading(false);

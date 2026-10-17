@@ -11,10 +11,11 @@ import { calendarDataToApiRanges } from '../utils/listingAvailability';
 const ListingsContext = createContext(null);
 
 const STORAGE_LISTINGS_PREFIX = '@ryr_listings_v1';
-const STORAGE_PAYOUT_PREFIX = '@ryr_payout_setup_v1';
+const STORAGE_PAYOUT_PREFIX = '@ryr_payout_setup_v2';
 /** Legacy shared keys — cleared after migrating to per-user keys. */
 const LEGACY_LISTINGS_KEY = '@ryr_listings_v1';
 const LEGACY_PAYOUT_KEY = '@ryr_payout_setup_v1';
+const LEGACY_PAYOUT_KEY_V1_PREFIX = '@ryr_payout_setup_v1';
 
 const initialDraft = {
   city: null,
@@ -81,8 +82,10 @@ export function ListingsProvider({ children }) {
     (async () => {
       hydratedRef.current = false;
       try {
-        // Drop legacy shared cache so a previous account's owned flags can't leak.
-        await AsyncStorage.multiRemove([LEGACY_LISTINGS_KEY, LEGACY_PAYOUT_KEY]).catch(() => {});
+        // Drop legacy shared / v1 payout cache so a Connect reset re-shows Get Paid.
+        const legacyKeys = [LEGACY_LISTINGS_KEY, LEGACY_PAYOUT_KEY];
+        if (uid) legacyKeys.push(`${LEGACY_PAYOUT_KEY_V1_PREFIX}:${uid}`);
+        await AsyncStorage.multiRemove(legacyKeys).catch(() => {});
         if (!uid) {
           if (!cancelled) {
             setListings([]);
@@ -246,9 +249,14 @@ export function ListingsProvider({ children }) {
     if (!isAuthenticated || !isReady) return;
     try {
       const status = await payoutsAccountStatus();
-      if (status?.onboarded || status?.detailsSubmitted || status?.payoutsEnabled) {
-        setPayoutSetupComplete(true);
-      }
+      const ready = !!(
+        status?.onboarded ||
+        status?.detailsSubmitted ||
+        status?.payoutsEnabled
+      );
+      // Must clear local cache when Connect is removed server-side, otherwise
+      // list-a-ride keeps skipping Get Paid after a reset.
+      setPayoutSetupComplete(ready);
     } catch (e) {
       console.warn('[Listings] payout status failed', e?.message || e);
     }

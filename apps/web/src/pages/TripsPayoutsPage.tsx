@@ -33,14 +33,21 @@ function PayoutsBody() {
           listHostListings().catch(() => []),
           payoutsAccountStatus().catch(() => null),
         ]);
+        const stripeReady = isPayoutAccountReady(status);
+        if (!stripeReady) {
+          try {
+            sessionStorage.removeItem('ryr_payout_setup_complete');
+          } catch {
+            /* ignore */
+          }
+        }
         let local = false;
         try {
           local = sessionStorage.getItem('ryr_payout_setup_complete') === '1';
         } catch {
           local = false;
         }
-        const hasHub =
-          listings.length > 0 || isPayoutAccountReady(status) || local;
+        const hasHub = listings.length > 0 || stripeReady || local;
         if (!cancelled) {
           if (forceEmpty || !hasHub) {
             setShowEmpty(true);

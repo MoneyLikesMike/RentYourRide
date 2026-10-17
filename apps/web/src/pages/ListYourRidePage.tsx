@@ -2289,6 +2289,16 @@ export default function ListYourRidePage() {
         ]);
         if (cancelled) return;
 
+        const stripeReady = isPayoutAccountReady(status);
+        // Drop stale local flag when Connect was cleared server-side.
+        if (!stripeReady) {
+          try {
+            sessionStorage.removeItem('ryr_payout_setup_complete');
+          } catch {
+            /* ignore */
+          }
+        }
+
         let localComplete = false;
         try {
           localComplete = sessionStorage.getItem('ryr_payout_setup_complete') === '1';
@@ -2298,9 +2308,7 @@ export default function ListYourRidePage() {
 
         // App: canUseListingsHub = hasOwnedListing || payoutSetupComplete
         const allowed =
-          listings.length > 0 ||
-          isPayoutAccountReady(status) ||
-          localComplete;
+          listings.length > 0 || stripeReady || localComplete;
         setGate(allowed ? 'ok' : 'need-payout');
       } catch (err) {
         if (cancelled) return;
