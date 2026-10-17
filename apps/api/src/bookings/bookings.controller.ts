@@ -80,8 +80,12 @@ export class BookingsController {
   @Post(':id/accept')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
-  async accept(@ReqUser() user: UserEntity, @Param('id') id: string) {
-    return this.bookings.acceptHost(user.id, id);
+  async accept(
+    @ReqUser() user: UserEntity,
+    @Param('id') id: string,
+    @Headers('idempotency-key') idem?: string,
+  ) {
+    return this.bookings.acceptHost(user.id, id, idem);
   }
 
   @Post(':id/decline')
