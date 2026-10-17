@@ -234,6 +234,20 @@
   object-fit: cover;
   display: block;
   cursor: pointer;
+  background: #d8d8d8;
+  flex-shrink: 0;
+}
+
+.user-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #17252a;
+  line-height: 1;
+  user-select: none;
 }
 
 /* —— Home wrapper —— */

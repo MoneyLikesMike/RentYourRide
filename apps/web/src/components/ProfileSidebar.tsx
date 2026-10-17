@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
-import { resolveAvatarUrl, type MeUser } from '../api/users';
+import type { MeUser } from '../api/users';
+import UserAvatar from './UserAvatar';
 
 export type OverviewStats = {
   rides: number;
@@ -50,9 +51,11 @@ export default function ProfileSidebar({
   return (
     <aside className="profile-sidebar">
       <div className="profile-sidebar-user">
-        <img
-          src={resolveAvatarUrl(me?.avatarUrl)}
-          alt=""
+        <UserAvatar
+          url={me?.avatarUrl}
+          firstName={me?.firstName}
+          lastName={me?.lastName}
+          name={me?.fullName}
           className="profile-sidebar-avatar"
         />
         <div className="profile-sidebar-user-info">

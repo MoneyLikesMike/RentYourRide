@@ -36,6 +36,20 @@
   height: clamp(3.5rem, 6vw, 5rem);
   border-radius: 50%;
   object-fit: cover;
+  background: #d8d8d8;
+  flex-shrink: 0;
+}
+
+.profile-sidebar-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(1.1rem, 1.6vw, 1.5rem);
+  font-weight: 700;
+  color: #17252a;
+  line-height: 1;
+  user-select: none;
 }
 
 .profile-sidebar-user-info {
@@ -319,6 +333,19 @@
   object-fit: cover;
   border-radius: 50%;
   display: block;
+  background: #d8d8d8;
+}
+
+.edit-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(2.5rem, 4vw, 3.25rem);
+  font-weight: 700;
+  color: #17252a;
+  line-height: 1;
+  user-select: none;
 }
 
 /* Zeplin circular vignette over the photo */
@@ -673,12 +700,27 @@
   gap: 1rem;
 }
 
-.overview-review-user img {
+.overview-review-user img,
+.overview-review-avatar {
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 50%;
   object-fit: cover;
   box-shadow: 0 9px 10px rgba(0, 0, 0, 0.2);
+  background: #d8d8d8;
+  flex-shrink: 0;
+}
+
+.overview-review-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #17252a;
+  line-height: 1;
+  user-select: none;
 }
 
 .overview-review-name {

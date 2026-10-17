@@ -58,10 +58,23 @@ import {
 } from './pages/TripCheckInOutPage';
 import { MessagingUnreadProvider } from './auth/MessagingUnreadContext';
 
+/** Synthetic home location so /login and /signup opened directly still have a backdrop. */
+const AUTH_DEFAULT_BACKGROUND = {
+  pathname: '/',
+  search: '',
+  hash: '',
+  state: null,
+  key: 'auth-default-bg',
+} as const;
+
 function AppRoutes() {
   const location = useLocation();
   const state = location.state as AuthLocationState | null;
-  const background = state?.backgroundLocation;
+  const isAuthModal =
+    location.pathname === '/login' || location.pathname === '/signup';
+  const background =
+    state?.backgroundLocation ??
+    (isAuthModal ? (AUTH_DEFAULT_BACKGROUND as typeof location) : undefined);
   const isStudio = location.pathname.startsWith('/studio');
 
   return (
@@ -161,6 +174,7 @@ function AppRoutes() {
           path="/profile/edit-ride/:listingId"
           element={<ListYourRidePage />}
         />
+        {/* Auth modals render in the overlay Routes below so the page behind stays visible. */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         {/* Referral / invite landings — keep the code (RYRA-437); apply credits = RYRA-100 */}

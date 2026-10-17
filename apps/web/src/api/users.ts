@@ -171,13 +171,18 @@ export async function deleteMyAccount(input: {
   });
 }
 
-/** Resolve avatar URL for <img src> (handles relative /v1/uploads paths). */
-export function resolveAvatarUrl(url?: string | null): string {
-  if (!url) return '/no-avatar.jpg';
-  if (/^https?:\/\//i.test(url)) return url;
-  if (url.startsWith('/')) {
+/**
+ * Resolve avatar URL for <img src> (handles relative /v1/uploads paths).
+ * Returns null when the user has no photo — use UserAvatar for initials fallback.
+ * (Previously fell back to /no-avatar.jpg, a stock headshot.)
+ */
+export function resolveAvatarUrl(url?: string | null): string | null {
+  const trimmed = typeof url === 'string' ? url.trim() : '';
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('/')) {
     const origin = import.meta.env.VITE_API_ORIGIN?.replace(/\/$/, '') || '';
-    return origin ? `${origin}${url}` : url;
+    return origin ? `${origin}${trimmed}` : trimmed;
   }
-  return apiUrl(url.replace(/^\//, ''));
+  return apiUrl(trimmed.replace(/^\//, ''));
 }

@@ -20,6 +20,7 @@ import {
   listingHasGuestReviews,
 } from '../utils/listingRating';
 import HeartIcon from '../components/FavoriteHeartIcon';
+import UserAvatar from '../components/UserAvatar';
 
 function Stars({ n }: { n: number }) {
   const filled = Math.round(n);
@@ -265,7 +266,11 @@ function OverviewBody({
               </span>
               <p className="overview-review-text">{rev.publicText}</p>
               <div className="overview-review-user">
-                <img src={rev.guestPhotoUri || '/no-avatar.jpg'} alt="" />
+                <UserAvatar
+                  url={rev.guestPhotoUri}
+                  name={rev.guestName || 'Guest'}
+                  className="overview-review-avatar"
+                />
                 <div>
                   <span className="overview-review-name">
                     {rev.guestName || 'Guest'}

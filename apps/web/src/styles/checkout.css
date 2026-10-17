@@ -664,6 +664,7 @@
 }
 
 .checkout-host img,
+.checkout-host-avatar,
 .checkout-host-avatar-empty {
   width: 4.375rem; /* 70px */
   height: 4.375rem;
@@ -671,6 +672,18 @@
   object-fit: cover;
   flex-shrink: 0;
   background: #d8d8d8;
+}
+
+.checkout-host-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #17252a;
+  line-height: 1;
+  user-select: none;
 }
 
 .checkout-host-info {

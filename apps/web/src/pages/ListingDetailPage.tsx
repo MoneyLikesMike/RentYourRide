@@ -18,6 +18,7 @@ import ListingLocationMap from '../components/ListingLocationMap';
 import PageMeta, { SITE_ORIGIN } from '../components/PageMeta';
 import PhotoLightbox from '../components/PhotoLightbox';
 import SiteHeader from '../components/SiteHeader';
+import UserAvatar from '../components/UserAvatar';
 import SearchTimePicker, { snapSearchTime } from '../components/SearchTimePicker';
 import BookingCalendarModal from '../components/BookingCalendarModal';
 import type { SearchNavState, SearchTripDates } from '../types/search';
@@ -1081,15 +1082,12 @@ export default function ListingDetailPage() {
               <aside className="right-details-column">
                 <h3 className="host-heading">Hosted by</h3>
                 <div className="host-row">
-                  {listing.hostPhotoUri ? (
-                    <img
-                      src={listing.hostPhotoUri}
-                      alt=""
-                      className="host-avatar"
-                    />
-                  ) : (
-                    <div className="host-avatar host-avatar--empty" />
-                  )}
+                  <UserAvatar
+                    url={listing.hostPhotoUri}
+                    name={listing.hostName || 'Host'}
+                    className="host-avatar"
+                    initialsClassName="host-avatar host-avatar--empty host-avatar--initials"
+                  />
                   <div className="host-information">
                     <span className="host-name">
                       {listing.hostName || 'Host'}
