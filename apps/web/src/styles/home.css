@@ -1484,6 +1484,9 @@
   }
 
   .location-input-wrapper {
+    /* Stacked search bar: don't flex-grow (desktop flex: 1.55 1 12rem would stretch tall). */
+    flex: none;
+    min-width: 0;
     max-width: none;
     width: 100%;
   }
