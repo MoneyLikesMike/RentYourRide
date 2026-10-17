@@ -20,6 +20,7 @@ import HomeStripCard from '../components/HomeStripCard';
 import { resolveCurrentLocationQueryWithAlert, getCurrentCoordinates } from '../utils/currentLocation';
 import { isMarketplaceListing, resolveSearchCity, formatLocationLabel } from '../utils/searchLocation';
 import { buildHomeDiscoveryStrips } from '../utils/homeDiscovery';
+import { buildListingsSearchParams } from '../utils/buildListingsSearchParams';
 
 const scale = uiScale;
 const MOUNTAIN_W = 375 * scale;
@@ -124,13 +125,20 @@ export default function HomeScreen({ navigation }) {
           ? { latitude: coords.latitude, longitude: coords.longitude }
           : null;
 
+      const locationQuery =
+        typeof searchInput === 'string' ? searchInput : query;
+      const { params: searchParams } = buildListingsSearchParams({
+        city,
+        label: locationQuery,
+        latitude: origin?.latitude,
+        longitude: origin?.longitude,
+      });
+
       let remoteResults = null;
       try {
-        remoteResults = await searchListings(
-          origin
-            ? { city, latitude: origin.latitude, longitude: origin.longitude }
-            : { city },
-        );
+        if (searchParams) {
+          remoteResults = await searchListings(searchParams);
+        }
         if (Array.isArray(remoteResults)) {
           mergeRemoteListings(remoteResults);
         }
@@ -150,7 +158,8 @@ export default function HomeScreen({ navigation }) {
           city,
           listings: merged,
           country: meta.country || undefined,
-          locationQuery: typeof searchInput === 'string' ? searchInput : query,
+          region: meta.region || undefined,
+          locationQuery,
           ...(origin
             ? { latitude: origin.latitude, longitude: origin.longitude }
             : {}),
