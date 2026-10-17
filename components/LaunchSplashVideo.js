@@ -3,10 +3,20 @@ import { View, StyleSheet, Platform, StatusBar as RNStatusBar, Image } from 'rea
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 
-/** Brief pause after the video ends before transitioning to the app. */
+/** Brief pause after the intro ends before transitioning to the app. */
 const END_DELAY_MS = 150;
 const SPLASH_BG = '#DFF2F1';
 const FALLBACK_LOGO = require('../assets/logo/ryrLogoNew.png');
+
+/**
+ * Tagline finishes typing by ~3.55–3.65 s in the source animation.
+ * Exit as soon as that point is reached (or the trimmed file ends) — no ~2 s still hold.
+ */
+const TAGLINE_DONE_MS = 3650;
+/** Stuck-player / decode hang safety net (~3.75 s video + buffer). */
+const HARD_CAP_MS = 4500;
+/** Static logo fallback when AV fails — keep brief (ticket: ~1–1.5 s). */
+const FALLBACK_CAP_MS = 1400;
 
 let Video = null;
 let ResizeMode = null;
@@ -30,6 +40,14 @@ export default function LaunchSplashVideo({ appReady, onFinish }) {
   const [useFallback, setUseFallback] = useState(videoModuleFailed || !Video);
   const finishedRef = useRef(false);
   const videoRef = useRef(null);
+  const endedRef = useRef(videoModuleFailed || !Video);
+
+  const markEnded = useCallback(() => {
+    if (endedRef.current) return;
+    endedRef.current = true;
+    videoRef.current?.pauseAsync?.().catch(() => {});
+    setVideoEnded(true);
+  }, []);
 
   useEffect(() => {
     RNStatusBar.setBarStyle('dark-content');
@@ -59,38 +77,46 @@ export default function LaunchSplashVideo({ appReady, onFinish }) {
   // Hard cap so a stuck AVPlayer cannot leave the user on splash forever / crash mid-decode.
   useEffect(() => {
     const timeout = setTimeout(() => {
-      setVideoEnded(true);
-    }, useFallback ? 1200 : 6000);
+      markEnded();
+    }, useFallback ? FALLBACK_CAP_MS : HARD_CAP_MS);
     return () => clearTimeout(timeout);
-  }, [useFallback]);
+  }, [useFallback, markEnded]);
 
-  const handlePlaybackStatusUpdate = useCallback((status) => {
-    if (!status) return;
-    if (status.error) {
-      console.warn('[LaunchSplash] playback error', status.error);
-      setUseFallback(true);
-      setVideoEnded(true);
-      return;
-    }
-    if (!status.isLoaded) return;
-    if (status.didJustFinish) {
-      setVideoEnded(true);
-    }
-  }, []);
+  const handlePlaybackStatusUpdate = useCallback(
+    (status) => {
+      if (!status) return;
+      if (status.error) {
+        console.warn('[LaunchSplash] playback error', status.error);
+        setUseFallback(true);
+        markEnded();
+        return;
+      }
+      if (!status.isLoaded) return;
+      // End once the tagline is fully typed — do not wait out a trailing still hold.
+      if (
+        status.didJustFinish ||
+        (typeof status.positionMillis === 'number' &&
+          status.positionMillis >= TAGLINE_DONE_MS)
+      ) {
+        markEnded();
+      }
+    },
+    [markEnded],
+  );
 
   const handleReadyForDisplay = useCallback(() => {
     SplashScreen.hideAsync().catch(() => {});
     // Prefer muted autoplay — unmuted AVPlayer without an audio session has crashed TF builds.
     videoRef.current?.playAsync?.().catch(() => {
       setUseFallback(true);
-      setVideoEnded(true);
+      markEnded();
     });
-  }, []);
+  }, [markEnded]);
 
   const handleVideoError = useCallback(() => {
     setUseFallback(true);
-    setVideoEnded(true);
-  }, []);
+    markEnded();
+  }, [markEnded]);
 
   return (
     <View style={styles.container} pointerEvents="auto">
