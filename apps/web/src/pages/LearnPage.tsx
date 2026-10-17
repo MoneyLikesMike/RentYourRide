@@ -4,14 +4,10 @@ import NewsCard from '../components/NewsCard';
 import PageMeta, { breadcrumbLd, SITE_ORIGIN } from '../components/PageMeta';
 import SiteHeader from '../components/SiteHeader';
 import SocialFeed from '../components/SocialFeed';
-import { AppStoreBadge, GooglePlayBadge } from '../components/StoreBadges';
+import { AppStoreBadge } from '../components/StoreBadges';
 import TextDecorator from '../components/TextDecorator';
+import { APP_STORE_URL } from '../constants/appStore';
 import { useNewsFeed } from '../content/newsFeed';
-
-const APP_STORE_URL =
-  'https://apps.apple.com/us/app/rent-your-ride/id1495074000';
-const PLAY_STORE_URL =
-  'https://play.google.com/store/apps/details?id=com.rentyourrideca';
 
 const TOPICS = [
   {
@@ -136,14 +132,6 @@ export default function LearnPage() {
               rel="noopener noreferrer"
             >
               <AppStoreBadge className="store-badge" />
-            </a>
-            <a
-              href={PLAY_STORE_URL}
-              className="store-link"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <GooglePlayBadge className="store-badge" />
             </a>
           </div>
         </section>
