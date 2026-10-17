@@ -139,9 +139,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  // Keep mint under the first screen until it paints — avoids a white flash after splash.
   root: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: SPLASH_BG,
   },
   splashRoot: {
     flex: 1,
