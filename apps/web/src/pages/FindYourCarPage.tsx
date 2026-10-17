@@ -446,6 +446,7 @@ export default function FindYourCarPage() {
   const [addressText, setAddressText] = useState(
     () => navState?.location.query || initialQuery || initialCity || '',
   );
+  const [placesListClosedToken, setPlacesListClosedToken] = useState(0);
   const [place, setPlace] = useState<ParsedPlace | null>(() => {
     if (navState?.location) {
       return {
@@ -829,6 +830,7 @@ export default function FindYourCarPage() {
       (text || addressText).split(',')[0]?.trim() ||
       (text || addressText).trim();
     if (!city) return;
+    setPlacesListClosedToken((n) => n + 1);
     setError(null);
     setSearchCity(city);
     setSearchQuery(parsed?.query || text || addressText.trim());
