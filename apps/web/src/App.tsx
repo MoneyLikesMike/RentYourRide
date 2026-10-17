@@ -82,7 +82,10 @@ function AppRoutes() {
         <Route path="/news/:slug" element={<ArticlePage />} />
         <Route path="/studio" element={<StudioPage />} />
         <Route path="/insurance" element={<InsurancePage />} />
-        <Route path="/faq" element={<Navigate to="/insurance" replace />} />
+        <Route
+          path="/faq"
+          element={<Navigate to="/insurance#faq" replace />}
+        />
         <Route path="/terms-conditions" element={<TermsConditionsPage />} />
         <Route path="/find-your-car" element={<FindYourCarPage />} />
         <Route

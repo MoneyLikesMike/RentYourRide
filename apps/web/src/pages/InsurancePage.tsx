@@ -271,7 +271,11 @@ export default function InsurancePage() {
           We made sure there are coverage options for you.
         </p>
 
-        <div className="insurance-faq-list">
+        <div
+          id="faq"
+          className="insurance-faq-list"
+          aria-label="Frequently asked questions"
+        >
           {FAQS.map((faq) => (
             <section key={faq.question} className="insurance-faq">
               <h2 className="content-page-heading">{faq.question}</h2>

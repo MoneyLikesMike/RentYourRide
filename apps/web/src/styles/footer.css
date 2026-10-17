@@ -111,6 +111,7 @@
 }
 
 .site-footer-link {
+  display: inline-block;
   cursor: pointer;
   font-family: 'Nunito', sans-serif;
   font-size: clamp(0.85rem, 0.9vw, 1rem);

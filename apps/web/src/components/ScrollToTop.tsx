@@ -12,12 +12,30 @@ export default function ScrollToTop() {
   useLayoutEffect(() => {
     // Back/forward should land where the user left off.
     if (navigationType === 'POP') return;
-    // Anchor links target their own element.
-    if (hash) return;
     // Auth modals render over the page behind them — leave it where it is.
     const overlay = (state as { backgroundLocation?: unknown } | null)
       ?.backgroundLocation;
     if (overlay) return;
+
+    if (hash) {
+      const id = decodeURIComponent(hash.replace(/^#/, ''));
+      if (!id) return;
+      // SPA content mounts after navigation; retry once if the target isn't ready.
+      const scrollToHash = () => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return true;
+        }
+        return false;
+      };
+      if (!scrollToHash()) {
+        requestAnimationFrame(() => {
+          scrollToHash();
+        });
+      }
+      return;
+    }
 
     window.scrollTo(0, 0);
   }, [pathname, hash, state, navigationType]);
