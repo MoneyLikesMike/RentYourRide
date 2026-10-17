@@ -12,6 +12,7 @@ import {
   Modal,
   Pressable,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path } from 'react-native-svg';
@@ -53,6 +54,7 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
   const { getBookingById, cancelGuestBooking, acceptGuestBooking, declineGuestBooking, respondExtension, pendingRequests } =
     useGuestBookings();
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [accepting, setAccepting] = useState(false);
 
   const booking = useMemo(() => (bookingId ? getBookingById(bookingId) : null), [bookingId, getBookingById]);
 
@@ -147,8 +149,20 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
   };
 
   const onAccept = async () => {
-    await acceptGuestBooking(booking.id);
-    navigation.navigate('ActiveRentalsScreen', { initialTab: 'host' });
+    if (accepting) return;
+    setAccepting(true);
+    try {
+      await acceptGuestBooking(booking.id);
+      navigation.navigate('ActiveRentalsScreen', { initialTab: 'host' });
+    } catch (e) {
+      const message =
+        e && typeof e.message === 'string' && e.message.trim()
+          ? e.message
+          : 'Could not accept this booking. Please try again.';
+      Alert.alert('Accept failed', message);
+    } finally {
+      setAccepting(false);
+    }
   };
 
   const onApproveExtension = async () => {
@@ -326,10 +340,19 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
       <View style={[styles.footer, { paddingBottom: 12 + insets.bottom }]}>
         {isPendingRequest ? (
           <>
-            <TouchableOpacity style={styles.rentYourRideBtn} activeOpacity={0.85} onPress={onAccept}>
-              <Text style={styles.rentYourRideBtnText}>RENT YOUR RIDE</Text>
+            <TouchableOpacity
+              style={[styles.rentYourRideBtn, accepting && styles.rentYourRideBtnDisabled]}
+              activeOpacity={0.85}
+              onPress={onAccept}
+              disabled={accepting}
+            >
+              {accepting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.rentYourRideBtnText}>RENT YOUR RIDE</Text>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={onDeny} activeOpacity={0.7}>
+            <TouchableOpacity onPress={onDeny} activeOpacity={0.7} disabled={accepting}>
               <Text style={styles.denyLink}>Deny request</Text>
             </TouchableOpacity>
           </>
@@ -653,6 +676,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+  },
+  rentYourRideBtnDisabled: {
+    opacity: 0.7,
   },
   rentYourRideBtnText: {
     fontFamily: FONTS.NUNITO_SEMIBOLD,

@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import { DataSource, In, Repository } from 'typeorm';
 import { BookingEntity, BookingStatus } from '../entities/booking.entity';
 import { BookingExtensionEntity } from '../entities/booking-extension.entity';
@@ -388,6 +389,8 @@ export class BookingsService {
         tz: bookingDates.timeZone,
       });
 
+      // Mint id before Stripe so preauth/charge idempotency keys are booking-scoped.
+      const bookingId = randomUUID();
       let stripePaymentIntentId: string | null = null;
       let lifecycle: Record<string, unknown> = {};
       const providedPiId =
@@ -415,6 +418,7 @@ export class BookingsService {
           stripeChargeId: chargeId,
           paymentCapturedAt: Date.now(),
           paymentFunding: 'client_pi',
+          capturePaymentIntentId: stripePaymentIntentId,
         };
       } else if (this.payments.isConfigured()) {
         if (!paymentMethodId.startsWith('pm_')) {
@@ -425,6 +429,7 @@ export class BookingsService {
           paymentMethodId,
           fullAmountCents,
           description: rentalDescription,
+          bookingId,
           metadata: { listingId: listing.id },
         });
         stripePaymentIntentId = preauth.paymentIntentId;
@@ -440,12 +445,17 @@ export class BookingsService {
             fullAmountCents,
             description: rentalDescription,
             paymentMethodId,
+            bookingId,
+            onCapturePaymentIntentId: async (piId) => {
+              lifecycle = { ...lifecycle, capturePaymentIntentId: piId };
+            },
           });
           stripePaymentIntentId = captured.paymentIntentId;
           lifecycle = {
             ...lifecycle,
             stripeChargeId: captured.chargeId,
             paymentCapturedAt: Date.now(),
+            capturePaymentIntentId: captured.paymentIntentId,
           };
         }
       } else {
@@ -453,6 +463,7 @@ export class BookingsService {
       }
 
       const row = manager.create(BookingEntity, {
+        id: bookingId,
         guestUserId: guestId,
         hostUserId: listing.hostUserId,
         listingId: listing.id,
@@ -562,6 +573,7 @@ export class BookingsService {
           booking: b,
           host: b.host,
         }),
+        { bookingId: b.id, reason: `cancel-${cancelledBy}` },
       );
       stripeRefundId = refund.refundId;
     }
@@ -599,43 +611,220 @@ export class BookingsService {
     return presentBooking(b, userId);
   }
 
-  async acceptHost(userId: string, id: string) {
-    const b = await this.bookingsRepo.findOne({
-      where: { id },
-      relations: ['listing', 'host'],
-    });
-    if (!b) throw new NotFoundException('Booking not found');
-    if (b.hostUserId !== userId) throw new ForbiddenException();
-    if (b.status !== 'pending_host') {
-      throw new BadRequestException('Invalid status');
+  /**
+   * Host accept — atomic claim via lifecycle.acceptLockAt (not a new status) so
+   * date-blocking / client status maps stay unchanged. Concurrent accepts serialize
+   * on SELECT … FOR UPDATE; already-confirmed returns 200 with no Stripe calls.
+   */
+  async acceptHost(userId: string, id: string, _clientIdempotencyKey?: string) {
+    const claim = await this.claimHostAccept(userId, id);
+    if (claim.outcome === 'already_confirmed') {
+      this.logAccept(id, 'already_confirmed', claim.booking.stripePaymentIntentId);
+      return presentBooking(claim.booking, userId);
     }
 
-    if (b.stripePaymentIntentId && this.payments.isConfigured()) {
-      const captured = await this.payments.captureOrChargeBooking({
-        paymentIntentId: b.stripePaymentIntentId,
-        fullAmountCents: this.guestPayCents(b),
-        description: formatRentalStripeDescriptionFromBooking(b, b.host),
-        paymentMethodId: this.paymentMethodIdFromBooking(b),
-      });
-      b.stripePaymentIntentId = captured.paymentIntentId;
-      b.lifecycle = {
-        ...(b.lifecycle ?? {}),
-        stripeChargeId: captured.chargeId,
-        paymentCapturedAt: Date.now(),
-        paymentFunding: captured.funding,
-      };
-    }
+    const claimed = claim.booking;
+    try {
+      let paymentPatch: {
+        stripePaymentIntentId?: string;
+        stripeChargeId?: string | null;
+        paymentFunding?: string | null;
+        capturePaymentIntentId?: string;
+      } = {};
 
-    b.status = 'confirmed';
-    b.lifecycle = { ...(b.lifecycle ?? {}), acceptedAt: Date.now() };
-    await this.bookingsRepo.save(b);
-    await this.messaging.postBookingSystemMessage(
-      b.id,
-      'Trip approved by the host. Coordinate pickup details below.',
-      { event: 'accepted' },
+      if (claimed.stripePaymentIntentId && this.payments.isConfigured()) {
+        const life = (claimed.lifecycle ?? {}) as Record<string, unknown>;
+        const existingCapture =
+          typeof life.capturePaymentIntentId === 'string'
+            ? life.capturePaymentIntentId
+            : null;
+        const captured = await this.payments.captureOrChargeBooking({
+          paymentIntentId: claimed.stripePaymentIntentId,
+          fullAmountCents: this.guestPayCents(claimed),
+          description: formatRentalStripeDescriptionFromBooking(
+            claimed,
+            claimed.host,
+          ),
+          paymentMethodId: this.paymentMethodIdFromBooking(claimed),
+          bookingId: claimed.id,
+          existingCapturePaymentIntentId: existingCapture,
+          onCapturePaymentIntentId: async (piId) => {
+            await this.persistCapturePaymentIntentId(claimed.id, piId);
+          },
+        });
+        paymentPatch = {
+          stripePaymentIntentId: captured.paymentIntentId,
+          stripeChargeId: captured.chargeId,
+          paymentFunding: captured.funding,
+          capturePaymentIntentId: captured.paymentIntentId,
+        };
+      }
+
+      const finalized = await this.finalizeHostAccept(claimed.id, paymentPatch);
+      this.logAccept(
+        id,
+        finalized.newlyConfirmed ? 'confirmed' : 'already_confirmed',
+        finalized.booking.stripePaymentIntentId,
+      );
+
+      if (finalized.newlyConfirmed) {
+        await this.messaging.postBookingSystemMessage(
+          finalized.booking.id,
+          'Trip approved by the host. Coordinate pickup details below.',
+          { event: 'accepted' },
+        );
+        this.notifications.bookingApproved(finalized.booking.id);
+      }
+      return presentBooking(finalized.booking, userId);
+    } catch (err) {
+      await this.releaseHostAcceptLock(id);
+      this.logAccept(
+        id,
+        'failed',
+        null,
+        err instanceof Error ? err.message : String(err),
+      );
+      throw err;
+    }
+  }
+
+  private logAccept(
+    bookingId: string,
+    outcome: string,
+    paymentIntentId: string | null | undefined,
+    error?: string,
+  ) {
+    this.log.log(
+      JSON.stringify({
+        event: 'accept_host',
+        bookingId,
+        outcome,
+        paymentIntentId: paymentIntentId ?? null,
+        ...(error ? { error } : {}),
+      }),
     );
-    this.notifications.bookingApproved(b.id);
-    return presentBooking(b, userId);
+  }
+
+  private async claimHostAccept(userId: string, id: string) {
+    return this.dataSource.transaction(async (em) => {
+      const b = await em
+        .getRepository(BookingEntity)
+        .createQueryBuilder('b')
+        .setLock('pessimistic_write')
+        .leftJoinAndSelect('b.listing', 'listing')
+        .leftJoinAndSelect('b.host', 'host')
+        .where('b.id = :id', { id })
+        .getOne();
+      if (!b) throw new NotFoundException('Booking not found');
+      if (b.hostUserId !== userId) throw new ForbiddenException();
+      if (b.status === 'confirmed') {
+        return { outcome: 'already_confirmed' as const, booking: b };
+      }
+      if (b.status !== 'pending_host') {
+        throw new BadRequestException('Invalid status');
+      }
+      const lockAt = Number(
+        (b.lifecycle as { acceptLockAt?: unknown } | null)?.acceptLockAt,
+      );
+      // Stale lock (>2m) can be reclaimed after a crashed accept.
+      if (Number.isFinite(lockAt) && Date.now() - lockAt < 2 * 60 * 1000) {
+        throw new ConflictException('Accept already in progress');
+      }
+      b.lifecycle = { ...(b.lifecycle ?? {}), acceptLockAt: Date.now() };
+      await em.save(b);
+      return { outcome: 'claimed' as const, booking: b };
+    });
+  }
+
+  private async persistCapturePaymentIntentId(bookingId: string, piId: string) {
+    await this.dataSource.transaction(async (em) => {
+      const row = await em
+        .getRepository(BookingEntity)
+        .createQueryBuilder('b')
+        .setLock('pessimistic_write')
+        .where('b.id = :id', { id: bookingId })
+        .getOne();
+      if (!row) return;
+      row.lifecycle = {
+        ...(row.lifecycle ?? {}),
+        capturePaymentIntentId: piId,
+      };
+      await em.save(row);
+    });
+  }
+
+  private async finalizeHostAccept(
+    bookingId: string,
+    payment: {
+      stripePaymentIntentId?: string;
+      stripeChargeId?: string | null;
+      paymentFunding?: string | null;
+      capturePaymentIntentId?: string;
+    },
+  ): Promise<{ booking: BookingEntity; newlyConfirmed: boolean }> {
+    return this.dataSource.transaction(async (em) => {
+      const row = await em
+        .getRepository(BookingEntity)
+        .createQueryBuilder('b')
+        .setLock('pessimistic_write')
+        .leftJoinAndSelect('b.listing', 'listing')
+        .leftJoinAndSelect('b.host', 'host')
+        .where('b.id = :id', { id: bookingId })
+        .getOne();
+      if (!row) throw new NotFoundException('Booking not found');
+      if (row.status === 'confirmed') {
+        return { booking: row, newlyConfirmed: false };
+      }
+      if (row.status !== 'pending_host') {
+        throw new BadRequestException('Invalid status');
+      }
+      const life = { ...(row.lifecycle ?? {}) } as Record<string, unknown>;
+      delete life.acceptLockAt;
+      if (payment.stripePaymentIntentId) {
+        row.stripePaymentIntentId = payment.stripePaymentIntentId;
+      }
+      if (payment.stripeChargeId !== undefined) {
+        life.stripeChargeId = payment.stripeChargeId;
+      }
+      if (payment.paymentFunding != null) {
+        life.paymentFunding = payment.paymentFunding;
+      }
+      if (payment.capturePaymentIntentId) {
+        life.capturePaymentIntentId = payment.capturePaymentIntentId;
+      }
+      if (payment.stripePaymentIntentId || payment.capturePaymentIntentId) {
+        life.paymentCapturedAt = Date.now();
+      }
+      life.acceptedAt = Date.now();
+      row.lifecycle = life;
+      row.status = 'confirmed';
+      await em.save(row);
+      return { booking: row, newlyConfirmed: true };
+    });
+  }
+
+  private async releaseHostAcceptLock(bookingId: string) {
+    try {
+      await this.dataSource.transaction(async (em) => {
+        const row = await em
+          .getRepository(BookingEntity)
+          .createQueryBuilder('b')
+          .setLock('pessimistic_write')
+          .where('b.id = :id', { id: bookingId })
+          .getOne();
+        if (!row || row.status !== 'pending_host') return;
+        const life = { ...(row.lifecycle ?? {}) } as Record<string, unknown>;
+        if (life.acceptLockAt == null) return;
+        delete life.acceptLockAt;
+        row.lifecycle = life;
+        await em.save(row);
+      });
+    } catch (err) {
+      this.log.error(
+        `releaseHostAcceptLock failed bookingId=${bookingId}`,
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   async declineHost(userId: string, id: string) {
@@ -657,6 +846,7 @@ export class BookingsService {
           booking: b,
           host: b.host,
         }),
+        { bookingId: b.id, reason: 'host-decline' },
       );
     }
     b.status = 'declined';
