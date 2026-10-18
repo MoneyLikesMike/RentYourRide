@@ -291,6 +291,40 @@ export class NotificationsService {
     );
   }
 
+  /** Request TTL expiry — SMS + push (no dedicated Pinpoint templates yet). */
+  bookingExpired(bookingId: string): void {
+    this.run(
+      (async () => {
+        const ctx = await this.loadBooking(bookingId);
+        if (!ctx) return;
+        const guestSms = SmsCopy.bookingExpiredGuest();
+        const hostSms = SmsCopy.bookingExpiredHost(ctx.guest.firstName ?? 'Guest');
+        try {
+          await this.notifyUser(ctx.guest, {
+            sms: guestSms,
+            push: {},
+          });
+        } catch (err) {
+          this.log.warn(
+            `bookingExpired guest notify failed id=${bookingId}`,
+            err instanceof Error ? err.stack : err,
+          );
+        }
+        try {
+          await this.notifyUser(ctx.host, {
+            sms: hostSms,
+            push: {},
+          });
+        } catch (err) {
+          this.log.warn(
+            `bookingExpired host notify failed id=${bookingId}`,
+            err instanceof Error ? err.stack : err,
+          );
+        }
+      })(),
+    );
+  }
+
   /** Guest: email+sms. Host: email+sms+push. */
   bookingCheckedIn(bookingId: string): void {
     this.run(

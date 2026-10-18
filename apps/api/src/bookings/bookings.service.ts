@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
 import { BookingEntity, BookingStatus } from '../entities/booking.entity';
 import { BookingExtensionEntity } from '../entities/booking-extension.entity';
 import { ListingEntity } from '../entities/listing.entity';
@@ -49,6 +49,19 @@ import {
 export { getTripBillingDays } from './trip-billing-days';
 
 const MS_PER_HOUR = 60 * 60 * 1000;
+
+function isUniqueIdempotencyViolation(err: unknown): boolean {
+  if (!(err instanceof QueryFailedError)) return false;
+  const driver = err.driverError as { code?: string; constraint?: string } | undefined;
+  if (driver?.code !== '23505') return false;
+  const constraint = String(driver.constraint || '').toLowerCase();
+  const message = String(err.message || '').toLowerCase();
+  return (
+    constraint.includes('idempotency') ||
+    message.includes('idempotency_key') ||
+    message.includes('idempotencykey')
+  );
+}
 
 function statusLabel(status: BookingStatus): string | null {
   switch (status) {
@@ -263,7 +276,6 @@ export class BookingsService {
       throw new BadRequestException('Cannot book your own listing');
     }
 
-    const key = idempotencyKey?.trim() || null;
     const clientDates = body.bookingDates as Record<string, unknown>;
     const bookingDates = normalizeBookingDates(clientDates, listingTimeZone(listing));
     if (!bookingDates) {
@@ -277,23 +289,28 @@ export class BookingsService {
     }
     const startMs = bookingDates.start;
     const endMs = bookingDates.end;
+    const key =
+      idempotencyKey?.trim() ||
+      `g:${guestId}:l:${listing.id}:s:${startMs}:e:${endMs}`;
 
     // Serialize all create attempts for this listing so overlapping trips
     // cannot charge twice under a race.
     const tripLockKey = `book:listing:${listing.id}`;
 
-    return this.dataSource.transaction(async (manager) => {
+    /** Set when a Stripe hold is created; cancelled if the txn fails afterward. */
+    let holdPaymentIntentId: string | null = null;
+
+    try {
+    return await this.dataSource.transaction(async (manager) => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [
         tripLockKey,
       ]);
 
-      if (key) {
-        const existingByKey = await manager.findOne(BookingEntity, {
-          where: { idempotencyKey: key },
-        });
-        if (existingByKey) {
-          return { kind: 'existing' as const, dto: presentBooking(existingByKey, guestId) };
-        }
+      const existingByKey = await manager.findOne(BookingEntity, {
+        where: { idempotencyKey: key },
+      });
+      if (existingByKey) {
+        return { kind: 'existing' as const, dto: presentBooking(existingByKey, guestId) };
       }
 
       const requestedRange = toDayRangeMs(startMs, endMs);
@@ -420,38 +437,90 @@ export class BookingsService {
         if (!paymentMethodId.startsWith('pm_')) {
           throw new BadRequestException('A valid card payment method is required');
         }
-        const preauth = await this.payments.createBookingPreauth({
-          guestUserId: guestId,
-          paymentMethodId,
-          fullAmountCents,
-          description: rentalDescription,
-          metadata: { listingId: listing.id },
-        });
-        stripePaymentIntentId = preauth.paymentIntentId;
-        lifecycle = {
-          stripeChargeId: preauth.chargeId,
-          paymentFunding: preauth.funding,
-          preauthAmountCents: preauth.amountCents,
-        };
-
-        if (instantBooking) {
-          const captured = await this.payments.captureOrChargeBooking({
-            paymentIntentId: preauth.paymentIntentId,
+        try {
+          const preauth = await this.payments.createBookingPreauth({
+            guestUserId: guestId,
+            paymentMethodId,
             fullAmountCents,
             description: rentalDescription,
-            paymentMethodId,
+            metadata: { listingId: listing.id },
+            idempotencyKey: key,
           });
-          stripePaymentIntentId = captured.paymentIntentId;
+          holdPaymentIntentId = preauth.paymentIntentId;
+          stripePaymentIntentId = preauth.paymentIntentId;
           lifecycle = {
-            ...lifecycle,
-            stripeChargeId: captured.chargeId,
-            paymentCapturedAt: Date.now(),
+            stripeChargeId: preauth.chargeId,
+            paymentFunding: preauth.funding,
+            preauthAmountCents: preauth.amountCents,
           };
+
+          if (instantBooking) {
+            const captured = await this.payments.captureOrChargeBooking({
+              paymentIntentId: preauth.paymentIntentId,
+              fullAmountCents,
+              description: rentalDescription,
+              paymentMethodId,
+            });
+            // Capture may replace the $1 hold with a new PI; track the live one.
+            holdPaymentIntentId = captured.paymentIntentId;
+            stripePaymentIntentId = captured.paymentIntentId;
+            lifecycle = {
+              ...lifecycle,
+              stripeChargeId: captured.chargeId,
+              paymentCapturedAt: Date.now(),
+            };
+          }
+
+          const row = manager.create(BookingEntity, {
+            guestUserId: guestId,
+            hostUserId: listing.hostUserId,
+            listingId: listing.id,
+            status,
+            idempotencyKey: key,
+            stripePaymentIntentId,
+            instantBooking,
+            listingSnapshot: {
+              // Always server-built so clients cannot inject PII they no longer receive publicly.
+              ...listing.toDetailDto(listing.host),
+              // Preserve any non-sensitive client display fields the app already sent.
+              ...(body.listingSnapshot && typeof body.listingSnapshot === 'object'
+                ? {
+                    title: (body.listingSnapshot as Record<string, unknown>).title,
+                    photos: (body.listingSnapshot as Record<string, unknown>).photos,
+                  }
+                : {}),
+            },
+            bookingDates: { ...bookingDates },
+            pickupAddress: (body.pickupAddress as string) || listing.pickupAddress,
+            dropoffAddress: (body.dropoffAddress as string) || null,
+            deliveryEnabled: Boolean(body.deliveryEnabled),
+            extras: (body.extras as unknown[]) ?? [],
+            introMessage: (body.introMessage as string) ?? '',
+            pricing,
+            selectedPaymentMethod,
+            lifecycle,
+          });
+
+          await manager.save(row);
+          // Persist succeeded — do not cancel the hold on outer rollback.
+          holdPaymentIntentId = null;
+
+          // Notify + seed chat AFTER this transaction commits. Firing inside the
+          // transaction races: notification/messaging repos use other connections and
+          // often cannot see the uncommitted booking (silent no-op → no emails/SMS).
+          return { kind: 'created' as const, row, status };
+        } catch (err) {
+          if (holdPaymentIntentId) {
+            await this.payments.cancelPaymentIntentSafe(holdPaymentIntentId);
+            holdPaymentIntentId = null;
+          }
+          throw err;
         }
       } else {
         throw new BadRequestException('Payments are not configured on this server');
       }
 
+      // Client-provided PI path (Apple Pay) — no preauth hold to orphan.
       const row = manager.create(BookingEntity, {
         guestUserId: guestId,
         hostUserId: listing.hostUserId,
@@ -461,9 +530,7 @@ export class BookingsService {
         stripePaymentIntentId,
         instantBooking,
         listingSnapshot: {
-          // Always server-built so clients cannot inject PII they no longer receive publicly.
           ...listing.toDetailDto(listing.host),
-          // Preserve any non-sensitive client display fields the app already sent.
           ...(body.listingSnapshot && typeof body.listingSnapshot === 'object'
             ? {
                 title: (body.listingSnapshot as Record<string, unknown>).title,
@@ -483,10 +550,6 @@ export class BookingsService {
       });
 
       await manager.save(row);
-
-      // Notify + seed chat AFTER this transaction commits. Firing inside the
-      // transaction races: notification/messaging repos use other connections and
-      // often cannot see the uncommitted booking (silent no-op → no emails/SMS).
       return { kind: 'created' as const, row, status };
     }).then(async (result) => {
       if (result.kind === 'existing') return result.dto;
@@ -502,6 +565,18 @@ export class BookingsService {
       }
       return presentBooking(result.row, guestId);
     });
+    } catch (err) {
+      if (holdPaymentIntentId) {
+        await this.payments.cancelPaymentIntentSafe(holdPaymentIntentId);
+      }
+      if (isUniqueIdempotencyViolation(err)) {
+        const existing = await this.bookingsRepo.findOne({
+          where: { idempotencyKey: key },
+        });
+        if (existing) return presentBooking(existing, guestId);
+      }
+      throw err;
+    }
   }
 
   async listForUser(userId: string, role: 'guest' | 'host', status?: string) {

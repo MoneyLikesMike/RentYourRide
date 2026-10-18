@@ -21,7 +21,8 @@ export type BookingStatus =
   | 'checkout_pending'
   | 'completed'
   | 'cancelled'
-  | 'declined';
+  | 'declined'
+  | 'expired';
 
 @Entity('bookings')
 export class BookingEntity {

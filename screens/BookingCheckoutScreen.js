@@ -48,6 +48,11 @@ import { listingPhotoUrls } from '../utils/listingPhotos';
 import { formatApproximatePickup } from '../utils/approximateLocation';
 import { resolveMediaUrl } from '../utils/mediaUrl';
 import { navigateToUserProfile, navigateToAddCard } from '../utils/navigateRootStack';
+import {
+  buildTripRequestConfirmCopy,
+  onCheckoutBookPanePress,
+  onCheckoutPricePanePress,
+} from '../utils/checkoutStickyCta';
 import { carTimeNote } from '../utils/carTime';
 
 const scale = uiScale;
@@ -673,7 +678,26 @@ export default function BookingCheckoutScreen({ navigation, route }) {
     submitBooking,
   ]);
 
-  const onStickyCtaPress = useCallback(async () => {
+  const openPriceBreakdown = useCallback(() => {
+    Alert.alert(
+      'Price details',
+      `Trip total: CAD $${Number(effectiveGrandTotal).toFixed(2)}`,
+    );
+  }, [effectiveGrandTotal]);
+
+  const runStickySubmit = useCallback(async () => {
+    try {
+      if (paymentMode === 'apple_pay' && showApplePayButton) {
+        await handleApplePay();
+      } else {
+        await onCheckoutBookPanePress({ submitBooking });
+      }
+    } catch (err) {
+      Alert.alert('Booking failed', err?.message || 'Could not send booking request.');
+    }
+  }, [handleApplePay, paymentMode, showApplePayButton, submitBooking]);
+
+  const onStickyCtaPress = useCallback(() => {
     if (!agreedToTerms) {
       Alert.alert(
         'Agreement required',
@@ -681,16 +705,39 @@ export default function BookingCheckoutScreen({ navigation, route }) {
       );
       return;
     }
-    try {
-      if (paymentMode === 'apple_pay' && showApplePayButton) {
-        await handleApplePay();
-      } else {
-        await submitBooking();
-      }
-    } catch (err) {
-      Alert.alert('Booking failed', err?.message || 'Could not send booking request.');
+    if (submitting || applePayLoading) return;
+
+    if (paymentMode === 'apple_pay' && showApplePayButton) {
+      void runStickySubmit();
+      return;
     }
-  }, [agreedToTerms, handleApplePay, paymentMode, showApplePayButton, submitBooking]);
+
+    const brand = selectedPaymentMethod?.brand || 'Card';
+    const last4 = selectedPaymentMethod?.last4 || '••••';
+    const { title, message } = buildTripRequestConfirmCopy({
+      isInstantBooking,
+      hostName,
+      totalCad: effectiveGrandTotal,
+      brand,
+      last4,
+    });
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Confirm', onPress: () => void runStickySubmit() },
+    ]);
+  }, [
+    agreedToTerms,
+    applePayLoading,
+    effectiveGrandTotal,
+    hostName,
+    isInstantBooking,
+    paymentMode,
+    runStickySubmit,
+    selectedPaymentMethod?.brand,
+    selectedPaymentMethod?.last4,
+    showApplePayButton,
+    submitting,
+  ]);
 
   const openCurrentLocationPicker = async () => {
     try {
@@ -1060,19 +1107,20 @@ export default function BookingCheckoutScreen({ navigation, route }) {
         </TouchableOpacity>
       </ScrollView>
 
-      <TouchableOpacity
+      <View
         style={[
           styles.checkoutStickyBar,
           { height: checkoutBarHeight },
           (!agreedToTerms || submitting || applePayLoading) && styles.checkoutStickyDisabled,
         ]}
-        activeOpacity={0.85}
-        disabled={submitting || applePayLoading}
-        onPress={onStickyCtaPress}
-        accessibilityRole="button"
-        accessibilityLabel={isInstantBooking ? 'Book trip' : 'Request trip'}
       >
-        <View style={[styles.checkoutPricePane, { height: checkoutBarHeight }]}>
+        <TouchableOpacity
+          style={[styles.checkoutPricePane, { height: checkoutBarHeight }]}
+          activeOpacity={0.85}
+          onPress={() => onCheckoutPricePanePress({ openPriceBreakdown })}
+          accessibilityRole="button"
+          accessibilityLabel="Show price details"
+        >
           <Text style={styles.checkoutPriceMain} numberOfLines={1}>
             CAD ${Number(effectiveGrandTotal).toFixed(2)}
           </Text>
@@ -1085,8 +1133,16 @@ export default function BookingCheckoutScreen({ navigation, route }) {
               },
             ]}
           />
-        </View>
-        <View style={[styles.checkoutBookPane, { height: checkoutBarHeight }]}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.checkoutBookPane, { height: checkoutBarHeight }]}
+          activeOpacity={0.85}
+          disabled={!agreedToTerms || submitting || applePayLoading}
+          onPress={onStickyCtaPress}
+          hitSlop={{ top: 8, bottom: 8, right: 8, left: 0 }}
+          accessibilityRole="button"
+          accessibilityLabel={isInstantBooking ? 'Book trip' : 'Request trip'}
+        >
           {submitting || applePayLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
@@ -1094,8 +1150,8 @@ export default function BookingCheckoutScreen({ navigation, route }) {
               {isInstantBooking ? 'BOOK TRIP' : 'REQUEST TRIP'}
             </Text>
           )}
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
 
       <Modal
         visible={paymentPickerVisible}

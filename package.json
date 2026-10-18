@@ -26,6 +26,7 @@
     "web:typecheck": "npm run typecheck --prefix apps/web",
     "test:listing-card-meta": "apps/api/node_modules/.bin/tsx --test utils/listingCardMeta.spec.js apps/web/src/utils/listingCardMeta.spec.ts",
     "test:places-autocomplete": "apps/api/node_modules/.bin/tsx --test utils/placesAutocompleteQuery.spec.js utils/formatSearchPlaceLabel.spec.js apps/api/src/geocode/places-autocomplete-query.spec.ts apps/web/src/api/placesAutocompleteParams.spec.ts apps/web/src/utils/formatSearchPlaceLabel.spec.ts",
+    "test:ryra-488": "apps/api/node_modules/.bin/tsx --test utils/checkoutStickyCta.spec.js && npm run test:ryra-488 --prefix apps/api",
     "eas:build:ios": "eas build --platform ios --profile production",
     "eas:submit:ios": "eas submit --platform ios --latest --profile production",
     "ios:archive": "bash scripts/ios-archive-testflight.sh",

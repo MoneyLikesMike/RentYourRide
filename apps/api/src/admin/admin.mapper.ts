@@ -187,6 +187,7 @@ export function toAdminBookingRow(booking: BookingEntity) {
     guestFullName: fullName(booking.guest),
     vehicleInfo: vehicleType ? `${title} (${vehicleType})` : title,
     vehicleId: booking.listingId,
+    status: formatAdminBookingStatus(booking.status),
     requestTime: booking.createdAt,
     requestStart: start,
     requestEnd: end,
@@ -605,10 +606,26 @@ export function statusesForPhase(phase: BookingPhase): string[] {
     case 'successfullyFinished':
       return ['completed'];
     case 'history':
-      return ['declined', 'cancelled'];
+      return ['declined', 'cancelled', 'expired'];
     case 'canceled':
       return ['cancelled'];
     default:
       return [];
   }
+}
+
+/** Human label for admin trip lists / detail. */
+export function formatAdminBookingStatus(status: string | null | undefined): string {
+  const key = (status || '').trim().toLowerCase();
+  if (key === 'expired') return 'Expired';
+  if (key === 'declined') return 'Declined';
+  if (key === 'cancelled' || key === 'canceled') return 'Cancelled';
+  if (key === 'pending_host') return 'Pending';
+  if (key === 'confirmed') return 'Confirmed';
+  if (key === 'completed') return 'Completed';
+  if (!key) return '';
+  return key
+    .split('_')
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
 }
