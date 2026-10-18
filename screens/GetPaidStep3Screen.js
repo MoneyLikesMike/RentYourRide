@@ -9,13 +9,18 @@ import {
   ScrollView,
   Image,
   Alert,
-  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { COLORS } from '../constants/colors';
 import Svg, { Path } from 'react-native-svg';
+import {
+  buildPayoutSetupBody,
+  useGetPaidForm,
+} from '../context/GetPaidFormContext';
 import { useListings } from '../context/ListingsContext';
 import { useAuth } from '../context/AuthContext';
-import { connectOnboardingLink } from '../services/payoutsApi';
+import { ApiError } from '../services/authApi';
+import { submitPayoutSetup } from '../services/payoutsApi';
 
 const CURRENCIES = [
   { code: 'CAD', label: 'CAD - Canadian Dollar' },
@@ -30,16 +35,29 @@ const BANK_COUNTRIES = [
 export default function GetPaidStep3Screen({ navigation }) {
   const { setPayoutSetupComplete } = useListings();
   const { isAuthenticated, isReady } = useAuth();
-  const [currency, setCurrency] = useState('CAD');
+  const { values, patch } = useGetPaidForm();
+  const {
+    currency,
+    bankCountry,
+    transitNumber,
+    institutionNumber,
+    accountNumber,
+    confirmAccountNumber,
+    routingNumber,
+  } = values;
+  const setCurrency = (v) => patch({ currency: v });
+  const setBankCountry = (v) => patch({ bankCountry: v });
+  const setTransitNumber = (v) => patch({ transitNumber: v });
+  const setInstitutionNumber = (v) => patch({ institutionNumber: v });
+  const setAccountNumber = (v) => patch({ accountNumber: v });
+  const setConfirmAccountNumber = (v) => patch({ confirmAccountNumber: v });
+  const setRoutingNumber = (v) => patch({ routingNumber: v });
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
-  const [bankCountry, setBankCountry] = useState('CA');
   const [showBankCountryDropdown, setShowBankCountryDropdown] = useState(false);
-  const [transitNumber, setTransitNumber] = useState('');
-  const [institutionNumber, setInstitutionNumber] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
-  const [routingNumber, setRoutingNumber] = useState('');
   const [touched, setTouched] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [formError, setFormError] = useState(null);
 
   function isFormValid() {
     if (!currency) return false;
@@ -227,31 +245,68 @@ export default function GetPaidStep3Screen({ navigation }) {
           </>
         )}
       </ScrollView>
+      {formError ? (
+        <Text style={{ color: '#E98080', marginBottom: 8, width: 331, textAlign: 'center' }}>
+          {formError}
+        </Text>
+      ) : null}
+      {fieldErrors.accountNumber ? (
+        <ErrorRow message={fieldErrors.accountNumber} />
+      ) : null}
       <TouchableOpacity
-        style={[styles.nextBtn, !isFormValid() && { opacity: 0.5 }]}
+        style={[styles.nextBtn, (!isFormValid() || busy) && { opacity: 0.5 }]}
         onPress={async () => {
           setTouched(true);
+          setFormError(null);
+          setFieldErrors({});
           if (!isFormValid()) return;
-          if (isAuthenticated && isReady) {
-            try {
-              const { url } = await connectOnboardingLink({
-                refreshUrl: 'https://rentyourride.com',
-                returnUrl: 'https://rentyourride.com',
-              });
-              if (url) {
-                const opened = await Linking.canOpenURL(url);
-                if (opened) await Linking.openURL(url);
-              }
-            } catch (e) {
-              Alert.alert('Connect setup', e?.message || 'Could not open Stripe Connect.');
-            }
+          if (!isAuthenticated || !isReady) {
+            Alert.alert('Sign in required', 'Please sign in to save payout details.');
+            return;
           }
-          setPayoutSetupComplete(true);
-          navigation.navigate('ListRideStack');
+          setBusy(true);
+          try {
+            const body = buildPayoutSetupBody(values);
+            const result = await submitPayoutSetup(body);
+            const enabled = !!result?.payoutsEnabled;
+            setPayoutSetupComplete(enabled);
+            if (enabled) {
+              navigation.navigate('ListRideStack');
+            } else if (result?.status === 'action_needed') {
+              Alert.alert(
+                'Action needed',
+                'We saved your details, but Stripe still needs more information. You can finish payout setup from Your trips.',
+              );
+              navigation.navigate('ListRideStack');
+            } else {
+              Alert.alert(
+                'Thanks',
+                "We're verifying your details. You can continue listing your ride.",
+              );
+              navigation.navigate('ListRideStack');
+            }
+          } catch (e) {
+            const body = e instanceof ApiError ? e.body : null;
+            const field =
+              body && typeof body === 'object' && typeof body.field === 'string'
+                ? body.field
+                : null;
+            if (field) {
+              setFieldErrors({ [field]: e.message });
+            } else {
+              setFormError(e?.message || 'Could not save your payout details.');
+            }
+          } finally {
+            setBusy(false);
+          }
         }}
-        disabled={!isFormValid()}
+        disabled={!isFormValid() || busy}
       >
-        <Text style={styles.nextBtnText}>SAVE</Text>
+        {busy ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.nextBtnText}>SAVE</Text>
+        )}
       </TouchableOpacity>
     </View>
   );

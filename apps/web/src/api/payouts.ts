@@ -1,19 +1,22 @@
 import { apiFetch } from './http';
 
 export type PayoutAccountStatus = {
-  onboarded: boolean;
-  detailsSubmitted: boolean;
+  status?: 'enabled' | 'verifying' | 'action_needed' | 'not_started';
+  onboarded?: boolean;
+  detailsSubmitted?: boolean;
   payoutsEnabled?: boolean;
+  currentlyDue?: string[];
+  pastDue?: string[];
+  eventuallyDue?: string[];
+  errors?: Array<{ requirement?: string; code?: string; reason?: string }>;
 };
 
-/** True when Stripe Connect onboarding is far enough along to receive payouts. */
+/** True only when Stripe reports payouts_enabled (Custom Connect). */
 export function isPayoutAccountReady(
   status: PayoutAccountStatus | null | undefined,
 ): boolean {
   if (!status) return false;
-  return Boolean(
-    status.onboarded || status.detailsSubmitted || status.payoutsEnabled,
-  );
+  return Boolean(status.payoutsEnabled);
 }
 
 export async function payoutsAccountStatus(): Promise<PayoutAccountStatus> {
@@ -53,16 +56,18 @@ export type PayoutSetupInput = {
   transitNumber?: string;
   institutionNumber?: string;
   routingNumber?: string;
-  refreshUrl: string;
-  returnUrl: string;
+  refreshUrl?: string;
+  returnUrl?: string;
 };
 
 export type PayoutSetupResult = {
-  /** Present only when Stripe still needs something from the host. */
-  url: string | null;
-  detailsSubmitted: boolean;
+  status: 'enabled' | 'verifying' | 'action_needed' | 'not_started';
   payoutsEnabled: boolean;
-  requiresOnboarding: boolean;
+  detailsSubmitted?: boolean;
+  currentlyDue: string[];
+  pastDue: string[];
+  eventuallyDue: string[];
+  errors: Array<{ requirement?: string; code?: string; reason?: string }>;
 };
 
 export async function submitPayoutSetup(

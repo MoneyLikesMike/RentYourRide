@@ -10,6 +10,9 @@ async function bootstrap() {
     rawBody: true,
   });
 
+  // ALB → Node: trust X-Forwarded-For so req.ip is the client (TOS audit).
+  app.set('trust proxy', 1);
+
   app.setGlobalPrefix('v1');
   app.useGlobalPipes(
     new ValidationPipe({

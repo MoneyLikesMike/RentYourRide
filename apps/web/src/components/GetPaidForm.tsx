@@ -1,17 +1,29 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { ApiError } from '../api/http';
 import type { ParsedPlace } from '../api/maps';
-import { submitPayoutSetup } from '../api/payouts';
+import {
+  submitPayoutSetup,
+  type PayoutSetupResult,
+} from '../api/payouts';
 import { getMe } from '../api/users';
 import { useAuth } from '../auth/AuthContext';
 import { validateEmail } from '../auth/validation';
+import {
+  PAYOUT_STATUS_ACTION_NEEDED,
+  PAYOUT_STATUS_ENABLED,
+  PAYOUT_STATUS_VERIFYING,
+  RYR_TERMS_PATH,
+  STRIPE_CONNECT_ACCOUNT_AGREEMENT_URL,
+  STRIPE_PRIVACY_POLICY_URL,
+} from '../content/payoutLegalCopy';
 import { regionsForCountry } from '../data/regions';
 import PlacesAutocomplete from './PlacesAutocomplete';
 
 type Country = 'CA' | 'US';
 
 type Props = {
-  /** Where Stripe should send the host back to if it still needs something. */
+  /** Return path after a successful enabled payout setup. */
   returnPath: string;
   onComplete: () => void;
 };
@@ -38,6 +50,8 @@ type Fields = {
   confirmAccountNumber: string;
 };
 
+type FieldKey = keyof Fields;
+
 const EMPTY: Fields = {
   firstName: '',
   lastName: '',
@@ -59,6 +73,25 @@ const EMPTY: Fields = {
   accountNumber: '',
   confirmAccountNumber: '',
 };
+
+function fieldFromApiError(error: ApiError): FieldKey | null {
+  const body = error.body;
+  if (!body || typeof body !== 'object') return null;
+  const direct = (body as { field?: unknown }).field;
+  const nested = (body as { message?: { field?: unknown } }).message?.field;
+  const field = typeof direct === 'string' ? direct : nested;
+  if (typeof field !== 'string') return null;
+  if (field in EMPTY) return field as FieldKey;
+  return null;
+}
+
+function statusLabel(result: PayoutSetupResult): string {
+  if (result.status === 'enabled' || result.payoutsEnabled) {
+    return PAYOUT_STATUS_ENABLED;
+  }
+  if (result.status === 'action_needed') return PAYOUT_STATUS_ACTION_NEEDED;
+  return PAYOUT_STATUS_VERIFYING;
+}
 
 const digits = (value: string) => value.replace(/\D/g, '');
 
@@ -180,6 +213,9 @@ export default function GetPaidForm({ returnPath, onComplete }: Props) {
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [setupResult, setSetupResult] = useState<PayoutSetupResult | null>(
+    null,
+  );
 
   // Anything we already know about the host is one less thing to retype.
   useEffect(() => {
@@ -283,8 +319,8 @@ export default function GetPaidForm({ returnPath, onComplete }: Props) {
 
     setBusy(true);
     setFormError(null);
+    setSetupResult(null);
     try {
-      const origin = window.location.origin;
       const result = await submitPayoutSetup({
         firstName: f.firstName.trim(),
         lastName: f.lastName.trim(),
@@ -307,30 +343,35 @@ export default function GetPaidForm({ returnPath, onComplete }: Props) {
           f.bankCountry === 'CA' ? digits(f.institutionNumber) : undefined,
         routingNumber:
           f.bankCountry === 'US' ? digits(f.routingNumber) : undefined,
-        returnUrl: `${origin}${returnPath}?payout=return`,
-        refreshUrl: `${origin}${returnPath}?payout=refresh`,
       });
 
-      try {
-        sessionStorage.setItem('ryr_payout_setup_complete', '1');
-      } catch {
-        /* ignore */
-      }
-
-      // Stripe owns terms acceptance, so it may still need a short confirmation.
-      if (result.url) {
-        window.location.assign(result.url);
+      setSetupResult(result);
+      if (result.payoutsEnabled) {
+        try {
+          sessionStorage.setItem('ryr_payout_setup_complete', '1');
+        } catch {
+          /* ignore */
+        }
+        onComplete();
         return;
       }
-      onComplete();
+      setBusy(false);
     } catch (error) {
-      setFormError(
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
+      if (error instanceof ApiError) {
+        const field = fieldFromApiError(error);
+        if (field) {
+          setErrors((prev) => ({ ...prev, [field]: error.message }));
+          setFormError(null);
+        } else {
+          setFormError(error.message);
+        }
+      } else {
+        setFormError(
+          error instanceof Error
             ? error.message
             : 'Could not save your payout details.',
-      );
+        );
+      }
       setBusy(false);
     }
   };
@@ -679,18 +720,45 @@ export default function GetPaidForm({ returnPath, onComplete }: Props) {
 
       {formError ? <p className="get-paid-form-error">{formError}</p> : null}
 
+      {setupResult && !setupResult.payoutsEnabled ? (
+        <div className="get-paid-status" role="status">
+          <p className="get-paid-status-label">{statusLabel(setupResult)}</p>
+          {setupResult.status === 'action_needed' ? (
+            <p className="get-paid-status-detail">
+              <Link to={`${returnPath}?payout=finish`}>
+                Finish payout setup
+              </Link>{' '}
+              to provide any remaining verification details.
+            </p>
+          ) : (
+            <p className="get-paid-status-detail">
+              You can leave this page — we&apos;ll email you if we need anything
+              else.
+            </p>
+          )}
+        </div>
+      ) : null}
+
       <p className="get-paid-legal">
-        By saving, you agree to the Stripe{' '}
+        By saving, you agree to the{' '}
         <a
-          href="https://stripe.com/legal/connect-account"
+          href={STRIPE_CONNECT_ACCOUNT_AGREEMENT_URL}
           target="_blank"
           rel="noreferrer"
         >
-          Connected Account Agreement
+          Stripe Connected Account Agreement
+        </a>{' '}
+        and <Link to={RYR_TERMS_PATH}>RentYourRide&apos;s Terms</Link>. Our
+        payment processor can obtain information from credit agencies to verify
+        your identity, as described in{' '}
+        <a
+          href={STRIPE_PRIVACY_POLICY_URL}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Stripe&apos;s Privacy Policy
         </a>
-        , to receiving autodialed text messages from Stripe, and you certify
-        that the information you have provided is complete and correct. Stripe,
-        Inc. is a registered ISO of Wells Fargo Bank, N.A., Concord, CA.
+        .
       </p>
 
       <button type="submit" className="get-paid-gate-cta" disabled={busy}>

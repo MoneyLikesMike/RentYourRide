@@ -249,11 +249,8 @@ export function ListingsProvider({ children }) {
     if (!isAuthenticated || !isReady) return;
     try {
       const status = await payoutsAccountStatus();
-      const ready = !!(
-        status?.onboarded ||
-        status?.detailsSubmitted ||
-        status?.payoutsEnabled
-      );
+      // Custom Connect: only payouts_enabled means the host can get paid.
+      const ready = !!status?.payoutsEnabled;
       // Must clear local cache when Connect is removed server-side, otherwise
       // list-a-ride keeps skipping Get Paid after a reset.
       setPayoutSetupComplete(ready);
