@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import "./index.scss";
 import Tabs from "../../components/Tabs";
+import Avatar from "../../components/Avatar";
 import ModalService from "../../services/modals";
 import { Link } from "react-router-dom";
 import ImageGallery from "react-image-gallery";
@@ -151,10 +152,8 @@ const CheckWrapper = ({ params, title }) => {
             to={`/members/profile/info/${trip?.hostId}`}
             className="profile"
           >
-            <img
-              src={
-                "https://i.ya-webdesign.com/images/teacher-clip-filipino-3.png"
-              }
+            <Avatar
+              src={trip?.hostAvatar?.imageUrl}
               alt="avatar"
               className="avatar"
             />
@@ -231,10 +230,8 @@ const CheckWrapper = ({ params, title }) => {
             to={`/members/profile/info/${trip?.guestId}`}
             className="profile"
           >
-            <img
-              src={
-                "https://i.ya-webdesign.com/images/teacher-clip-filipino-3.png"
-              }
+            <Avatar
+              src={trip?.guestAvatar?.imageUrl}
               alt="avatar"
               className="avatar"
             />

@@ -6,6 +6,7 @@ import carFeatures from "../../constants/carFeatures";
 import { Link } from "react-router-dom";
 import ImageGallery from "react-image-gallery";
 import { images } from "../../assets/images/index";
+import Avatar from "../../components/Avatar";
 const { confirmStatus } = images;
 
 const CarInformationView = ({ selectedRide }) => {
@@ -399,12 +400,8 @@ const CarScreen = ({
                 <div className="driver-information">
                   {selectedRide && host && (
                     <Link to={`/members/profile/info/${host.id}`}>
-                      <img
-                        src={
-                          selectedRide?.host?.avatar?.imageUrl
-                            ? selectedRide?.host?.avatar?.imageUrl
-                            : "https://i.ya-webdesign.com/images/teacher-clip-filipino-3.png"
-                        }
+                      <Avatar
+                        src={selectedRide?.host?.avatar?.imageUrl}
                         alt=""
                         className="driver-avatar"
                       />
