@@ -63,6 +63,16 @@ export class BookingsController {
     return this.bookings.listForUser(user.id, r, status);
   }
 
+  @Get(':id/cancellation-preview')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  async cancellationPreview(
+    @ReqUser() user: UserEntity,
+    @Param('id') id: string,
+  ) {
+    return this.bookings.cancellationPreview(user.id, id);
+  }
+
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()

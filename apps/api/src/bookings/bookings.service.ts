@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
@@ -45,6 +47,19 @@ import {
   hostNetCentsForPricing,
   planExtensionHostPayout,
 } from './host-earnings';
+import {
+  computeCancellationOutcome,
+  hostClawbackCents,
+  pricingCentsFromBooking,
+  type CancelActor,
+  type CancelReason,
+  type CancellationOutcome,
+  type PolicyVersion,
+} from './cancellation-policy';
+import { PayoutsService } from '../payouts/payouts.service';
+import { PinpointService } from '../notifications/pinpoint.service';
+import { opsAlert } from '../ops/ops-alert';
+import Stripe from 'stripe';
 
 export { getTripBillingDays } from './trip-billing-days';
 
@@ -118,7 +133,10 @@ export class BookingsService {
     private readonly dataSource: DataSource,
     private readonly messaging: MessagingService,
     private readonly notifications: NotificationsService,
+    @Inject(forwardRef(() => PaymentsService))
     private readonly payments: PaymentsService,
+    private readonly payouts: PayoutsService,
+    private readonly pinpoint: PinpointService,
   ) {}
 
   quote(listing: ListingEntity, input: QuoteInput) {
@@ -415,6 +433,7 @@ export class BookingsService {
           stripeChargeId: chargeId,
           paymentCapturedAt: Date.now(),
           paymentFunding: 'client_pi',
+          policyVersion: 'v2' as PolicyVersion,
         };
       } else if (this.payments.isConfigured()) {
         if (!paymentMethodId.startsWith('pm_')) {
@@ -432,6 +451,7 @@ export class BookingsService {
           stripeChargeId: preauth.chargeId,
           paymentFunding: preauth.funding,
           preauthAmountCents: preauth.amountCents,
+          policyVersion: 'v2' as PolicyVersion,
         };
 
         if (instantBooking) {
@@ -538,65 +558,350 @@ export class BookingsService {
     return presentBooking(b, userId);
   }
 
-  async cancel(userId: string, id: string) {
-    const b = await this.bookingsRepo.findOne({
-      where: { id },
-      relations: ['host'],
+  async cancellationPreview(userId: string, id: string) {
+    const b = await this.requireBookingForCancel(userId, id, { preview: true });
+    const outcome = this.computeOutcomeForBooking(b, {
+      actor: b.guestUserId === userId ? 'guest' : 'host',
+      reason: 'standard',
+      cancelledAtMs: Date.now(),
     });
-    if (!b) throw new NotFoundException('Booking not found');
-    if (b.guestUserId !== userId && b.hostUserId !== userId) {
-      throw new ForbiddenException();
-    }
-    if (['completed', 'cancelled', 'declined'].includes(b.status)) {
-      throw new BadRequestException('Cannot cancel');
-    }
+    return {
+      bookingId: b.id,
+      outcome,
+      youllBeRefundedCents: outcome.guestRefundCents,
+      youllBeChargedCents: outcome.guestChargeCents,
+    };
+  }
+
+  async cancel(
+    userId: string,
+    id: string,
+    opts?: {
+      asAdmin?: boolean;
+      reason?: CancelReason;
+      actor?: CancelActor;
+    },
+  ) {
+    const b = await this.requireBookingForCancel(userId, id, {
+      asAdmin: opts?.asAdmin,
+    });
     const previousStatus = b.status;
-    const cancelledBy = b.guestUserId === userId ? 'guest' : 'host';
-    let stripeRefundId: string | null = null;
-    if (b.stripePaymentIntentId && !(b.lifecycle as { hostTransferId?: string })?.hostTransferId) {
-      const refund = await this.payments.refundBookingPayment(
-        b.stripePaymentIntentId,
-        formatTripOutcomeStripeDescription({
-          outcome: 'Cancelled',
-          by: cancelledBy,
-          booking: b,
-          host: b.host,
-        }),
-      );
-      stripeRefundId = refund.refundId;
-    }
+    const cancelledBy: CancelActor =
+      opts?.actor ||
+      (opts?.asAdmin
+        ? 'admin'
+        : b.guestUserId === userId
+          ? 'guest'
+          : 'host');
+    const reason: CancelReason =
+      opts?.reason ||
+      (cancelledBy === 'host' ? 'standard' : 'standard');
+
+    const outcome = this.computeOutcomeForBooking(b, {
+      actor: cancelledBy,
+      reason,
+      cancelledAtMs: Date.now(),
+    });
+
+    const applied = await this.applyCancellationMoney(b, outcome, {
+      actor: cancelledBy,
+      reason,
+      description: formatTripOutcomeStripeDescription({
+        outcome: 'Cancelled',
+        by: cancelledBy === 'admin' ? 'host' : cancelledBy === 'system' ? 'host' : cancelledBy,
+        booking: b,
+        host: b.host,
+      }),
+    });
+
     b.status = 'cancelled';
     b.lifecycle = {
       ...(b.lifecycle ?? {}),
-      paymentRefundedAt: Date.now(),
-      ...(stripeRefundId ? { stripeRefundId } : {}),
+      cancellation: {
+        tier: outcome.tier,
+        outcome,
+        policyVersion: outcome.policyVersion,
+        at: Date.now(),
+        actor: cancelledBy,
+        reason,
+      },
+      ...(applied.stripeRefundId ? { stripeRefundId: applied.stripeRefundId } : {}),
+      ...(applied.paymentRefundedAt
+        ? { paymentRefundedAt: applied.paymentRefundedAt }
+        : {}),
+      ...(applied.reversalId
+        ? {
+            hostTransferReversalId: applied.reversalId,
+            hostTransferReversedCents: applied.reversedCents,
+          }
+        : {}),
     };
     await this.bookingsRepo.save(b);
+
     await this.messaging.postBookingSystemMessage(
       b.id,
       cancelledBy === 'guest'
         ? 'Trip was cancelled by the guest.'
-        : 'Trip was cancelled by the host.',
-      { event: 'cancelled', by: cancelledBy },
+        : cancelledBy === 'host'
+          ? 'Trip was cancelled by the host.'
+          : 'Trip was cancelled.',
+      { event: 'cancelled', by: cancelledBy, tier: outcome.tier },
     );
-    // Confirmed-trip cancel must tell the host. Pending-request withdraw does not.
-    // `cancelled` is not a date-blocking status, so the listing calendar reopens on save.
+
     if (isConfirmedTripStatus(previousStatus)) {
       try {
         await this.notifications.notifyHostConfirmedTripCancelled(b.id, {
           previousStatus,
-          cancelledBy,
-          stripeRefundId,
+          cancelledBy: cancelledBy === 'guest' ? 'guest' : 'host',
+          stripeRefundId: applied.stripeRefundId,
         });
       } catch (err) {
-        // Refund and calendar reopen already committed. Notify logs its own channel failures.
         this.log.error(
           'Host cancel notify failed',
           err instanceof Error ? err.message : err,
         );
       }
     }
-    return presentBooking(b, userId);
+    return {
+      ...presentBooking(b, userId),
+      cancelOutcome: outcome,
+      stripeRefundId: applied.stripeRefundId,
+    };
+  }
+
+  /**
+   * Host-reported no-show; admin-confirmed.
+   * POST /v1/admin/bookings/:id/no-show
+   */
+  async markNoShow(adminUserId: string, id: string) {
+    return this.cancel(adminUserId, id, {
+      asAdmin: true,
+      actor: 'admin',
+      reason: 'no_show',
+    });
+  }
+
+  /** Dashboard refund / dispute → reverse excess host transfer. */
+  async clawbackForStripeChargeEvent(event: Stripe.Event): Promise<void> {
+    const obj = event.data.object as {
+      payment_intent?: string | { id?: string };
+      charge?: string | { id?: string };
+      id?: string;
+      amount_refunded?: number;
+      amount?: number;
+    };
+    const piId =
+      typeof obj.payment_intent === 'string'
+        ? obj.payment_intent
+        : obj.payment_intent?.id;
+    if (!piId) return;
+    const booking = await this.bookingsRepo.findOne({
+      where: { stripePaymentIntentId: piId },
+    });
+    if (!booking) return;
+
+    const life = (booking.lifecycle || {}) as Record<string, unknown>;
+    const transferId =
+      typeof life.hostTransferId === 'string' ? life.hostTransferId : null;
+    if (!transferId) return;
+
+    const transferred = Number(life.hostTransferAmountCents) || 0;
+    const cancel = life.cancellation as
+      | { outcome?: CancellationOutcome }
+      | undefined;
+    const hostShare =
+      cancel?.outcome?.hostShareCents != null
+        ? Number(cancel.outcome.hostShareCents)
+        : 0;
+    const clawback = hostClawbackCents({
+      transferredCents: transferred,
+      hostShareCents: hostShare,
+    });
+    if (clawback < 1) return;
+
+    const already = Number(life.hostTransferReversedCents) || 0;
+    const remaining = clawback - already;
+    if (remaining < 1) return;
+
+    try {
+      const rev = await this.payments.reverseHostTransfer({
+        transferId,
+        amountCents: remaining,
+        bookingId: booking.id,
+        idempotencyKey: `xfer-rev:${booking.id}:${event.id}`,
+      });
+      booking.lifecycle = {
+        ...life,
+        hostTransferReversalId: rev.reversalId,
+        hostTransferReversedCents: already + rev.amountCents,
+      };
+      await this.bookingsRepo.save(booking);
+    } catch (err) {
+      await opsAlert(
+        `[RYR] Transfer reversal failed (${event.type})`,
+        `booking=${booking.id} event=${event.id} err=${
+          err instanceof Error ? err.message : err
+        }`,
+        (s, b) => this.pinpoint.sendSimpleAdminEmail(s, b),
+      );
+      throw err;
+    }
+  }
+
+  private async requireBookingForCancel(
+    userId: string,
+    id: string,
+    opts?: { asAdmin?: boolean; preview?: boolean },
+  ): Promise<BookingEntity> {
+    const b = await this.bookingsRepo.findOne({
+      where: { id },
+      relations: ['host'],
+    });
+    if (!b) throw new NotFoundException('Booking not found');
+    if (!opts?.asAdmin) {
+      if (b.guestUserId !== userId && b.hostUserId !== userId) {
+        throw new ForbiddenException();
+      }
+    }
+    if (!opts?.preview && ['completed', 'cancelled', 'declined'].includes(b.status)) {
+      throw new BadRequestException('Cannot cancel');
+    }
+    return b;
+  }
+
+  private computeOutcomeForBooking(
+    b: BookingEntity,
+    opts: {
+      actor: CancelActor;
+      reason: CancelReason;
+      cancelledAtMs: number;
+    },
+  ): CancellationOutcome {
+    const dates = b.bookingDates as { start?: number } | null;
+    const startMs = Number(dates?.start);
+    const createdAtMs = b.createdAt?.getTime?.() ?? Date.now();
+    const life = (b.lifecycle || {}) as { policyVersion?: PolicyVersion };
+    const pricing = pricingCentsFromBooking(
+      b.pricing as Record<string, unknown>,
+    );
+    // Prefer actual authorized/captured amount when present
+    const lifePreauth = Number(
+      (b.lifecycle as { preauthAmountCents?: number })?.preauthAmountCents,
+    );
+    if (Number.isFinite(lifePreauth) && lifePreauth > 0) {
+      pricing.totalPaid = lifePreauth / 100;
+    }
+    return computeCancellationOutcome({
+      pricing,
+      startMs: Number.isFinite(startMs) ? startMs : createdAtMs,
+      createdAtMs,
+      cancelledAtMs: opts.cancelledAtMs,
+      actor: opts.actor,
+      reason: opts.reason,
+      policyVersion: life.policyVersion ?? 'v2',
+    });
+  }
+
+  private async applyCancellationMoney(
+    b: BookingEntity,
+    outcome: CancellationOutcome,
+    opts: {
+      actor: CancelActor;
+      reason: CancelReason;
+      description: string;
+    },
+  ): Promise<{
+    stripeRefundId: string | null;
+    paymentRefundedAt: number | null;
+    reversalId: string | null;
+    reversedCents: number;
+  }> {
+    let stripeRefundId: string | null = null;
+    let paymentRefundedAt: number | null = null;
+    let reversalId: string | null = null;
+    let reversedCents = 0;
+
+    if (b.stripePaymentIntentId && this.payments.isConfigured()) {
+      try {
+        const pi = await this.payments.retrievePaymentIntent(
+          b.stripePaymentIntentId,
+        );
+        if (pi.status === 'requires_capture') {
+          const cap = await this.payments.captureBookingAmount({
+            paymentIntentId: b.stripePaymentIntentId,
+            amountToCaptureCents: outcome.guestChargeCents,
+            description: opts.description,
+            idempotencyKey: `cancel-cap:${b.id}:${outcome.tier}`,
+          });
+          if (cap.chargeId) {
+            b.lifecycle = {
+              ...(b.lifecycle ?? {}),
+              stripeChargeId: cap.chargeId,
+              paymentCapturedAt: Date.now(),
+            };
+          }
+        } else if (pi.status === 'succeeded' && outcome.guestRefundCents > 0) {
+          const refund = await this.payments.refundBookingPayment(
+            b.stripePaymentIntentId,
+            {
+              description: opts.description,
+              amountCents: outcome.guestRefundCents,
+              reason: opts.reason,
+              bookingId: b.id,
+              idempotencyKey: `refund:${b.id}:${outcome.tier}`,
+            },
+          );
+          stripeRefundId = refund.refundId;
+          if (refund.refundId) {
+            paymentRefundedAt = Date.now();
+          }
+        }
+      } catch (err) {
+        await opsAlert(
+          '[RYR] Cancellation refund/capture failed',
+          `booking=${b.id} tier=${outcome.tier} err=${
+            err instanceof Error ? err.message : err
+          }`,
+          (s, body) => this.pinpoint.sendSimpleAdminEmail(s, body),
+        );
+        throw err;
+      }
+    }
+
+    if (outcome.hostShareCents > 0) {
+      await this.payouts.scheduleCancellationPayout(b.id, outcome.hostShareCents);
+    }
+
+    const life = (b.lifecycle || {}) as Record<string, unknown>;
+    const transferId =
+      typeof life.hostTransferId === 'string' ? life.hostTransferId : null;
+    const transferred = Number(life.hostTransferAmountCents) || 0;
+    const clawback = hostClawbackCents({
+      transferredCents: transferred,
+      hostShareCents: outcome.hostShareCents,
+    });
+    if (transferId && clawback > 0) {
+      try {
+        const rev = await this.payments.reverseHostTransfer({
+          transferId,
+          amountCents: clawback,
+          bookingId: b.id,
+          refundId: stripeRefundId,
+          idempotencyKey: `xfer-rev:${b.id}:${outcome.tier}`,
+        });
+        reversalId = rev.reversalId;
+        reversedCents = rev.amountCents;
+      } catch (err) {
+        await opsAlert(
+          '[RYR] Cancellation transfer reversal failed',
+          `booking=${b.id} err=${err instanceof Error ? err.message : err}`,
+          (s, body) => this.pinpoint.sendSimpleAdminEmail(s, body),
+        );
+        throw err;
+      }
+    }
+
+    return { stripeRefundId, paymentRefundedAt, reversalId, reversedCents };
   }
 
   async acceptHost(userId: string, id: string) {
