@@ -292,15 +292,17 @@ function mapLifecyclePhotos(raw: unknown): Array<{ photo: string; createdAt: Dat
   return raw
     .map((item) => {
       if (typeof item === 'string' && item.trim()) {
-        return { photo: item.trim(), createdAt: new Date() };
+        const photo = resolveImageUrl(item.trim());
+        return photo ? { photo, createdAt: new Date() } : null;
       }
       if (item && typeof item === 'object') {
         const row = item as Record<string, unknown>;
-        const photo =
+        const rawPhoto =
           (typeof row.photo === 'string' && row.photo) ||
           (typeof row.uri === 'string' && row.uri) ||
           (typeof row.url === 'string' && row.url) ||
           '';
+        const photo = resolveImageUrl(rawPhoto || undefined);
         if (!photo) return null;
         const createdAt =
           row.createdAt != null ? new Date(row.createdAt as string | number) : new Date();
