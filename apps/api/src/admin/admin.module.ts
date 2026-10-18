@@ -12,17 +12,21 @@ import { AdminListingsService } from './admin-listings.service';
 import { AdminGuard } from '../common/admin.guard';
 import { AuthModule } from '../auth/auth.module';
 import { DiditModule } from '../didit/didit.module';
+import { PayoutsModule } from '../payouts/payouts.module';
+import { AdminPayoutAccountsController } from './admin-payout-accounts.controller';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserEntity, BookingEntity, ListingEntity]),
     AuthModule,
     DiditModule,
+    PayoutsModule,
   ],
   controllers: [
     AdminUsersController,
     AdminBookingsController,
     AdminListingsController,
+    AdminPayoutAccountsController,
   ],
   providers: [
     AdminUsersService,

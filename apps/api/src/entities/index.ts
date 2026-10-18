@@ -18,9 +18,13 @@ export * from './notification-dispatch-claim.entity';
 export * from './in-app-notification.entity';
 export * from './sms-outbox.entity';
 export * from './connect-tos-acceptance.entity';
+export * from './host-payout-account.entity';
+export * from './stripe-webhook-event.entity';
 
 import { UserEntity } from './user.entity';
 import { ConnectTosAcceptanceEntity } from './connect-tos-acceptance.entity';
+import { HostPayoutAccountEntity } from './host-payout-account.entity';
+import { StripeWebhookEventEntity } from './stripe-webhook-event.entity';
 import { RefreshTokenEntity } from './refresh-token.entity';
 import { PasswordResetTokenEntity } from './password-reset-token.entity';
 import { ListingEntity } from './listing.entity';
@@ -61,4 +65,6 @@ export const entities = [
   InAppNotificationEntity,
   SmsOutboxEntity,
   ConnectTosAcceptanceEntity,
+  HostPayoutAccountEntity,
+  StripeWebhookEventEntity,
 ];

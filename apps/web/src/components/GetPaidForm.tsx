@@ -199,7 +199,7 @@ function validate(f: Fields): Partial<Record<keyof Fields, string>> {
   return errors;
 }
 
-export default function GetPaidForm({ returnPath, onComplete }: Props) {
+export default function GetPaidForm({ returnPath: _returnPath, onComplete }: Props) {
   const { user } = useAuth();
   const [f, setF] = useState<Fields>({
     ...EMPTY,
@@ -346,14 +346,16 @@ export default function GetPaidForm({ returnPath, onComplete }: Props) {
       });
 
       setSetupResult(result);
-      if (result.payoutsEnabled) {
-        try {
-          sessionStorage.setItem('ryr_payout_setup_complete', '1');
-        } catch {
-          /* ignore */
+      if (result.payoutsReady || result.payoutsEnabled) {
+        if (result.payoutsReady) {
+          try {
+            sessionStorage.setItem('ryr_payout_setup_complete', '1');
+          } catch {
+            /* ignore */
+          }
+          onComplete();
+          return;
         }
-        onComplete();
-        return;
       }
       setBusy(false);
     } catch (error) {
@@ -725,7 +727,7 @@ export default function GetPaidForm({ returnPath, onComplete }: Props) {
           <p className="get-paid-status-label">{statusLabel(setupResult)}</p>
           {setupResult.status === 'action_needed' ? (
             <p className="get-paid-status-detail">
-              <Link to={`${returnPath}?payout=finish`}>
+              <Link to="/profile/trips/payouts?finish=1">
                 Finish payout setup
               </Link>{' '}
               to provide any remaining verification details.

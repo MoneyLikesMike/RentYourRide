@@ -10,11 +10,11 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { emailTypoUserMessage } from '../common/email-domain-typos';
 import { UsersService } from '../users/users.service';
-import { payoutRequirementsFromAccount } from './payout-account-status';
 import {
   isCustomConnectAccount,
   isExpressConnectAccount,
 } from './payout-accounts-kind';
+import { HostPayoutAccountsService } from './host-payout-accounts.service';
 import {
   PayoutAccountsService,
   TosAcceptanceContext,
@@ -31,9 +31,15 @@ export class PayoutsService {
     private readonly config: ConfigService,
     private readonly users: UsersService,
     private readonly accounts: PayoutAccountsService,
+    private readonly hostAccounts: HostPayoutAccountsService,
   ) {
     const key = this.config.get<string>('STRIPE_SECRET_KEY');
     this.stripe = key ? new Stripe(key) : null;
+  }
+
+  /** RYRA-457 / RYRA-460 transfer gating. */
+  isPayoutsReady(userId: string): Promise<boolean> {
+    return this.hostAccounts.isPayoutsReady(userId);
   }
 
   /**
@@ -136,8 +142,8 @@ export class PayoutsService {
         }
       }
 
-      const retrieved = await this.stripe.accounts.retrieve(acct.id);
-      return payoutRequirementsFromAccount(retrieved);
+      await this.hostAccounts.syncAccount(acct.id);
+      return this.hostAccounts.accountStatusForUser(userId);
     } catch (err) {
       if (
         err instanceof BadRequestException ||
@@ -169,21 +175,7 @@ export class PayoutsService {
   }
 
   async accountStatus(userId: string) {
-    const user = await this.users.requireById(userId);
-    if (!user.stripeConnectAccountId || !this.stripe) {
-      return {
-        ...payoutRequirementsFromAccount(null),
-        onboarded: !!user.stripeConnectAccountId && !this.stripe,
-        detailsSubmitted: !!user.stripeConnectAccountId && !this.stripe,
-        payoutsEnabled: !!user.stripeConnectAccountId && !this.stripe,
-      };
-    }
-    const acct = await this.stripe.accounts.retrieve(user.stripeConnectAccountId);
-    const status = payoutRequirementsFromAccount(acct);
-    return {
-      ...status,
-      onboarded: status.detailsSubmitted,
-    };
+    return this.hostAccounts.accountStatusForUser(userId);
   }
 
   async summary(userId: string) {

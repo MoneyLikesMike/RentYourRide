@@ -7,6 +7,7 @@ import MembersPage from './pages/MembersPage';
 import MemberProfilePlaceholder from './pages/MemberProfilePlaceholder';
 import TripsPage from './pages/TripsPage';
 import ValidationPage from './pages/ValidationPage';
+import PayoutAccountsPage from './pages/PayoutAccountsPage';
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { isAuthenticated } = useAuth();
@@ -36,6 +37,7 @@ function AppRoutes() {
         />
         <Route path="/trips" element={<TripsPage />} />
         <Route path="/validation" element={<ValidationPage />} />
+        <Route path="/payout-accounts" element={<PayoutAccountsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/members" replace />} />
     </Routes>

@@ -61,6 +61,7 @@ import CompletedRentalAgreementScreen from '../screens/CompletedRentalAgreementS
 import RentalHistoryScreen from '../screens/RentalHistoryScreen';
 import PayoutsDashboardScreen from '../screens/PayoutsDashboardScreen';
 import PayoutEmptyStateScreen from '../screens/PayoutEmptyStateScreen';
+import FinishPayoutSetupScreen from '../screens/FinishPayoutSetupScreen';
 import GetPaidStack from './GetPaidStack';
 import EmptyVehicleSearchScreen from '../screens/EmptyVehicleSearchScreen';
 import SearchResultsScreen from '../screens/SearchResultsScreen';
@@ -150,6 +151,7 @@ function RentalManagerStack() {
       <RentalManagerStackNav.Screen name="CompletedRentalAgreementScreen" component={CompletedRentalAgreementScreen} />
       <RentalManagerStackNav.Screen name="RentalHistoryScreen" component={RentalHistoryScreen} />
       <RentalManagerStackNav.Screen name="PayoutsDashboardScreen" component={PayoutsDashboardScreen} />
+      <RentalManagerStackNav.Screen name="FinishPayoutSetupScreen" component={FinishPayoutSetupScreen} />
       {SharedBrowseScreens({ Stack: RentalManagerStackNav, includeChatThread: true })}
     </RentalManagerStackNav.Navigator>
   );
