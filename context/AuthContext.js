@@ -1,16 +1,31 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { Alert, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { postJson } from '../services/authApi';
 import * as tokens from '../services/authTokens';
+import { apiFetch, setOnSessionExpired } from '../services/apiClient';
 import {
   configureGoogleSignIn,
   signInWithAppleNative,
   signInWithGoogleNative,
 } from '../services/socialAuthNative';
 import { PROFILE_STORAGE_KEYS, STORAGE_AUTH_USER } from '../constants/storageKeys';
-import { resetToWelcome } from '../navigation/navigationRef';
+import {
+  navigateToSignInPreservingReturn,
+  resetToWelcome,
+} from '../navigation/navigationRef';
 
 const AuthContext = createContext(null);
+
+const SESSION_VALIDATE_BACKGROUND_MS = 15 * 60 * 1000;
 
 function compactUser(apiUser) {
   if (!apiUser || typeof apiUser !== 'object') return null;
@@ -38,6 +53,54 @@ async function persistSession(loginPayload) {
 export function AuthProvider({ children }) {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState(null);
+  const sessionAlertShown = useRef(false);
+  const backgroundedAt = useRef(null);
+  const validatingRef = useRef(false);
+
+  const handleSessionExpired = useCallback(async () => {
+    await tokens.clearTokens();
+    await AsyncStorage.removeItem(STORAGE_AUTH_USER).catch(() => {});
+    setUser(null);
+    if (!sessionAlertShown.current) {
+      sessionAlertShown.current = true;
+      Alert.alert('Session expired', 'Your session has expired. Please sign in again.', [
+        {
+          text: 'OK',
+          onPress: () => {
+            sessionAlertShown.current = false;
+          },
+        },
+      ]);
+    }
+    navigateToSignInPreservingReturn();
+  }, []);
+
+  useEffect(() => {
+    setOnSessionExpired(handleSessionExpired);
+    return () => setOnSessionExpired(null);
+  }, [handleSessionExpired]);
+
+  const validateSession = useCallback(async () => {
+    if (validatingRef.current) return;
+    const access = await tokens.getAccessToken();
+    const refresh = await tokens.getRefreshToken();
+    if (!access && !refresh) return;
+    validatingRef.current = true;
+    try {
+      const me = await apiFetch('/v1/users/me');
+      const c = compactUser(me);
+      if (c) {
+        setUser(c);
+        await AsyncStorage.setItem(STORAGE_AUTH_USER, JSON.stringify(c)).catch(() => {});
+      }
+    } catch (e) {
+      // SESSION_EXPIRED already ran onSessionExpired inside apiFetch.
+      // Network errors (and bare 401 after a network refresh failure) keep the cached user.
+      void e;
+    } finally {
+      validatingRef.current = false;
+    }
+  }, [handleSessionExpired]);
 
   useEffect(() => {
     configureGoogleSignIn();
@@ -59,25 +122,46 @@ export function AuthProvider({ children }) {
               setUser(null);
             }
           }
+          setReady(true);
+          if (!cancelled) await validateSession();
         } else {
           setUser(null);
           await AsyncStorage.removeItem(STORAGE_AUTH_USER).catch(() => {});
+          if (!cancelled) setReady(true);
         }
       } catch {
-        if (!cancelled) setUser(null);
-      } finally {
-        if (!cancelled) setReady(true);
+        if (!cancelled) {
+          setUser(null);
+          setReady(true);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [validateSession]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'background' || next === 'inactive') {
+        backgroundedAt.current = Date.now();
+        return;
+      }
+      if (next !== 'active') return;
+      const bgAt = backgroundedAt.current;
+      backgroundedAt.current = null;
+      if (bgAt != null && Date.now() - bgAt >= SESSION_VALIDATE_BACKGROUND_MS) {
+        validateSession();
+      }
+    });
+    return () => sub.remove();
+  }, [validateSession]);
 
   const signIn = useCallback(async (email, password) => {
     const data = await postJson('/v1/auth/login', { email: email.trim(), password });
     const c = await persistSession(data);
     setUser(c);
+    sessionAlertShown.current = false;
     return data;
   }, []);
 
@@ -90,6 +174,7 @@ export function AuthProvider({ children }) {
     });
     const c = await persistSession(data);
     setUser(c);
+    sessionAlertShown.current = false;
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
@@ -101,6 +186,7 @@ export function AuthProvider({ children }) {
     });
     const c = await persistSession(data);
     setUser(c);
+    sessionAlertShown.current = false;
     return { isNewUser: !!data.isNewUser, deletionCancelled: !!data.deletionCancelled, user: c };
   }, []);
 
@@ -114,6 +200,7 @@ export function AuthProvider({ children }) {
     });
     const c = await persistSession(data);
     setUser(c);
+    sessionAlertShown.current = false;
     return { isNewUser: !!data.isNewUser, deletionCancelled: !!data.deletionCancelled, user: c };
   }, []);
 

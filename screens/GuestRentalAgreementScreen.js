@@ -284,7 +284,7 @@ export default function GuestRentalAgreementScreen({ navigation, route }) {
           checked={agreeInspect}
           onToggle={() => setAgreeInspect((v) => !v)}
           label={
-            'The vehicle has been throughly inspected and \nwashed and is in a good condition for rental.'
+            'The vehicle has been thoroughly inspected and \nwashed and is in good condition for rental.'
           }
           labelStyle={styles.checkLabelCondition}
         />

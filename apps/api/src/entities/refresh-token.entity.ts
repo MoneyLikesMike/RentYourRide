@@ -28,6 +28,10 @@ export class RefreshTokenEntity {
   @Column({ name: 'expires_at', type: 'timestamptz' })
   expiresAt: Date;
 
+  /** Set when this token is rotated; reused for REFRESH_GRACE_MS then rejected. */
+  @Column({ name: 'rotated_at', type: 'timestamptz', nullable: true })
+  rotatedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

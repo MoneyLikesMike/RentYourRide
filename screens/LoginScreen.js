@@ -17,7 +17,7 @@ import { FONTS } from '../constants/fonts';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import { resetToMainTabs } from '../navigation/navigationRef';
+import { navigateAfterSuccessfulSignIn } from '../navigation/navigationRef';
 import { ApiError } from '../services/authApi';
 import {
   clearRememberMeCredentials,
@@ -98,7 +98,7 @@ export default function LoginScreen({ isChildScreen, onSwitchToSignUp, onForgotP
           'Signing in cancelled your scheduled account deletion. Your account is active again.',
         );
       }
-      resetToMainTabs();
+      navigateAfterSuccessfulSignIn();
     } catch (err) {
       const msg =
         err instanceof ApiError

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useGuestBookings } from '../context/GuestBookingsContext';
+import { messageForBookingUpdateError } from './bookingUpdateErrors';
 
 /**
  * Await updateGuestBooking and surface API failures before navigation.
@@ -17,7 +18,7 @@ export function useBookingUpdate() {
         onSuccess?.();
         return true;
       } catch (e) {
-        Alert.alert(errorTitle, e?.message || 'Try again later.');
+        Alert.alert(errorTitle, messageForBookingUpdateError(e));
         return false;
       }
     },

@@ -299,7 +299,7 @@ export default function HostRentalAgreementScreen({ navigation, route }) {
           checked={agreeInspect}
           onToggle={() => setAgreeInspect((v) => !v)}
           label={
-            'The vehicle has been throughly inspected and \nwashed and is in good condition for handover to the guest.'
+            'The vehicle has been thoroughly inspected and \nwashed and is in good condition for handover to the guest.'
           }
           labelStyle={styles.checkLabelCondition}
         />
