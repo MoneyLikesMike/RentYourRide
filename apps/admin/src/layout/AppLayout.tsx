@@ -17,6 +17,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import PeopleIcon from '@mui/icons-material/People';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import PaymentsIcon from '@mui/icons-material/Payments';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '../auth/AuthContext';
 
@@ -26,6 +27,7 @@ const nav = [
   { to: '/members', label: 'Members', icon: PeopleIcon },
   { to: '/trips', label: 'Trips', icon: DirectionsCarIcon },
   { to: '/validation', label: 'Validation', icon: VerifiedUserIcon },
+  { to: '/payout-accounts', label: 'Payout accounts', icon: PaymentsIcon },
 ];
 
 export default function AppLayout() {

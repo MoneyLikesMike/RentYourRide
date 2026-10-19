@@ -1,35 +1,57 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  GoneException,
+  Injectable,
+  Logger,
+  NotImplementedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { emailTypoUserMessage } from '../common/email-domain-typos';
 import { UsersService } from '../users/users.service';
+import {
+  isCustomConnectAccount,
+  isExpressConnectAccount,
+} from './payout-accounts-kind';
+import { HostPayoutAccountsService } from './host-payout-accounts.service';
+import {
+  PayoutAccountsService,
+  TosAcceptanceContext,
+} from './payout-accounts.service';
 import { PayoutSetupDto } from './payout-setup.dto';
-
-/** Automobile rental — the merchant category Stripe expects for our hosts. */
-const RENTAL_MCC = '7512';
-
-/** Phone numbers come in as national digits; Stripe wants E.164. */
-function toE164(raw: string): string {
-  const digits = (raw || '').replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
-  if (digits.length === 10) return `+1${digits}`;
-  return raw.startsWith('+') ? raw : `+${digits}`;
-}
+import { stripeParamToField } from './stripe-param-fields';
 
 @Injectable()
 export class PayoutsService {
+  private readonly logger = new Logger(PayoutsService.name);
   private stripe: Stripe | null;
 
   constructor(
     private readonly config: ConfigService,
     private readonly users: UsersService,
+    private readonly accounts: PayoutAccountsService,
+    private readonly hostAccounts: HostPayoutAccountsService,
   ) {
     const key = this.config.get<string>('STRIPE_SECRET_KEY');
     this.stripe = key ? new Stripe(key) : null;
   }
 
+  /** RYRA-457 / RYRA-460 transfer gating. */
+  isPayoutsReady(userId: string): Promise<boolean> {
+    return this.hostAccounts.isPayoutsReady(userId);
+  }
+
+  /**
+   * @deprecated Express Account Links. Disabled with PAYOUT_ONBOARDING_LINK_ENABLED=0
+   * (410) after Custom Get Paid ships; kept for older app builds while the flag is on.
+   */
   async createOnboardingLink(userId: string, refreshUrl: string, returnUrl: string) {
+    if (this.config.get<string>('PAYOUT_ONBOARDING_LINK_ENABLED') === '0') {
+      throw new GoneException(
+        'Stripe-hosted onboarding is no longer used. Complete payout setup in Get Paid.',
+      );
+    }
     if (!this.stripe) {
       return {
         url: 'https://dashboard.stripe.com/test/connect/accounts/overview',
@@ -58,139 +80,102 @@ export class PayoutsService {
   }
 
   /**
-   * Save the details from our own Get Paid form onto the host's Stripe account.
-   * Stripe still owns terms acceptance and any identity documents it decides to
-   * ask for, so the caller is handed a link only when something is still due.
+   * Save Get Paid form details onto a Custom Connect account (create or update).
+   * TOS ip/user_agent must come from the request, never the body.
    */
-  async submitPayoutDetails(userId: string, dto: PayoutSetupDto) {
+  async submitPayoutDetails(
+    userId: string,
+    dto: PayoutSetupDto,
+    tos: TosAcceptanceContext,
+  ) {
     const typoMsg = emailTypoUserMessage(dto.email);
     if (typoMsg) throw new BadRequestException(typoMsg);
+
+    if (dto.country !== 'CA' || dto.bankCountry !== 'CA') {
+      throw new BadRequestException({
+        field: 'country',
+        message: 'Payout setup currently supports Canada only.',
+      });
+    }
 
     const user = await this.users.requireById(userId);
     if (!this.stripe) {
       return {
-        url: null,
-        detailsSubmitted: true,
+        status: 'verifying' as const,
         payoutsEnabled: false,
-        requiresOnboarding: false,
+        detailsSubmitted: true,
+        currentlyDue: [],
+        pastDue: [],
+        eventuallyDue: [],
+        errors: [],
       };
-    }
-
-    const holderName = `${dto.firstName} ${dto.lastName}`.trim();
-    const [year, month, day] = dto.dateOfBirth.split('-').map(Number);
-
-    let accountId = user.stripeConnectAccountId;
-    if (!accountId) {
-      const acct = await this.stripe.accounts.create({
-        type: 'express',
-        country: dto.country,
-        email: dto.email || user.email,
-        business_type: 'individual',
-        capabilities: { transfers: { requested: true } },
-      });
-      accountId = acct.id;
-      await this.users.setStripeConnectAccountId(userId, accountId);
     }
 
     try {
-      await this.stripe.accounts.update(accountId, {
-        email: dto.email,
-        business_type: 'individual',
-        business_profile: {
-          mcc: RENTAL_MCC,
-          product_description:
-            dto.businessDescription ||
-            'Renting my personal vehicle to guests through RentYourRide.',
-        },
-        individual: {
-          first_name: dto.firstName,
-          last_name: dto.lastName,
-          email: dto.email,
-          phone: toE164(dto.phone),
-          dob: { day, month, year },
-          address: {
-            line1: dto.addressLine1,
-            line2: dto.addressLine2 || undefined,
-            city: dto.city,
-            state: dto.region,
-            postal_code: dto.postalCode.replace(/\s+/g, ''),
-            country: dto.country,
-          },
-        },
-      });
+      let acct: Stripe.Account;
 
-      const routingNumber =
-        dto.bankCountry === 'CA'
-          ? `${dto.transitNumber ?? ''}-${dto.institutionNumber ?? ''}`
-          : (dto.routingNumber ?? '');
-      if (routingNumber.replace(/\D/g, '').length < 3) {
-        throw new BadRequestException('Bank routing details are incomplete.');
-      }
-
-      await this.stripe.accounts.createExternalAccount(accountId, {
-        external_account: {
-          object: 'bank_account',
-          country: dto.bankCountry,
-          currency: dto.currency.toLowerCase(),
-          account_holder_name: holderName,
-          account_holder_type: 'individual',
-          routing_number: routingNumber,
-          account_number: dto.accountNumber,
-        },
-        default_for_currency: true,
-      });
-    } catch (err) {
-      if (err instanceof BadRequestException) throw err;
-      const stripeError = err as Stripe.errors.StripeError;
-      // Bad bank numbers are worth stopping for — the host can fix those here.
-      // Anything else (already-attached account, or an account Stripe has
-      // locked for API edits) falls through so they can finish on Stripe.
-      const param = stripeError?.param ?? '';
-      const isBankFieldProblem =
-        stripeError?.code !== 'bank_account_exists' &&
-        /account_number|routing_number|external_account/.test(param);
-      if (isBankFieldProblem) {
-        throw new BadRequestException(
-          stripeError?.message || 'Please check your bank details.',
+      if (!user.stripeConnectAccountId) {
+        acct = await this.accounts.createCustomAccount(
+          this.stripe,
+          user,
+          dto,
+          tos,
         );
+      } else {
+        const existing = await this.stripe.accounts.retrieve(
+          user.stripeConnectAccountId,
+        );
+        if (isCustomConnectAccount(existing)) {
+          acct = await this.accounts.updateCustomAccount(
+            this.stripe,
+            existing.id,
+            user,
+            dto,
+            tos,
+          );
+        } else if (isExpressConnectAccount(existing)) {
+          this.accounts.migrateExpressHost(user);
+        } else {
+          throw new BadRequestException(
+            'This payout account cannot be updated from Get Paid. Contact support.',
+          );
+        }
       }
-    }
 
-    const acct = await this.stripe.accounts.retrieve(accountId);
-    const requiresOnboarding = acct.details_submitted !== true;
-    let url: string | null = null;
-    if (requiresOnboarding) {
-      const link = await this.stripe.accountLinks.create({
-        account: accountId,
-        refresh_url: dto.refreshUrl || 'http://localhost:5173',
-        return_url: dto.returnUrl || 'http://localhost:5173',
-        type: 'account_onboarding',
+      await this.hostAccounts.syncAccount(acct.id);
+      return this.hostAccounts.accountStatusForUser(userId);
+    } catch (err) {
+      if (
+        err instanceof BadRequestException ||
+        err instanceof GoneException ||
+        err instanceof NotImplementedException
+      ) {
+        throw err;
+      }
+      this.mapOrRethrowStripeError(err);
+    }
+  }
+
+  private mapOrRethrowStripeError(err: unknown): never {
+    const stripeError = err as Stripe.errors.StripeError;
+    if (stripeError?.type === 'StripeInvalidRequestError' || stripeError?.rawType === 'invalid_request_error') {
+      const field = stripeParamToField(stripeError.param);
+      throw new BadRequestException({
+        field: field ?? 'form',
+        message: stripeError.message || 'Please check your payout details.',
       });
-      url = link.url;
     }
-
-    return {
-      url,
-      detailsSubmitted: acct.details_submitted === true,
-      payoutsEnabled: acct.payouts_enabled === true,
-      requiresOnboarding,
-    };
+    this.logger.error(
+      `Payout setup Stripe error: ${stripeError?.message ?? err}`,
+      stripeError?.stack,
+    );
+    throw new BadGatewayException(
+      'We could not save your payout details right now. Please try again shortly.',
+    );
   }
 
   async accountStatus(userId: string) {
-    const user = await this.users.requireById(userId);
-    if (!user.stripeConnectAccountId || !this.stripe) {
-      return {
-        onboarded: !!user.stripeConnectAccountId && !this.stripe,
-        detailsSubmitted: !!user.stripeConnectAccountId && !this.stripe,
-      };
-    }
-    const acct = await this.stripe.accounts.retrieve(user.stripeConnectAccountId);
-    return {
-      onboarded: acct.details_submitted === true,
-      detailsSubmitted: acct.details_submitted === true,
-      payoutsEnabled: acct.payouts_enabled === true,
-    };
+    return this.hostAccounts.accountStatusForUser(userId);
   }
 
   async summary(userId: string) {

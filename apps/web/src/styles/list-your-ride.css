@@ -2547,6 +2547,74 @@
   color: #e98080;
 }
 
+.finish-payout-banner {
+  width: 100%;
+  margin: 0 0 1rem;
+  padding: 0.875rem 1rem;
+  box-sizing: border-box;
+  border-radius: 0.5rem;
+  background: rgba(242, 140, 28, 0.12);
+  border: 1px solid #f28c1c;
+}
+
+.finish-payout-banner-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #222;
+}
+
+.finish-payout-banner-body {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: #444;
+  line-height: 1.4;
+}
+
+.finish-payout-banner-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.finish-payout-banner-cta {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-weight: 700;
+  color: #f28c1c;
+  text-decoration: underline;
+}
+
+.get-paid-status {
+  width: 100%;
+  margin: 0 0 1rem;
+  padding: 0.875rem 1rem;
+  box-sizing: border-box;
+  border-radius: 0.5rem;
+  background: rgba(34, 34, 34, 0.04);
+}
+
+.get-paid-status-label {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #222;
+}
+
+.get-paid-status-detail {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #555;
+  line-height: 1.4;
+}
+
+.get-paid-status-detail a {
+  color: #f28c1c;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 .get-paid-form-error {
   width: 100%;
   margin: 0 0 1rem;

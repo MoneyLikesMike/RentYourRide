@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, ScrollView } from 'react-native';
 import { COLORS } from '../constants/colors';
 import Svg, { Path } from 'react-native-svg';
+import { useGetPaidForm } from '../context/GetPaidFormContext';
 
 export default function GetPaidStep2Screen({ navigation }) {
-  const [aboutYou, setAboutYou] = useState('');
+  const { values, patch } = useGetPaidForm();
+  const aboutYou = values.businessDescription;
+  const setAboutYou = (v) => patch({ businessDescription: v });
   const [touched, setTouched] = useState(false);
 
   function isFormValid() {

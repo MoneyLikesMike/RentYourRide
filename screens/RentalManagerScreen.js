@@ -1,6 +1,7 @@
 import React from 'react';
 import { uiScale } from '../utils/uiScale';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
+import FinishPayoutSetupBanner from '../components/FinishPayoutSetupBanner';
 import { useListings } from '../context/ListingsContext';
 import { startListRideFlow } from '../utils/verificationGates';
 
@@ -72,6 +73,7 @@ export default function RentalManagerScreen({ navigation }) {
         bounces={false}
         alwaysBounceVertical={false}
       >
+        <FinishPayoutSetupBanner />
         <View style={styles.grid}>
           {ICONS.map((item) => (
             <TouchableOpacity

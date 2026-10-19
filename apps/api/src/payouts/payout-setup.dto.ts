@@ -9,9 +9,9 @@ import {
 } from 'class-validator';
 
 /**
- * Host payout details collected by our own Get Paid form (app GetPaidStep1–3).
- * Used to prefill the Stripe Connect account so Stripe's hosted onboarding only
- * has to collect what we can't (terms acceptance and any extra verification).
+ * Host payout details collected by our Get Paid form (web + app GetPaidStep1–3).
+ * Submitted to POST /v1/payouts/connect/setup for Custom Connect accounts.
+ * `businessDescription` is unused unless PAYOUT_BUSINESS_DESCRIPTION_FROM_CLIENT=1.
  */
 export class PayoutSetupDto {
   @IsString()

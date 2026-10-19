@@ -245,15 +245,21 @@ export function ListingsProvider({ children }) {
     }
   }, [isAuthenticated, isReady, authUserId]);
 
+  const [payoutStatusMeta, setPayoutStatusMeta] = useState(null);
+
   const refreshPayoutStatusFromApi = useCallback(async () => {
     if (!isAuthenticated || !isReady) return;
     try {
       const status = await payoutsAccountStatus();
-      const ready = !!(
-        status?.onboarded ||
-        status?.detailsSubmitted ||
-        status?.payoutsEnabled
-      );
+      // RYRA-485: ready only when server reports payoutsReady
+      // (payouts_enabled && transfers active).
+      const ready = !!status?.payoutsReady;
+      setPayoutStatusMeta({
+        currentlyDue: status?.currentlyDue || [],
+        pastDue: status?.pastDue || [],
+        currentDeadline: status?.currentDeadline || null,
+        status: status?.status || null,
+      });
       // Must clear local cache when Connect is removed server-side, otherwise
       // list-a-ride keeps skipping Get Paid after a reset.
       setPayoutSetupComplete(ready);
@@ -499,6 +505,8 @@ export function ListingsProvider({ children }) {
     listings,
     payoutSetupComplete,
     setPayoutSetupComplete,
+    payoutStatusMeta,
+    refreshPayoutStatusFromApi,
     canUseListingsHub,
     draft,
     editingListingId,

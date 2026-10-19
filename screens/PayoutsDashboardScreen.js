@@ -13,6 +13,7 @@ import Svg, { Rect, Polyline, Line, Path } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
+import FinishPayoutSetupBanner from '../components/FinishPayoutSetupBanner';
 import { useAuth } from '../context/AuthContext';
 import { payoutsSummary } from '../services/payoutsApi';
 
@@ -184,6 +185,10 @@ export default function PayoutsDashboardScreen({ navigation }) {
         <Text style={styles.lead}>
           Track potential and completed earnings. Switch between monthly and yearly views.
         </Text>
+
+        <FinishPayoutSetupBanner
+          pendingAmount={stripeBalance?.pendingAmount}
+        />
 
         {stripeBalance && isAuthenticated ? (
           <View style={styles.apiBanner}>
