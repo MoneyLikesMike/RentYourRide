@@ -2,13 +2,19 @@ import * as bookingsApi from '../services/bookingsApi';
 import { isRemoteBookingId } from './bookingId';
 import { isTripFullyCheckedOut } from './bookingCompletion';
 
-/** Skip API errors when the booking has already advanced to the next status. */
+/**
+ * Ignore only "already in target status" races. Surface every other transition error.
+ */
 async function swallowInvalidTransition(fn) {
   try {
     return await fn();
   } catch (e) {
     const msg = (e?.message || '').toLowerCase();
-    if (msg.includes('invalid') && (msg.includes('transition') || msg.includes('status'))) {
+    if (
+      msg.includes('already in target') ||
+      msg.includes('already completed') ||
+      (msg.includes('already') && msg.includes('status'))
+    ) {
       return null;
     }
     throw e;

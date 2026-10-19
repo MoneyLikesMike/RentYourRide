@@ -35,7 +35,9 @@ export function filterBookingsForHost(
 }
 
 export function isTripFullyCheckedOut(booking: BookingDto): boolean {
-  if (booking?.status === 'completed') return true;
+  if (booking?.status === 'completed' || booking?.status === 'no_show') {
+    return true;
+  }
   return (
     booking?.guestCheckedOutAt != null &&
     booking?.hostCheckoutTripEndedAt != null
@@ -46,7 +48,9 @@ export function hasPartyCheckedOut(
   booking: BookingDto,
   isHost: boolean,
 ): boolean {
-  if (booking?.status === 'completed') return true;
+  if (booking?.status === 'completed' || booking?.status === 'no_show') {
+    return true;
+  }
   if (isHost) return booking?.hostCheckoutTripEndedAt != null;
   return booking?.guestCheckedOutAt != null;
 }
