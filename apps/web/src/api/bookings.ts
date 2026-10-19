@@ -158,6 +158,27 @@ export async function getBooking(id: string): Promise<BookingDto> {
   });
 }
 
+export type CancelQuoteDto = {
+  bookingId: string;
+  status: string;
+  currency: string;
+  guestRefundCents: number;
+  guestRefundDollars: string;
+  hostShareCents: number;
+  rryRetainedCents: number;
+  hostCancellationFeeCents: number;
+  reason: string;
+  requiresAdmin: boolean;
+  policyPreset: string;
+};
+
+export async function getCancelQuote(id: string): Promise<CancelQuoteDto> {
+  return apiFetch<CancelQuoteDto>(
+    `v1/bookings/${encodeURIComponent(id)}/cancel-quote`,
+    { method: 'GET' },
+  );
+}
+
 export async function cancelBooking(id: string): Promise<BookingDto> {
   return apiFetch<BookingDto>(
     `v1/bookings/${encodeURIComponent(id)}/cancel`,

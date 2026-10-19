@@ -24,6 +24,7 @@ import { getHostServiceFee, getHostNetEarnings } from '../utils/hostBookingEarni
 import { listingFromBookingSnapshot } from '../utils/bookingListing';
 import { navigateToUserProfile, navigateToVehicleDetail } from '../utils/navigateRootStack';
 import { openBookingChat } from '../utils/openBookingChat';
+import * as bookingsApi from '../services/bookingsApi';
 
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
@@ -53,6 +54,8 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
   const { getBookingById, cancelGuestBooking, acceptGuestBooking, declineGuestBooking, respondExtension, pendingRequests } =
     useGuestBookings();
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelQuote, setCancelQuote] = useState(null);
+  const [cancelQuoteLoading, setCancelQuoteLoading] = useState(false);
 
   const booking = useMemo(() => (bookingId ? getBookingById(bookingId) : null), [bookingId, getBookingById]);
 
@@ -170,7 +173,29 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
     ]);
   };
 
+  const openCancelModal = async () => {
+    setCancelModalVisible(true);
+    setCancelQuote(null);
+    setCancelQuoteLoading(true);
+    try {
+      const quote = await bookingsApi.getCancelQuote(bookingId);
+      setCancelQuote(quote);
+    } catch (e) {
+      setCancelQuote({ error: e?.message || 'Could not load refund estimate' });
+    } finally {
+      setCancelQuoteLoading(false);
+    }
+  };
+
   const confirmCancelTrip = async () => {
+    if (cancelQuote?.requiresAdmin) {
+      setCancelModalVisible(false);
+      Alert.alert(
+        'Contact support',
+        'This trip has already started. Contact Rent Your Ride support to cancel.',
+      );
+      return;
+    }
     setCancelModalVisible(false);
     await cancelGuestBooking(booking.id);
     navigation.goBack();
@@ -351,7 +376,7 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
             >
               <Text style={styles.rentYourRideBtnText}>MESSAGE GUEST</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setCancelModalVisible(true)} activeOpacity={0.7}>
+            <TouchableOpacity onPress={openCancelModal} activeOpacity={0.7}>
               <Text style={styles.denyLink}>Cancel trip</Text>
             </TouchableOpacity>
           </>
@@ -384,6 +409,18 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
                 {' and penalties'}
               </Text>
 
+              {cancelQuoteLoading ? (
+                <Text style={styles.cancelModalBody}>Loading refund estimate…</Text>
+              ) : cancelQuote?.error ? (
+                <Text style={styles.cancelModalBody}>{cancelQuote.error}</Text>
+              ) : cancelQuote ? (
+                <Text style={styles.cancelModalBody}>
+                  {cancelQuote.requiresAdmin
+                    ? 'This trip has already started. Contact support to cancel.'
+                    : `Guest refund if you cancel: $${cancelQuote.guestRefundDollars || '0.00'} CAD`}
+                </Text>
+              ) : null}
+
               <View style={styles.cancelModalActions}>
                 <TouchableOpacity
                   style={styles.cancelModalBtnSecondary}
@@ -393,8 +430,16 @@ export default function HostBookingDetailsScreen({ navigation, route }) {
                   <Text style={styles.cancelModalBtnSecondaryText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.cancelModalBtnPrimary}
+                  style={[
+                    styles.cancelModalBtnPrimary,
+                    (cancelQuoteLoading || cancelQuote?.requiresAdmin || cancelQuote?.error) && {
+                      opacity: 0.5,
+                    },
+                  ]}
                   activeOpacity={0.85}
+                  disabled={
+                    cancelQuoteLoading || !!cancelQuote?.requiresAdmin || !!cancelQuote?.error
+                  }
                   onPress={confirmCancelTrip}
                 >
                   <Text style={styles.cancelModalBtnPrimaryText}>Confirm</Text>

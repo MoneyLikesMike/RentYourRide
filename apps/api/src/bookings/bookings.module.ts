@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BookingEntity } from '../entities/booking.entity';
 import { BookingExtensionEntity } from '../entities/booking-extension.entity';
@@ -13,7 +13,7 @@ import { PaymentsModule } from '../payments/payments.module';
   imports: [
     TypeOrmModule.forFeature([BookingEntity, BookingExtensionEntity, ListingEntity, UserEntity]),
     MessagingModule,
-    PaymentsModule,
+    forwardRef(() => PaymentsModule),
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

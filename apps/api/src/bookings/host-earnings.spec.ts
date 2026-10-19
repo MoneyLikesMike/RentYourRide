@@ -265,7 +265,7 @@ describe('respondExtension', () => {
         chargeIdForPaymentIntent: async () => 'ch_ext',
         refundBookingPayment: async () => {
           calls.refunds += 1;
-          return { refundId: 're_1' };
+          return { refundId: 're_1', amountCents: 100, releasedHold: false };
         },
         transferToHost: async () => {
           calls.transfers += 1;
