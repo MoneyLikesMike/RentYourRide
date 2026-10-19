@@ -15,7 +15,7 @@ import { PaymentMethodsProvider } from './context/PaymentMethodsContext';
 import { GuestBookingsProvider } from './context/GuestBookingsContext';
 import { MessagingProvider } from './context/MessagingContext';
 import CrispSession from './components/CrispSession';
-import { getStripePublishableKey, getStripeMerchantIdentifier, isApplePayConfigured } from './constants/stripe';
+import { getStripePublishableKey } from './constants/stripe';
 import {
   useFonts,
   Nunito_300Light,
@@ -72,7 +72,6 @@ function AppProviders() {
 
 function MainApp() {
   const stripeKey = getStripePublishableKey();
-  const merchantIdentifier = getStripeMerchantIdentifier();
   const tree = (
     <SafeAreaProvider>
       <DismissKeyboard>
@@ -86,12 +85,9 @@ function MainApp() {
   return (
     <AuthProvider>
       {stripeKey ? (
-        <StripeProvider
-          publishableKey={stripeKey}
-          merchantIdentifier={isApplePayConfigured() ? merchantIdentifier : undefined}
-        >
-          {tree}
-        </StripeProvider>
+        // Do not pass merchantIdentifier at boot (TF / PassKit stability).
+        // Apple Pay initialises lazily in useApplePayCheckout when Checkout mounts.
+        <StripeProvider publishableKey={stripeKey}>{tree}</StripeProvider>
       ) : (
         tree
       )}

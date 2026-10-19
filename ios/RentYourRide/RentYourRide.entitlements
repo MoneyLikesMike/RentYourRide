@@ -8,9 +8,10 @@
     </array>
     <key>aps-environment</key>
     <string>production</string>
-    <key>com.apple.developer.in-app-payments</key>
-    <array>
-      <string>merchant.com.rentyourride.ios</string>
-    </array>
+    <!--
+      Apple Pay merchant entitlement omitted by default.
+      Enable via EXPO_PUBLIC_APPLE_PAY_ENABLED=true so app.config.js / EAS
+      prebuild adds merchant.com.rentyourride.ios (Guideline 2.1 / PassKit).
+    -->
   </dict>
 </plist>

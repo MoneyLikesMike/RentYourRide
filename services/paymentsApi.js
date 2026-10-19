@@ -8,6 +8,11 @@ export async function createPaymentIntent(body) {
   return apiFetch(`/v1/payments/payment-intent`, { method: 'POST', json: body });
 }
 
+/** Apple Pay request-to-book: create manual-capture hold PI. */
+export async function createApplePayHold(body) {
+  return apiFetch(`/v1/payments/apple-pay-hold`, { method: 'POST', json: body });
+}
+
 export async function listPaymentMethods() {
   return apiFetch(`/v1/payments/methods`, { method: 'GET' });
 }

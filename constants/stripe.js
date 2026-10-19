@@ -21,19 +21,9 @@ export function isStripeConfigured() {
   return Boolean(getStripePublishableKey());
 }
 
-/** Real SetupIntent client secrets contain `_secret_`. */
+/** Real SetupIntent / PaymentIntent client secrets contain `_secret_`. */
 export function isStripeClientSecret(clientSecret) {
   return typeof clientSecret === 'string' && clientSecret.includes('_secret_');
-}
-
-/**
- * Apple Pay when Stripe publishable key + merchant ID are configured (iOS).
- * Set EXPO_PUBLIC_APPLE_PAY_ENABLED=false to disable for a build.
- */
-export function isApplePayConfigured() {
-  // Hard-off: PassKit / merchant ID at boot has contributed to TF instability.
-  // Re-enable only after Apple Pay is fully wired end-to-end.
-  return false;
 }
 
 const DEFAULT_APPLE_PAY_MERCHANT_ID = 'merchant.com.rentyourride.ios';
@@ -53,4 +43,47 @@ export function getStripeMerchantIdentifier() {
     return String(extra.stripeMerchantIdentifier).trim();
   }
   return DEFAULT_APPLE_PAY_MERCHANT_ID;
+}
+
+/**
+ * Pure flag resolver (unit-tested). Remote kill-switch: extraApplePayEnabled === false.
+ */
+export function resolveApplePayEnabled({
+  envFlag,
+  extraApplePayEnabled,
+  publishableKey,
+  merchantId,
+}) {
+  if (extraApplePayEnabled === false || extraApplePayEnabled === 'false') {
+    return false;
+  }
+  const envOn = String(envFlag || '').trim().toLowerCase() === 'true';
+  const extraOn = String(extraApplePayEnabled ?? '').trim().toLowerCase() === 'true';
+  if (!envOn && !extraOn) return false;
+  if (!String(publishableKey || '').trim()) return false;
+  if (!String(merchantId || '').trim()) return false;
+  return true;
+}
+
+/**
+ * Build-time / remote flag. Default OFF.
+ * - EXPO_PUBLIC_APPLE_PAY_ENABLED === 'true'
+ * - expo.extra.applePayEnabled !== false (remote kill-switch from app-config / RYRA-482)
+ * Requires publishable key + merchant ID.
+ * Runtime isPlatformPaySupported() still required in useApplePayCheckout.
+ */
+export function isApplePayConfigured() {
+  const extra = Constants.expoConfig?.extra || {};
+  let envFlag = '';
+  try {
+    envFlag = process.env.EXPO_PUBLIC_APPLE_PAY_ENABLED;
+  } catch (_) {
+    envFlag = '';
+  }
+  return resolveApplePayEnabled({
+    envFlag,
+    extraApplePayEnabled: extra.applePayEnabled,
+    publishableKey: getStripePublishableKey(),
+    merchantId: getStripeMerchantIdentifier(),
+  });
 }

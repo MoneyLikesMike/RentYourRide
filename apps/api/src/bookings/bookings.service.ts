@@ -399,27 +399,35 @@ export class BookingsService {
           : '';
 
       if (providedPiId) {
-        // Apple Pay / client-confirmed PI (full amount already captured).
-        stripePaymentIntentId = await this.assertSucceededPaymentIntent(
+        // Apple Pay / client PI: succeeded (instant) or requires_capture (request hold).
+        const attached = await this.assertClientBookingPaymentIntent(
           providedPiId,
           guestId,
           grandTotal,
+          { allowUncapturedHold: !instantBooking },
         );
+        stripePaymentIntentId = attached.paymentIntentId;
         await this.payments.updatePaymentIntentDescription(
           stripePaymentIntentId,
           rentalDescription,
         );
-        const pi = await this.payments.retrievePaymentIntent(stripePaymentIntentId);
-        const chargeId =
-          typeof pi.latest_charge === 'string'
-            ? pi.latest_charge
-            : pi.latest_charge?.id ?? null;
-        lifecycle = {
-          stripeChargeId: chargeId,
-          paymentCapturedAt: Date.now(),
-          paymentFunding: 'client_pi',
-          capturePaymentIntentId: stripePaymentIntentId,
-        };
+        if (attached.status === 'succeeded') {
+          lifecycle = {
+            stripeChargeId: attached.chargeId,
+            paymentCapturedAt: Date.now(),
+            paymentFunding: attached.funding,
+            capturePaymentIntentId: stripePaymentIntentId,
+            purpose: attached.purpose,
+          };
+        } else {
+          // Manual-capture Apple Pay hold — charge on host accept (no second preauth).
+          lifecycle = {
+            stripeChargeId: attached.chargeId,
+            paymentFunding: attached.funding,
+            preauthAmountCents: attached.amountCents,
+            purpose: attached.purpose || 'apple_pay_hold',
+          };
+        }
       } else if (this.payments.isConfigured()) {
         if (!paymentMethodId.startsWith('pm_')) {
           throw new BadRequestException('A valid card payment method is required');
@@ -1004,11 +1012,36 @@ export class BookingsService {
     guestId: string,
     grandTotal: number,
   ): Promise<string> {
+    const attached = await this.assertClientBookingPaymentIntent(
+      paymentIntentId,
+      guestId,
+      grandTotal,
+      { allowUncapturedHold: false },
+    );
+    return attached.paymentIntentId;
+  }
+
+  private async assertClientBookingPaymentIntent(
+    paymentIntentId: string,
+    guestId: string,
+    grandTotal: number,
+    opts: { allowUncapturedHold: boolean },
+  ): Promise<{
+    paymentIntentId: string;
+    status: string;
+    chargeId: string | null;
+    amountCents: number;
+    funding: string | null;
+    purpose: string | null;
+  }> {
     if (!this.payments.isConfigured()) {
       throw new BadRequestException('Payments not configured');
     }
     const pi = await this.payments.retrievePaymentIntent(paymentIntentId);
-    if (pi.status !== 'succeeded') {
+    const okStatuses = opts.allowUncapturedHold
+      ? ['succeeded', 'requires_capture']
+      : ['succeeded'];
+    if (!okStatuses.includes(pi.status)) {
       throw new BadRequestException('Payment not completed');
     }
     const expected = Math.round(grandTotal * 100);
@@ -1018,7 +1051,23 @@ export class BookingsService {
     if (pi.metadata?.guestId && pi.metadata.guestId !== guestId) {
       throw new BadRequestException('Invalid payment');
     }
-    return pi.id;
+    const chargeId =
+      typeof pi.latest_charge === 'string'
+        ? pi.latest_charge
+        : pi.latest_charge?.id ?? null;
+    const funding =
+      pi.metadata?.purpose === 'apple_pay_hold' ||
+      pi.metadata?.purpose === 'apple_pay_instant'
+        ? 'apple_pay'
+        : 'client_pi';
+    return {
+      paymentIntentId: pi.id,
+      status: pi.status,
+      chargeId,
+      amountCents: pi.amount,
+      funding,
+      purpose: pi.metadata?.purpose ?? null,
+    };
   }
 
   private extensionEligibleStatuses: BookingStatus[] = [

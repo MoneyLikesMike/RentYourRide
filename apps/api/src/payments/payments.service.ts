@@ -4,6 +4,8 @@ import Stripe from 'stripe';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
+  bookingApplePayHoldIdempotencyKey,
+  bookingApplePayInstantIdempotencyKey,
   bookingCaptureIdempotencyKey,
   bookingChargeIdempotencyKey,
   bookingHoldCancelIdempotencyKey,
@@ -94,7 +96,8 @@ export class PaymentsService {
     const { customerId } = await this.ensureStripeCustomer(userId);
     const si = await this.stripe.setupIntents.create({
       customer: customerId,
-      payment_method_types: ['card'],
+      usage: 'off_session',
+      automatic_payment_methods: { enabled: true },
     });
     return { clientSecret: si.client_secret, customerId };
   }
@@ -105,6 +108,9 @@ export class PaymentsService {
       amountCents: number;
       currency?: string;
       metadata?: Record<string, string>;
+      /** Instant Apple Pay: automatic capture + idempotency. */
+      applePayInstant?: boolean;
+      idempotencyKey?: string;
     },
   ) {
     if (!this.stripe) {
@@ -118,16 +124,86 @@ export class PaymentsService {
       throw new BadRequestException('amountCents must be at least 50');
     }
     const { customerId } = await this.ensureStripeCustomer(userId);
-    const pi = await this.stripe.paymentIntents.create({
-      amount: amountCents,
-      currency: (body.currency || 'cad').toLowerCase(),
-      customer: customerId,
-      automatic_payment_methods: { enabled: true },
-      metadata: {
-        guestId: userId,
-        ...(body.metadata || {}),
+    const listingId = body.metadata?.listingId || 'listing';
+    const attempt = body.idempotencyKey || body.metadata?.attempt || '1';
+    const idem =
+      body.idempotencyKey?.trim() ||
+      (body.applePayInstant
+        ? bookingApplePayInstantIdempotencyKey(listingId, attempt)
+        : undefined);
+    const pi = await this.stripe.paymentIntents.create(
+      {
+        amount: amountCents,
+        currency: (body.currency || 'cad').toLowerCase(),
+        customer: customerId,
+        capture_method: 'automatic',
+        setup_future_usage: 'off_session',
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          guestId: userId,
+          purpose: body.applePayInstant ? 'apple_pay_instant' : 'payment',
+          ...(body.metadata || {}),
+        },
       },
-    });
+      idem ? { idempotencyKey: idem } : undefined,
+    );
+    return {
+      clientSecret: pi.client_secret,
+      paymentIntentId: pi.id,
+    };
+  }
+
+  /**
+   * Apple Pay request-to-book hold: full-amount manual-capture PI, confirmed
+   * on-session via Platform Pay. Saved PM for off-session fallback on accept.
+   */
+  async createApplePayBookingHold(
+    userId: string,
+    body: {
+      amountCents: number;
+      currency?: string;
+      metadata?: Record<string, string>;
+      /** Stable key part (listing+dates or booking id) for Stripe Idempotency-Key. */
+      attemptKey?: string;
+      attempt?: string;
+    },
+  ) {
+    if (!this.stripe) {
+      return {
+        clientSecret: 'mock_pi_apple_' + userId.slice(0, 8),
+        paymentIntentId: 'mock_pi_apple_' + userId.slice(0, 8),
+      };
+    }
+    const amountCents = Math.round(Number(body.amountCents));
+    if (!Number.isFinite(amountCents) || amountCents < 50) {
+      throw new BadRequestException('amountCents must be at least 50');
+    }
+    const { customerId } = await this.ensureStripeCustomer(userId);
+    const attemptKey =
+      body.attemptKey?.trim() ||
+      body.metadata?.bookingId?.trim() ||
+      body.metadata?.listingId?.trim() ||
+      userId;
+    const attempt = body.attempt?.trim() || body.metadata?.attempt || '1';
+    const pi = await this.stripe.paymentIntents.create(
+      {
+        amount: amountCents,
+        currency: (body.currency || 'cad').toLowerCase(),
+        customer: customerId,
+        capture_method: 'manual',
+        setup_future_usage: 'off_session',
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          guestId: userId,
+          purpose: 'apple_pay_hold',
+          fullAmountCents: String(amountCents),
+          ...(body.metadata || {}),
+        },
+      },
+      {
+        idempotencyKey: bookingApplePayHoldIdempotencyKey(attemptKey, attempt),
+      },
+    );
     return {
       clientSecret: pi.client_secret,
       paymentIntentId: pi.id,
@@ -411,6 +487,20 @@ export class PaymentsService {
       pi.metadata?.funding ||
       null;
 
+    const isApplePayHold = pi.metadata?.purpose === 'apple_pay_hold';
+
+    // Apple Pay: capture the on-session full-amount hold (or off-session fallback).
+    if (isApplePayHold) {
+      return this.captureApplePayHold({
+        pi,
+        fullAmountCents,
+        description: opts.description,
+        paymentMethodId: opts.paymentMethodId,
+        bookingId,
+        onCapturePaymentIntentId: opts.onCapturePaymentIntentId,
+      });
+    }
+
     if (funding === 'credit') {
       if (pi.status === 'requires_capture') {
         await this.stripe.paymentIntents.cancel(
@@ -501,6 +591,161 @@ export class PaymentsService {
       };
     }
     throw new BadRequestException(`Cannot capture payment in status ${pi.status}`);
+  }
+
+  /**
+   * Capture an Apple Pay manual-capture hold. If the auth expired or the amount
+   * increased, charge off-session with the saved payment method.
+   */
+  private async captureApplePayHold(opts: {
+    pi: Stripe.PaymentIntent;
+    fullAmountCents: number;
+    description: string;
+    paymentMethodId?: string | null;
+    bookingId: string;
+    onCapturePaymentIntentId?: (paymentIntentId: string) => Promise<void>;
+  }): Promise<BookingPaymentResult> {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+    const { pi, fullAmountCents, bookingId } = opts;
+    const funding =
+      (typeof pi.payment_method === 'object' && pi.payment_method && 'card' in pi.payment_method
+        ? pi.payment_method.card?.funding
+        : null) ||
+      'apple_pay';
+
+    if (pi.status === 'succeeded') {
+      return {
+        paymentIntentId: pi.id,
+        chargeId: this.chargeIdFromPi(pi),
+        amountCents: pi.amount_received || pi.amount,
+        funding: funding || 'apple_pay',
+      };
+    }
+
+    const amountOk = pi.amount >= fullAmountCents;
+    if (pi.status === 'requires_capture' && amountOk) {
+      if (opts.description?.trim()) {
+        await this.stripe.paymentIntents.update(pi.id, {
+          description: opts.description.trim(),
+        });
+      }
+      const captureParams =
+        pi.amount > fullAmountCents
+          ? { amount_to_capture: fullAmountCents }
+          : {};
+      try {
+        const captured = await this.stripe.paymentIntents.capture(
+          pi.id,
+          captureParams,
+          { idempotencyKey: bookingCaptureIdempotencyKey(bookingId) },
+        );
+        if (opts.onCapturePaymentIntentId) {
+          await opts.onCapturePaymentIntentId(captured.id);
+        }
+        return {
+          paymentIntentId: captured.id,
+          chargeId: this.chargeIdFromPi(captured),
+          amountCents: captured.amount_received || fullAmountCents,
+          funding: funding || 'apple_pay',
+        };
+      } catch (err) {
+        this.log.warn(
+          `Apple Pay capture failed booking=${bookingId}: ${
+            err instanceof Error ? err.message : err
+          }`,
+        );
+        // Fall through to off-session charge.
+      }
+    }
+
+    // Expired auth, amount increase, or capture failure → off-session charge.
+    const customerId =
+      typeof pi.customer === 'string' ? pi.customer : pi.customer?.id || undefined;
+    const paymentMethodId =
+      opts.paymentMethodId ||
+      (typeof pi.payment_method === 'string'
+        ? pi.payment_method
+        : pi.payment_method?.id) ||
+      undefined;
+    if (!customerId || !paymentMethodId) {
+      throw new BadRequestException(
+        'Apple Pay authorization expired. Ask the guest to update their payment method.',
+      );
+    }
+
+    try {
+      const charged = await this.stripe.paymentIntents.create(
+        {
+          amount: fullAmountCents,
+          currency: 'cad',
+          customer: customerId,
+          payment_method: paymentMethodId,
+          confirm: true,
+          off_session: true,
+          capture_method: 'automatic',
+          description: opts.description,
+          metadata: {
+            ...(pi.metadata || {}),
+            bookingId,
+            purpose: 'apple_pay_off_session_fallback',
+            replacedHold: pi.id,
+            funding: funding || 'apple_pay',
+          },
+        },
+        { idempotencyKey: bookingChargeIdempotencyKey(bookingId) },
+      );
+      if (opts.onCapturePaymentIntentId) {
+        await opts.onCapturePaymentIntentId(charged.id);
+      }
+      if (charged.status !== 'succeeded') {
+        throw this.mapStripePaymentError(charged.last_payment_error);
+      }
+      return {
+        paymentIntentId: charged.id,
+        chargeId: this.chargeIdFromPi(charged),
+        amountCents: fullAmountCents,
+        funding: funding || 'apple_pay',
+      };
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw this.mapStripePaymentError(err);
+    }
+  }
+
+  /** Map Stripe decline / auth errors (RYRA-480-compatible messaging). */
+  private mapStripePaymentError(err: unknown): BadRequestException {
+    const stripeErr = err as {
+      code?: string;
+      decline_code?: string;
+      message?: string;
+      type?: string;
+      payment_intent?: { last_payment_error?: { code?: string; decline_code?: string; message?: string } };
+    };
+    const code =
+      stripeErr?.code ||
+      stripeErr?.payment_intent?.last_payment_error?.code ||
+      '';
+    const decline =
+      stripeErr?.decline_code ||
+      stripeErr?.payment_intent?.last_payment_error?.decline_code ||
+      '';
+    if (code === 'authentication_required') {
+      return new BadRequestException(
+        'Card authentication required. Ask the guest to complete payment again.',
+      );
+    }
+    if (code === 'card_declined' || decline) {
+      return new BadRequestException(
+        'Card was declined. Ask the guest to try another payment method.',
+      );
+    }
+    const msg =
+      stripeErr?.message ||
+      stripeErr?.payment_intent?.last_payment_error?.message ||
+      'Could not charge payment method';
+    return new BadRequestException(msg);
   }
 
   async updatePaymentIntentDescription(
