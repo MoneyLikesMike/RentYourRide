@@ -291,6 +291,11 @@ export class PaymentsService {
   /**
    * Legacy parity: uncaptured hold on booking create.
    * Credit cards authorize $1; debit/prepaid authorize the full trip amount.
+   *
+   * Any future early card check that is NOT a booking must use a SetupIntent
+   * (or a PI with metadata.purpose='card_check' and description
+   * 'Card verification (not a booking)') and cancel it immediately — never
+   * reuse this booking_preauth path for verification-only charges.
    */
   async createBookingPreauth(opts: {
     guestUserId: string;
@@ -298,6 +303,8 @@ export class PaymentsService {
     fullAmountCents: number;
     description: string;
     metadata?: Record<string, string>;
+    /** Passed to Stripe as booking_preauth:${key} so retries don't double-hold. */
+    idempotencyKey?: string;
   }): Promise<BookingPaymentResult> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured');
@@ -310,23 +317,31 @@ export class PaymentsService {
     const holdCents = funding === 'credit' ? 100 : fullAmountCents;
     const { customerId } = await this.ensureStripeCustomer(opts.guestUserId);
 
-    const pi = await this.stripe.paymentIntents.create({
-      amount: holdCents,
-      currency: 'cad',
-      customer: customerId,
-      payment_method: opts.paymentMethodId,
-      capture_method: 'manual',
-      confirm: true,
-      off_session: true,
-      description: opts.description,
-      metadata: {
-        guestId: opts.guestUserId,
-        purpose: 'booking_preauth',
-        fullAmountCents: String(fullAmountCents),
-        funding: funding ?? '',
-        ...(opts.metadata || {}),
+    const requestOpts =
+      opts.idempotencyKey?.trim()
+        ? { idempotencyKey: `booking_preauth:${opts.idempotencyKey.trim()}` }
+        : undefined;
+
+    const pi = await this.stripe.paymentIntents.create(
+      {
+        amount: holdCents,
+        currency: 'cad',
+        customer: customerId,
+        payment_method: opts.paymentMethodId,
+        capture_method: 'manual',
+        confirm: true,
+        off_session: true,
+        description: opts.description,
+        metadata: {
+          guestId: opts.guestUserId,
+          purpose: 'booking_preauth',
+          fullAmountCents: String(fullAmountCents),
+          funding: funding ?? '',
+          ...(opts.metadata || {}),
+        },
       },
-    });
+      requestOpts,
+    );
 
     if (pi.status !== 'requires_capture' && pi.status !== 'succeeded') {
       this.log.error(`Preauth unexpected status=${pi.status} pi=${pi.id}`);
@@ -339,6 +354,30 @@ export class PaymentsService {
       amountCents: holdCents,
       funding,
     };
+  }
+
+  /**
+   * Best-effort release of a booking hold / capture after a failed create.
+   * Cancels requires_capture; refunds succeeded. Logs and swallows Stripe errors.
+   */
+  async cancelPaymentIntentSafe(paymentIntentId: string | null | undefined): Promise<void> {
+    if (!this.stripe || !paymentIntentId?.trim()) return;
+    const id = paymentIntentId.trim();
+    try {
+      const pi = await this.stripe.paymentIntents.retrieve(id);
+      if (pi.status === 'requires_capture') {
+        await this.stripe.paymentIntents.cancel(id);
+        return;
+      }
+      if (pi.status === 'succeeded') {
+        await this.stripe.refunds.create({ payment_intent: id });
+      }
+    } catch (err) {
+      this.log.error(
+        `cancelPaymentIntentSafe failed for ${id}`,
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   /**

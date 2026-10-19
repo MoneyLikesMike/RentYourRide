@@ -38,6 +38,16 @@ export const SmsCopy = {
   bookingDeniedHost: (guestFirstName: string) =>
     withPrefix(`You Denied ${guestFirstName}'s Booking Request.`),
 
+  bookingExpiredGuest: () =>
+    withPrefix(
+      'Your booking request expired after 24 hours with no host response. The hold on your card was released.',
+    ),
+
+  bookingExpiredHost: (guestFirstName: string) =>
+    withPrefix(
+      `${guestFirstName}'s booking request expired because it wasn't answered in time.`,
+    ),
+
   bookingCheckedInGuest: (hostFirstName: string) =>
     withPrefix(
       `You have successfully checked in for your trip with ${hostFirstName}'s ride.`,

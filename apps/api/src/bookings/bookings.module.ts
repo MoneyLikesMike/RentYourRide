@@ -6,6 +6,7 @@ import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
 import { BookingsService } from './bookings.service';
 import { BookingsController } from './bookings.controller';
+import { BookingHoldCleanupScheduler } from './booking-hold-cleanup.scheduler';
 import { MessagingModule } from '../messaging/messaging.module';
 import { PaymentsModule } from '../payments/payments.module';
 
@@ -16,7 +17,7 @@ import { PaymentsModule } from '../payments/payments.module';
     PaymentsModule,
   ],
   controllers: [BookingsController],
-  providers: [BookingsService],
+  providers: [BookingsService, BookingHoldCleanupScheduler],
   exports: [BookingsService],
 })
 export class BookingsModule {}
