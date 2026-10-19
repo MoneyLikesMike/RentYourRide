@@ -6,7 +6,7 @@ import { COLORS } from '../constants/colors';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../services/authApi';
 import { isAppleSignInAvailable, isSocialAuthCancellation } from '../services/socialAuthNative';
-import { resetToMainTabs } from '../navigation/navigationRef';
+import { navigateAfterSuccessfulSignIn } from '../navigation/navigationRef';
 
 const BASE_WIDTH = 375;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -27,7 +27,7 @@ export default function SocialAuthButtons({ isSignUp = false, style }) {
         navigation.navigate('TermsAndConditionsScreen');
         return;
       }
-      resetToMainTabs();
+      navigateAfterSuccessfulSignIn();
     },
     [navigation],
   );

@@ -104,9 +104,7 @@ export class BookingsController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   async tripStart(@ReqUser() user: UserEntity, @Param('id') id: string) {
-    return this.bookings.transitionStatus(user.id, id, 'active', [
-      'checkin_pending',
-    ]);
+    return this.bookings.startTrip(user.id, id);
   }
 
   @Post(':id/checkout/start')

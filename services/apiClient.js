@@ -1,16 +1,58 @@
-import { getApiBaseUrl } from '../constants/api';
-import * as tokens from './authTokens';
-import { ApiError, parseErrorMessage } from './authApi';
+import { ApiError, parseErrorMessage } from './apiError';
 
+/**
+ * Overridable for unit tests. Token + base URL loaders are lazy so node:test
+ * can inject stubs without importing Expo modules.
+ */
+export const deps = {
+  fetch: (...args) => globalThis.fetch(...args),
+  tokens: null,
+  getApiBaseUrl: null,
+};
+
+function tokensApi() {
+  if (deps.tokens) return deps.tokens;
+  // eslint-disable-next-line global-require
+  deps.tokens = require('./authTokens');
+  return deps.tokens;
+}
+
+function apiBaseUrl() {
+  if (deps.getApiBaseUrl) return deps.getApiBaseUrl();
+  // eslint-disable-next-line global-require
+  const { getApiBaseUrl } = require('../constants/api');
+  return getApiBaseUrl();
+}
+
+/** Shared in-flight refresh so concurrent 401s / getValidAccessToken share one POST. */
 let refreshInFlight = null;
 
+/** 'network' | 'rejected' | null — last ensureRefresh failure reason. */
+let lastRefreshFailure = null;
+
+let onSessionExpired = null;
+let sessionExpiredNotified = false;
+
+/**
+ * Register a handler invoked once when the server rejects the refresh token after a 401.
+ * @param {null | (() => void | Promise<void>)} handler
+ */
+export function setOnSessionExpired(handler) {
+  onSessionExpired = handler;
+  sessionExpiredNotified = false;
+}
+
+/** @returns {Promise<string|null>} */
 async function postRefresh() {
-  const rt = await tokens.getRefreshToken();
-  if (!rt) return null;
-  const base = getApiBaseUrl();
+  const rt = await tokensApi().getRefreshToken();
+  if (!rt) {
+    lastRefreshFailure = 'rejected';
+    return null;
+  }
+  const base = apiBaseUrl();
   let res;
   try {
-    res = await fetch(`${base}/v1/auth/refresh`, {
+    res = await deps.fetch(`${base}/v1/auth/refresh`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -19,6 +61,7 @@ async function postRefresh() {
       body: JSON.stringify({ refreshToken: rt }),
     });
   } catch {
+    lastRefreshFailure = 'network';
     return null;
   }
   const text = await res.text();
@@ -29,16 +72,38 @@ async function postRefresh() {
     parsed = null;
   }
   if (!res.ok || !parsed?.accessToken || !parsed?.refreshToken) {
+    lastRefreshFailure = 'rejected';
     return null;
   }
-  await tokens.setTokenPair(parsed.accessToken, parsed.refreshToken);
+  lastRefreshFailure = null;
+  await tokensApi().setTokenPair(parsed.accessToken, parsed.refreshToken);
   return parsed.accessToken;
 }
 
+function ensureRefresh() {
+  if (!refreshInFlight) {
+    lastRefreshFailure = null;
+    refreshInFlight = postRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 async function getValidAccessToken() {
-  const existing = await tokens.getAccessToken();
+  const existing = await tokensApi().getAccessToken();
   if (existing) return existing;
-  return postRefresh();
+  return ensureRefresh();
+}
+
+async function notifySessionExpired() {
+  if (sessionExpiredNotified) return;
+  sessionExpiredNotified = true;
+  try {
+    await onSessionExpired?.();
+  } catch {
+    // Handler errors must not mask the ApiError we throw next.
+  }
 }
 
 /**
@@ -55,7 +120,7 @@ export async function apiFetch(path, opts = {}) {
     ...rest
   } = opts;
 
-  const base = getApiBaseUrl();
+  const base = apiBaseUrl();
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
 
   const headers = { ...hdrs };
@@ -72,7 +137,7 @@ export async function apiFetch(path, opts = {}) {
     else if (json !== undefined) body = JSON.stringify(json);
     let res;
     try {
-      res = await fetch(url, { ...rest, method, headers: h, body });
+      res = await deps.fetch(url, { ...rest, method, headers: h, body });
     } catch (e) {
       const reason = e && typeof e.message === 'string' ? e.message : 'Network error';
       throw new Error(
@@ -86,13 +151,15 @@ export async function apiFetch(path, opts = {}) {
   let res = await doRequest(token);
 
   if (res.status === 401 && auth) {
-    if (!refreshInFlight) {
-      refreshInFlight = postRefresh().finally(() => {
-        refreshInFlight = null;
+    const newAccess = await ensureRefresh();
+    if (newAccess) {
+      res = await doRequest(newAccess);
+    } else if (lastRefreshFailure === 'rejected') {
+      await notifySessionExpired();
+      throw new ApiError('Your session has expired. Please sign in again.', 401, {
+        code: 'SESSION_EXPIRED',
       });
     }
-    const newAccess = await refreshInFlight;
-    if (newAccess) res = await doRequest(newAccess);
   }
 
   const text = await res.text();
@@ -109,3 +176,19 @@ export async function apiFetch(path, opts = {}) {
 
   return parsed;
 }
+
+/** Test-only helpers. */
+export const __test = {
+  ensureRefresh,
+  getValidAccessToken,
+  reset() {
+    refreshInFlight = null;
+    lastRefreshFailure = null;
+    sessionExpiredNotified = false;
+    onSessionExpired = null;
+    deps.fetch = (...args) => globalThis.fetch(...args);
+    deps.tokens = null;
+    deps.getApiBaseUrl = null;
+  },
+  getLastRefreshFailure: () => lastRefreshFailure,
+};

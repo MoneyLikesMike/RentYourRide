@@ -39,6 +39,8 @@ import { MailerliteService } from '../mailerlite/mailerlite.service';
 import { UsersService } from '../users/users.service';
 
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** Concurrent refresh reuse window after rotation (mobile double-tap / parallel 401s). */
+export const REFRESH_GRACE_MS = 60 * 1000;
 const ACCESS_TTL = '15m';
 const RESET_TTL_MS = 60 * 60 * 1000;
 const PHONE_OTP_TTL_MS = 10 * 60 * 1000;
@@ -324,23 +326,46 @@ export class AuthService {
     if (!row || row.expiresAt < new Date()) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+    if (row.rotatedAt) {
+      const graceEnds = row.rotatedAt.getTime() + REFRESH_GRACE_MS;
+      if (Date.now() > graceEnds) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+    }
     const user = row.user;
     if (!user || user.isActive === false || user.deletedAt) {
       throw new UnauthorizedException('This account has been deleted');
     }
-    await this.refreshRepo.delete(row.id);
+    if (!row.rotatedAt) {
+      row.rotatedAt = new Date();
+      await this.refreshRepo.save(row);
+    }
     const accessToken = await this.signAccess(user);
     const refreshPlain = randomRefreshToken();
     const next = this.refreshRepo.create({
       userId: user.id,
       tokenHash: hashOpaque(refreshPlain),
       expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
+      rotatedAt: null,
     });
     await this.refreshRepo.save(next);
+    await this.cleanupStaleRefreshTokens();
     return {
       accessToken,
       refreshToken: refreshPlain,
     };
+  }
+
+  /** Drop expired tokens and rows whose rotation grace window has ended. */
+  private async cleanupStaleRefreshTokens() {
+    const graceCutoff = new Date(Date.now() - REFRESH_GRACE_MS);
+    await this.refreshRepo
+      .createQueryBuilder()
+      .delete()
+      .from(RefreshTokenEntity)
+      .where('expires_at < NOW()')
+      .orWhere('rotated_at IS NOT NULL AND rotated_at < :graceCutoff', { graceCutoff })
+      .execute();
   }
 
   async forgotPassword(email: string) {

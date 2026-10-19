@@ -68,6 +68,7 @@ function statusLabel(status: BookingStatus): string | null {
 /** Present a booking to an API viewer with listingSnapshot redacted as needed. */
 function presentBooking(booking: BookingEntity, viewerUserId: string) {
   const base = booking.toMobileDto();
+  const lifecycle = (booking.lifecycle ?? {}) as Record<string, unknown>;
   const viewerIsHost = booking.hostUserId === viewerUserId;
   const startMs = Number(
     (booking.bookingDates as { start?: number } | null)?.start,
@@ -79,6 +80,10 @@ function presentBooking(booking: BookingEntity, viewerUserId: string) {
   });
   return {
     ...base,
+    guestAgreementSignedAt: lifecycle.guestAgreementSignedAt ?? null,
+    guestAgreementSignature: lifecycle.guestAgreementSignature ?? null,
+    hostAgreementSignedAt: lifecycle.hostAgreementSignedAt ?? null,
+    hostAgreementSignature: lifecycle.hostAgreementSignature ?? null,
     listingSnapshot: redactListingSnapshotForViewer(
       base.listingSnapshot as Record<string, unknown>,
       access,
@@ -760,11 +765,56 @@ export class BookingsService {
   }
 
   async signAgreement(userId: string, id: string, payload: { role: string; signature?: string }) {
+    const role = payload?.role;
+    if (role !== 'guest' && role !== 'host') {
+      throw new ForbiddenException();
+    }
+    const b = await this.bookingsRepo.findOne({ where: { id } });
+    if (!b) throw new NotFoundException('Booking not found');
+    if (role === 'guest' && b.guestUserId !== userId) {
+      throw new ForbiddenException();
+    }
+    if (role === 'host' && b.hostUserId !== userId) {
+      throw new ForbiddenException();
+    }
+    const now = Date.now();
+    const signature = payload.signature ?? '';
+    const rolePatch =
+      role === 'guest'
+        ? {
+            guestAgreementSignedAt: now,
+            guestAgreementSignature: signature,
+          }
+        : {
+            hostAgreementSignedAt: now,
+            hostAgreementSignature: signature,
+          };
     return this.patchLifecycle(userId, id, {
-      agreementSignedAt: Date.now(),
-      agreementSignerRole: payload.role,
-      agreementSignature: payload.signature ?? '',
+      ...rolePatch,
+      // Legacy keys kept for older clients / admin.
+      agreementSignedAt: now,
+      agreementSignerRole: role,
+      agreementSignature: signature,
     });
+  }
+
+  /**
+   * Guest must have signed the rental agreement before the trip becomes active.
+   * Photos and host signature are intentionally not required here.
+   */
+  async startTrip(userId: string, id: string) {
+    const b = await this.bookingsRepo.findOne({ where: { id } });
+    if (!b) throw new NotFoundException('Booking not found');
+    if (b.guestUserId !== userId && b.hostUserId !== userId) {
+      throw new ForbiddenException();
+    }
+    const life = (b.lifecycle ?? {}) as Record<string, unknown>;
+    if (!life.guestAgreementSignedAt && !life.rentalAgreementSignedAt) {
+      throw new BadRequestException(
+        'The guest must sign the rental agreement before the trip can start.',
+      );
+    }
+    return this.transitionStatus(userId, id, 'active', ['checkin_pending']);
   }
 
   async addConditionPhotos(userId: string, id: string, phase: string, uris: string[]) {
