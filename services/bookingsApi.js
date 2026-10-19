@@ -35,6 +35,7 @@ export async function acceptBooking(id) {
   return apiFetch(`/v1/bookings/${encodeURIComponent(id)}/accept`, {
     method: 'POST',
     json: {},
+    headers: { 'Idempotency-Key': `accept:${id}` },
   });
 }
 

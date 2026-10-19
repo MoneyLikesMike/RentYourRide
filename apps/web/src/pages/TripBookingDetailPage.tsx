@@ -304,7 +304,7 @@ function DetailBody() {
               disabled={busy}
               onClick={onAccept}
             >
-              Rent your ride
+              {busy ? 'Accepting…' : 'Rent your ride'}
             </button>
             <button
               type="button"
