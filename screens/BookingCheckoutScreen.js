@@ -39,6 +39,7 @@ import GooglePlacesAutocompleteField from '../components/GooglePlacesAutocomplet
 import { getCurrentCoordinates } from '../utils/currentLocation';
 import { reverseGeocode } from '../services/geocodeApi';
 import { MAP_PROVIDER } from '../utils/mapProvider';
+import { PlatformPayButton, PlatformPay } from '@stripe/stripe-react-native';
 import { isApplePayConfigured } from '../constants/stripe';
 import { useApplePayCheckout } from '../hooks/useApplePayCheckout';
 import { ensureIdentityVerified } from '../utils/verificationGates';
@@ -120,15 +121,20 @@ function normalizeCheckoutPaymentMethod(method) {
   return { ...method, id };
 }
 
-function PaymentMethodIcons() {
+function PaymentMethodIcons({ showApplePay }) {
   const iconBox = 22 * scale;
   return (
     <View style={styles.paymentHeaderIcons}>
-      <View style={[styles.paymentHeaderIconBox, { width: iconBox, height: iconBox }]}>
-        <View style={styles.paymentHeaderIconAppleInner}>
-          <Text style={styles.paymentHeaderIconAppleText}>Pay</Text>
+      {showApplePay ? (
+        <View
+          style={[styles.paymentHeaderIconBox, { width: iconBox, height: iconBox }]}
+          accessibilityLabel="Apple Pay"
+        >
+          <View style={styles.paymentHeaderIconAppleInner}>
+            <Text style={styles.paymentHeaderIconAppleText}>Pay</Text>
+          </View>
         </View>
-      </View>
+      ) : null}
       <View
         style={[styles.paymentHeaderIconBox, { width: iconBox, height: iconBox }]}
         accessibilityLabel="Card"
@@ -183,7 +189,11 @@ export default function BookingCheckoutScreen({ navigation, route }) {
   const { addGuestBooking } = useGuestBookings();
   const { firstName, lastName, photoUri: profilePhotoUri } = useUserProfile();
   const { isAuthenticated, isReady } = useAuth();
-  const { supported: applePaySupported, payForBooking, savePaymentMethod } = useApplePayCheckout();
+  const {
+    supported: applePaySupported,
+    payForBooking,
+    authorizeBookingHold,
+  } = useApplePayCheckout();
   const [quotePricing, setQuotePricing] = useState(null);
   const [selectedMethodId, setSelectedMethodId] = useState(null);
   const [paymentPickerVisible, setPaymentPickerVisible] = useState(false);
@@ -626,6 +636,9 @@ export default function BookingCheckoutScreen({ navigation, route }) {
     }
     const isInstant = listing.instantBooking === true;
     const rentalLabel = listing.title || 'Vehicle rental';
+    const attemptKey =
+      idempotencyKeyRef.current ||
+      `ap_${checkoutSessionKey}_${Date.now()}`;
     setApplePayLoading(true);
     try {
       if (isInstant && effectiveGrandTotal > 0) {
@@ -634,8 +647,10 @@ export default function BookingCheckoutScreen({ navigation, route }) {
           description: rentalLabel,
           metadata: {
             listingId: listing?.id != null ? String(listing.id) : '',
-            purpose: 'booking',
+            purpose: 'apple_pay_instant',
+            attempt: attemptKey,
           },
+          idempotencyKey: attemptKey,
         });
         setConfirmedPaymentIntentId(result.paymentIntentId);
         setApplePayMethod(result.paymentMethod);
@@ -645,16 +660,24 @@ export default function BookingCheckoutScreen({ navigation, route }) {
         });
         return;
       }
-      const method = await savePaymentMethod({
+      // Request-to-book: on-session hold (manual capture), not SetupIntent + off-session preauth.
+      const result = await authorizeBookingHold({
         amountDollars: effectiveGrandTotal,
         description: rentalLabel,
+        metadata: {
+          listingId: listing?.id != null ? String(listing.id) : '',
+          purpose: 'apple_pay_hold',
+          attempt: attemptKey,
+        },
+        attemptKey,
+        attempt: '1',
       });
-      setApplePayMethod(method);
-      setConfirmedPaymentIntentId(null);
-      await refreshFromApi();
-      if (method.id) setSelectedMethodId(method.id);
-      await submitBooking({ paymentMethod: method });
-      return;
+      setConfirmedPaymentIntentId(result.paymentIntentId);
+      setApplePayMethod(result.paymentMethod);
+      await submitBooking({
+        paymentIntentId: result.paymentIntentId,
+        paymentMethod: result.paymentMethod,
+      });
     } catch (err) {
       Alert.alert('Apple Pay', err?.message || 'Could not complete Apple Pay.');
     } finally {
@@ -663,13 +686,13 @@ export default function BookingCheckoutScreen({ navigation, route }) {
   }, [
     agreedToTerms,
     applePayLoading,
+    authorizeBookingHold,
+    checkoutSessionKey,
     effectiveGrandTotal,
     isAuthenticated,
     isReady,
     listing,
     payForBooking,
-    refreshFromApi,
-    savePaymentMethod,
     submitBooking,
   ]);
 
@@ -969,7 +992,7 @@ export default function BookingCheckoutScreen({ navigation, route }) {
         <View style={styles.sectionBlock}>
           <View style={styles.paymentHeaderRow}>
             <Text style={[styles.sectionTitleQuiet, styles.paymentHeaderTitle]}>Payment</Text>
-            <PaymentMethodIcons />
+            <PaymentMethodIcons showApplePay={showApplePayButton} />
           </View>
 
           <TouchableOpacity
@@ -998,6 +1021,23 @@ export default function BookingCheckoutScreen({ navigation, route }) {
             )}
             <Text style={styles.paymentSelectChevron}>›</Text>
           </TouchableOpacity>
+
+          {paymentMode === 'apple_pay' && showApplePayButton ? (
+            <View style={{ marginTop: 12 * scale }}>
+              <PlatformPayButton
+                type={
+                  isInstantBooking
+                    ? PlatformPay.ButtonType.Book
+                    : PlatformPay.ButtonType.Continue
+                }
+                appearance={PlatformPay.ButtonStyle.Black}
+                borderRadius={8}
+                onPress={onStickyCtaPress}
+                disabled={!agreedToTerms || submitting || applePayLoading}
+                style={{ width: '100%', height: 48 * scale }}
+              />
+            </View>
+          ) : null}
 
           <TouchableOpacity
             activeOpacity={0.85}

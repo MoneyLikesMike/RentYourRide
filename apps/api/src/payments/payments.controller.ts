@@ -34,9 +34,27 @@ export class PaymentsController {
       amountCents: number;
       currency?: string;
       metadata?: Record<string, string>;
+      applePayInstant?: boolean;
+      idempotencyKey?: string;
     },
   ) {
     return this.payments.createPaymentIntent(user.id, body);
+  }
+
+  /** Apple Pay request-to-book: manual-capture hold (confirm on-session on device). */
+  @Post('apple-pay-hold')
+  async applePayHold(
+    @ReqUser() user: UserEntity,
+    @Body()
+    body: {
+      amountCents: number;
+      currency?: string;
+      metadata?: Record<string, string>;
+      attemptKey?: string;
+      attempt?: string;
+    },
+  ) {
+    return this.payments.createApplePayBookingHold(user.id, body);
   }
 
   @Get('methods')

@@ -3,6 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  bookingApplePayHoldIdempotencyKey,
+  bookingApplePayInstantIdempotencyKey,
+  bookingCaptureIdempotencyKey,
+  bookingChargeIdempotencyKey,
+  bookingHoldCancelIdempotencyKey,
+  bookingPreauthIdempotencyKey,
+  bookingRefundIdempotencyKey,
+} from './booking-payment-keys';
 
 /** How long after Stripe creates a card we still treat it as newly added. */
 const NEW_CARD_WINDOW_MS = 30 * 60 * 1000;
@@ -31,6 +40,11 @@ export class PaymentsService {
 
   isConfigured(): boolean {
     return !!this.stripe;
+  }
+
+  /** Unit-test seam — never call from production code. */
+  _setStripeForTests(stripe: Stripe | null) {
+    this.stripe = stripe;
   }
 
   private async assertPaymentMethodOwnedByUser(
@@ -82,7 +96,8 @@ export class PaymentsService {
     const { customerId } = await this.ensureStripeCustomer(userId);
     const si = await this.stripe.setupIntents.create({
       customer: customerId,
-      payment_method_types: ['card'],
+      usage: 'off_session',
+      automatic_payment_methods: { enabled: true },
     });
     return { clientSecret: si.client_secret, customerId };
   }
@@ -93,6 +108,9 @@ export class PaymentsService {
       amountCents: number;
       currency?: string;
       metadata?: Record<string, string>;
+      /** Instant Apple Pay: automatic capture + idempotency. */
+      applePayInstant?: boolean;
+      idempotencyKey?: string;
     },
   ) {
     if (!this.stripe) {
@@ -106,16 +124,86 @@ export class PaymentsService {
       throw new BadRequestException('amountCents must be at least 50');
     }
     const { customerId } = await this.ensureStripeCustomer(userId);
-    const pi = await this.stripe.paymentIntents.create({
-      amount: amountCents,
-      currency: (body.currency || 'cad').toLowerCase(),
-      customer: customerId,
-      automatic_payment_methods: { enabled: true },
-      metadata: {
-        guestId: userId,
-        ...(body.metadata || {}),
+    const listingId = body.metadata?.listingId || 'listing';
+    const attempt = body.idempotencyKey || body.metadata?.attempt || '1';
+    const idem =
+      body.idempotencyKey?.trim() ||
+      (body.applePayInstant
+        ? bookingApplePayInstantIdempotencyKey(listingId, attempt)
+        : undefined);
+    const pi = await this.stripe.paymentIntents.create(
+      {
+        amount: amountCents,
+        currency: (body.currency || 'cad').toLowerCase(),
+        customer: customerId,
+        capture_method: 'automatic',
+        setup_future_usage: 'off_session',
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          guestId: userId,
+          purpose: body.applePayInstant ? 'apple_pay_instant' : 'payment',
+          ...(body.metadata || {}),
+        },
       },
-    });
+      idem ? { idempotencyKey: idem } : undefined,
+    );
+    return {
+      clientSecret: pi.client_secret,
+      paymentIntentId: pi.id,
+    };
+  }
+
+  /**
+   * Apple Pay request-to-book hold: full-amount manual-capture PI, confirmed
+   * on-session via Platform Pay. Saved PM for off-session fallback on accept.
+   */
+  async createApplePayBookingHold(
+    userId: string,
+    body: {
+      amountCents: number;
+      currency?: string;
+      metadata?: Record<string, string>;
+      /** Stable key part (listing+dates or booking id) for Stripe Idempotency-Key. */
+      attemptKey?: string;
+      attempt?: string;
+    },
+  ) {
+    if (!this.stripe) {
+      return {
+        clientSecret: 'mock_pi_apple_' + userId.slice(0, 8),
+        paymentIntentId: 'mock_pi_apple_' + userId.slice(0, 8),
+      };
+    }
+    const amountCents = Math.round(Number(body.amountCents));
+    if (!Number.isFinite(amountCents) || amountCents < 50) {
+      throw new BadRequestException('amountCents must be at least 50');
+    }
+    const { customerId } = await this.ensureStripeCustomer(userId);
+    const attemptKey =
+      body.attemptKey?.trim() ||
+      body.metadata?.bookingId?.trim() ||
+      body.metadata?.listingId?.trim() ||
+      userId;
+    const attempt = body.attempt?.trim() || body.metadata?.attempt || '1';
+    const pi = await this.stripe.paymentIntents.create(
+      {
+        amount: amountCents,
+        currency: (body.currency || 'cad').toLowerCase(),
+        customer: customerId,
+        capture_method: 'manual',
+        setup_future_usage: 'off_session',
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          guestId: userId,
+          purpose: 'apple_pay_hold',
+          fullAmountCents: String(amountCents),
+          ...(body.metadata || {}),
+        },
+      },
+      {
+        idempotencyKey: bookingApplePayHoldIdempotencyKey(attemptKey, attempt),
+      },
+    );
     return {
       clientSecret: pi.client_secret,
       paymentIntentId: pi.id,
@@ -297,10 +385,14 @@ export class PaymentsService {
     paymentMethodId: string;
     fullAmountCents: number;
     description: string;
+    bookingId: string;
     metadata?: Record<string, string>;
   }): Promise<BookingPaymentResult> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured');
+    }
+    if (!opts.bookingId?.trim()) {
+      throw new BadRequestException('bookingId required for preauth');
     }
     const fullAmountCents = Math.round(Number(opts.fullAmountCents));
     if (!Number.isFinite(fullAmountCents) || fullAmountCents < 50) {
@@ -310,23 +402,27 @@ export class PaymentsService {
     const holdCents = funding === 'credit' ? 100 : fullAmountCents;
     const { customerId } = await this.ensureStripeCustomer(opts.guestUserId);
 
-    const pi = await this.stripe.paymentIntents.create({
-      amount: holdCents,
-      currency: 'cad',
-      customer: customerId,
-      payment_method: opts.paymentMethodId,
-      capture_method: 'manual',
-      confirm: true,
-      off_session: true,
-      description: opts.description,
-      metadata: {
-        guestId: opts.guestUserId,
-        purpose: 'booking_preauth',
-        fullAmountCents: String(fullAmountCents),
-        funding: funding ?? '',
-        ...(opts.metadata || {}),
+    const pi = await this.stripe.paymentIntents.create(
+      {
+        amount: holdCents,
+        currency: 'cad',
+        customer: customerId,
+        payment_method: opts.paymentMethodId,
+        capture_method: 'manual',
+        confirm: true,
+        off_session: true,
+        description: opts.description,
+        metadata: {
+          guestId: opts.guestUserId,
+          bookingId: opts.bookingId,
+          purpose: 'booking_preauth',
+          fullAmountCents: String(fullAmountCents),
+          funding: funding ?? '',
+          ...(opts.metadata || {}),
+        },
       },
-    });
+      { idempotencyKey: bookingPreauthIdempotencyKey(opts.bookingId) },
+    );
 
     if (pi.status !== 'requires_capture' && pi.status !== 'succeeded') {
       this.log.error(`Preauth unexpected status=${pi.status} pi=${pi.id}`);
@@ -343,19 +439,43 @@ export class PaymentsService {
 
   /**
    * Legacy parity on host approve:
-   * - credit: refund/cancel $1 hold, then charge full amount
-   * - debit: capture the existing hold
+   * - credit: refund/cancel $1 hold, then charge full amount (idempotent)
+   * - debit: capture the existing hold (idempotent)
    */
   async captureOrChargeBooking(opts: {
     paymentIntentId: string;
     fullAmountCents: number;
     description: string;
     paymentMethodId?: string | null;
+    bookingId: string;
+    /** Reuse a PI already created for this booking (retry after timeout/save failure). */
+    existingCapturePaymentIntentId?: string | null;
+    /** Persist capture PI id immediately after Stripe create (before confirm settles). */
+    onCapturePaymentIntentId?: (paymentIntentId: string) => Promise<void>;
   }): Promise<BookingPaymentResult> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured');
     }
+    if (!opts.bookingId?.trim()) {
+      throw new BadRequestException('bookingId required for capture/charge');
+    }
     const fullAmountCents = Math.round(Number(opts.fullAmountCents));
+    const bookingId = opts.bookingId.trim();
+
+    if (opts.existingCapturePaymentIntentId) {
+      const existing = await this.stripe.paymentIntents.retrieve(
+        opts.existingCapturePaymentIntentId,
+      );
+      if (existing.status === 'succeeded') {
+        return {
+          paymentIntentId: existing.id,
+          chargeId: this.chargeIdFromPi(existing),
+          amountCents: existing.amount_received || existing.amount,
+          funding: existing.metadata?.funding || null,
+        };
+      }
+    }
+
     const pi = await this.stripe.paymentIntents.retrieve(opts.paymentIntentId, {
       expand: ['payment_method'],
     });
@@ -367,11 +487,32 @@ export class PaymentsService {
       pi.metadata?.funding ||
       null;
 
+    const isApplePayHold = pi.metadata?.purpose === 'apple_pay_hold';
+
+    // Apple Pay: capture the on-session full-amount hold (or off-session fallback).
+    if (isApplePayHold) {
+      return this.captureApplePayHold({
+        pi,
+        fullAmountCents,
+        description: opts.description,
+        paymentMethodId: opts.paymentMethodId,
+        bookingId,
+        onCapturePaymentIntentId: opts.onCapturePaymentIntentId,
+      });
+    }
+
     if (funding === 'credit') {
       if (pi.status === 'requires_capture') {
-        await this.stripe.paymentIntents.cancel(pi.id);
+        await this.stripe.paymentIntents.cancel(
+          pi.id,
+          {},
+          { idempotencyKey: bookingHoldCancelIdempotencyKey(bookingId) },
+        );
       } else if (pi.status === 'succeeded') {
-        await this.stripe.refunds.create({ payment_intent: pi.id });
+        await this.stripe.refunds.create(
+          { payment_intent: pi.id },
+          { idempotencyKey: bookingRefundIdempotencyKey(bookingId, 'preauth-hold') },
+        );
       }
 
       const customerId =
@@ -386,21 +527,29 @@ export class PaymentsService {
         throw new BadRequestException('Missing payment method for capture');
       }
 
-      const charged = await this.stripe.paymentIntents.create({
-        amount: fullAmountCents,
-        currency: 'cad',
-        customer: customerId,
-        payment_method: paymentMethodId,
-        confirm: true,
-        off_session: true,
-        capture_method: 'automatic',
-        description: opts.description,
-        metadata: {
-          ...(pi.metadata || {}),
-          purpose: 'booking_capture',
-          replacedPreauth: pi.id,
+      const charged = await this.stripe.paymentIntents.create(
+        {
+          amount: fullAmountCents,
+          currency: 'cad',
+          customer: customerId,
+          payment_method: paymentMethodId,
+          confirm: true,
+          off_session: true,
+          capture_method: 'automatic',
+          description: opts.description,
+          metadata: {
+            ...(pi.metadata || {}),
+            bookingId,
+            purpose: 'booking_capture',
+            replacedPreauth: pi.id,
+            funding: funding ?? '',
+          },
         },
-      });
+        { idempotencyKey: bookingChargeIdempotencyKey(bookingId) },
+      );
+      if (opts.onCapturePaymentIntentId) {
+        await opts.onCapturePaymentIntentId(charged.id);
+      }
       if (charged.status !== 'succeeded') {
         throw new BadRequestException('Could not charge payment method');
       }
@@ -418,7 +567,14 @@ export class PaymentsService {
           description: opts.description.trim(),
         });
       }
-      const captured = await this.stripe.paymentIntents.capture(pi.id);
+      const captured = await this.stripe.paymentIntents.capture(
+        pi.id,
+        {},
+        { idempotencyKey: bookingCaptureIdempotencyKey(bookingId) },
+      );
+      if (opts.onCapturePaymentIntentId) {
+        await opts.onCapturePaymentIntentId(captured.id);
+      }
       return {
         paymentIntentId: captured.id,
         chargeId: this.chargeIdFromPi(captured),
@@ -435,6 +591,161 @@ export class PaymentsService {
       };
     }
     throw new BadRequestException(`Cannot capture payment in status ${pi.status}`);
+  }
+
+  /**
+   * Capture an Apple Pay manual-capture hold. If the auth expired or the amount
+   * increased, charge off-session with the saved payment method.
+   */
+  private async captureApplePayHold(opts: {
+    pi: Stripe.PaymentIntent;
+    fullAmountCents: number;
+    description: string;
+    paymentMethodId?: string | null;
+    bookingId: string;
+    onCapturePaymentIntentId?: (paymentIntentId: string) => Promise<void>;
+  }): Promise<BookingPaymentResult> {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+    const { pi, fullAmountCents, bookingId } = opts;
+    const funding =
+      (typeof pi.payment_method === 'object' && pi.payment_method && 'card' in pi.payment_method
+        ? pi.payment_method.card?.funding
+        : null) ||
+      'apple_pay';
+
+    if (pi.status === 'succeeded') {
+      return {
+        paymentIntentId: pi.id,
+        chargeId: this.chargeIdFromPi(pi),
+        amountCents: pi.amount_received || pi.amount,
+        funding: funding || 'apple_pay',
+      };
+    }
+
+    const amountOk = pi.amount >= fullAmountCents;
+    if (pi.status === 'requires_capture' && amountOk) {
+      if (opts.description?.trim()) {
+        await this.stripe.paymentIntents.update(pi.id, {
+          description: opts.description.trim(),
+        });
+      }
+      const captureParams =
+        pi.amount > fullAmountCents
+          ? { amount_to_capture: fullAmountCents }
+          : {};
+      try {
+        const captured = await this.stripe.paymentIntents.capture(
+          pi.id,
+          captureParams,
+          { idempotencyKey: bookingCaptureIdempotencyKey(bookingId) },
+        );
+        if (opts.onCapturePaymentIntentId) {
+          await opts.onCapturePaymentIntentId(captured.id);
+        }
+        return {
+          paymentIntentId: captured.id,
+          chargeId: this.chargeIdFromPi(captured),
+          amountCents: captured.amount_received || fullAmountCents,
+          funding: funding || 'apple_pay',
+        };
+      } catch (err) {
+        this.log.warn(
+          `Apple Pay capture failed booking=${bookingId}: ${
+            err instanceof Error ? err.message : err
+          }`,
+        );
+        // Fall through to off-session charge.
+      }
+    }
+
+    // Expired auth, amount increase, or capture failure → off-session charge.
+    const customerId =
+      typeof pi.customer === 'string' ? pi.customer : pi.customer?.id || undefined;
+    const paymentMethodId =
+      opts.paymentMethodId ||
+      (typeof pi.payment_method === 'string'
+        ? pi.payment_method
+        : pi.payment_method?.id) ||
+      undefined;
+    if (!customerId || !paymentMethodId) {
+      throw new BadRequestException(
+        'Apple Pay authorization expired. Ask the guest to update their payment method.',
+      );
+    }
+
+    try {
+      const charged = await this.stripe.paymentIntents.create(
+        {
+          amount: fullAmountCents,
+          currency: 'cad',
+          customer: customerId,
+          payment_method: paymentMethodId,
+          confirm: true,
+          off_session: true,
+          capture_method: 'automatic',
+          description: opts.description,
+          metadata: {
+            ...(pi.metadata || {}),
+            bookingId,
+            purpose: 'apple_pay_off_session_fallback',
+            replacedHold: pi.id,
+            funding: funding || 'apple_pay',
+          },
+        },
+        { idempotencyKey: bookingChargeIdempotencyKey(bookingId) },
+      );
+      if (opts.onCapturePaymentIntentId) {
+        await opts.onCapturePaymentIntentId(charged.id);
+      }
+      if (charged.status !== 'succeeded') {
+        throw this.mapStripePaymentError(charged.last_payment_error);
+      }
+      return {
+        paymentIntentId: charged.id,
+        chargeId: this.chargeIdFromPi(charged),
+        amountCents: fullAmountCents,
+        funding: funding || 'apple_pay',
+      };
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw this.mapStripePaymentError(err);
+    }
+  }
+
+  /** Map Stripe decline / auth errors (RYRA-480-compatible messaging). */
+  private mapStripePaymentError(err: unknown): BadRequestException {
+    const stripeErr = err as {
+      code?: string;
+      decline_code?: string;
+      message?: string;
+      type?: string;
+      payment_intent?: { last_payment_error?: { code?: string; decline_code?: string; message?: string } };
+    };
+    const code =
+      stripeErr?.code ||
+      stripeErr?.payment_intent?.last_payment_error?.code ||
+      '';
+    const decline =
+      stripeErr?.decline_code ||
+      stripeErr?.payment_intent?.last_payment_error?.decline_code ||
+      '';
+    if (code === 'authentication_required') {
+      return new BadRequestException(
+        'Card authentication required. Ask the guest to complete payment again.',
+      );
+    }
+    if (code === 'card_declined' || decline) {
+      return new BadRequestException(
+        'Card was declined. Ask the guest to try another payment method.',
+      );
+    }
+    const msg =
+      stripeErr?.message ||
+      stripeErr?.payment_intent?.last_payment_error?.message ||
+      'Could not charge payment method';
+    return new BadRequestException(msg);
   }
 
   async updatePaymentIntentDescription(
@@ -454,19 +765,33 @@ export class PaymentsService {
   async refundBookingPayment(
     paymentIntentId: string,
     description?: string,
+    opts?: { bookingId?: string; reason?: string },
   ): Promise<{ refundId: string | null }> {
     if (!this.stripe || !paymentIntentId) return { refundId: null };
+    const bookingId = opts?.bookingId?.trim();
+    const reason = opts?.reason || 'refund';
     try {
       const pi = await this.stripe.paymentIntents.retrieve(paymentIntentId);
       if (description) {
         await this.stripe.paymentIntents.update(paymentIntentId, { description });
       }
       if (pi.status === 'requires_capture') {
-        await this.stripe.paymentIntents.cancel(paymentIntentId);
+        await this.stripe.paymentIntents.cancel(
+          paymentIntentId,
+          {},
+          bookingId
+            ? { idempotencyKey: bookingHoldCancelIdempotencyKey(bookingId) }
+            : undefined,
+        );
         return { refundId: null };
       }
       if (pi.status === 'succeeded') {
-        const refund = await this.stripe.refunds.create({ payment_intent: paymentIntentId });
+        const refund = await this.stripe.refunds.create(
+          { payment_intent: paymentIntentId },
+          bookingId
+            ? { idempotencyKey: bookingRefundIdempotencyKey(bookingId, reason) }
+            : undefined,
+        );
         return { refundId: refund.id ?? null };
       }
       return { refundId: null };

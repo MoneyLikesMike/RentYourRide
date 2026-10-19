@@ -221,13 +221,9 @@ export function GuestBookingsProvider({ children }) {
   const acceptGuestBooking = useCallback(
     async (id) => {
       if (isRemoteBookingId(id)) {
-        try {
-          await bookingsApi.acceptBooking(id);
-          await refreshFromApi();
-          return;
-        } catch (e) {
-          console.warn('[GuestBookings] accept failed', e?.message || e);
-        }
+        await bookingsApi.acceptBooking(id);
+        await refreshFromApi();
+        return;
       }
       setPendingRequests((prev) => {
         const entry = prev.find((b) => b.id === id);

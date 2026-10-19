@@ -168,7 +168,11 @@ export async function cancelBooking(id: string): Promise<BookingDto> {
 export async function acceptBooking(id: string): Promise<BookingDto> {
   return apiFetch<BookingDto>(
     `v1/bookings/${encodeURIComponent(id)}/accept`,
-    { method: 'POST', json: {} },
+    {
+      method: 'POST',
+      json: {},
+      headers: { 'Idempotency-Key': `accept:${id}` },
+    },
   );
 }
 
