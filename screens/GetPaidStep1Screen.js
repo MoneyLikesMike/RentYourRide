@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, ScrollView, Image, Linking } from 'react-native';
 import { COLORS } from '../constants/colors';
 import Svg, { Path } from 'react-native-svg';
+import {
+  RYR_TERMS_URL,
+  STRIPE_CONNECT_ACCOUNT_AGREEMENT_URL,
+  STRIPE_PRIVACY_POLICY_URL,
+} from '../constants/payoutLegalCopy';
+import { useGetPaidForm } from '../context/GetPaidFormContext';
 import { emailTypoUserMessage } from '../utils/emailDomainTypos';
 
 const COUNTRIES = [
@@ -33,22 +39,43 @@ function ErrorRow({ message }) {
 }
 
 export default function GetPaidStep1Screen({ navigation }) {
-  const [country, setCountry] = useState('CA');
+  const { values, patch } = useGetPaidForm();
+  const {
+    country,
+    firstName,
+    lastName,
+    email,
+    dob,
+    addressLine1: address1,
+    addressLine2: address2,
+    city,
+    province,
+    postalCode,
+    state,
+    zipCode,
+    phone: mobile,
+  } = values;
+  const setCountry = (v) => patch({ country: v });
+  const setFirstName = (v) => patch({ firstName: v });
+  const setLastName = (v) => patch({ lastName: v });
+  const setEmail = (v) => patch({ email: v });
+  const setDob = (v) => patch({ dob: v });
+  const setAddress1 = (v) => patch({ addressLine1: v });
+  const setAddress2 = (v) => patch({ addressLine2: v });
+  const setCity = (v) => patch({ city: v });
+  const setProvince = (v) => patch({ province: v });
+  const setPostalCode = (v) => patch({ postalCode: v });
+  const setState = (v) => patch({ state: v });
+  const setZipCode = (v) => patch({ zipCode: v });
+  const setMobile = (v) => patch({ phone: v });
   const [showDropdown, setShowDropdown] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [dob, setDob] = useState('');
-  const [address1, setAddress1] = useState('');
-  const [address2, setAddress2] = useState('');
-  const [province, setProvince] = useState('');
   const [showProvinceDropdown, setShowProvinceDropdown] = useState(false);
-  const [postalCode, setPostalCode] = useState('');
-  const [state, setState] = useState('');
   const [showStateDropdown, setShowStateDropdown] = useState(false);
-  const [zipCode, setZipCode] = useState('');
-  const [mobile, setMobile] = useState('');
   const [touched, setTouched] = useState(false);
+
+  function openLegalUrl(url) {
+    Linking.openURL(url).catch(() => {});
+  }
 
   function isFormValid() {
     if (!firstName.trim()) return false;
@@ -56,6 +83,7 @@ export default function GetPaidStep1Screen({ navigation }) {
     if (!email.trim() || !isValidEmail(email)) return false;
     if (!dob.trim()) return false;
     if (!address1.trim()) return false;
+    if (!city.trim()) return false;
     if (!country) return false;
     if (country === 'CA' && !province) return false;
     if (country === 'CA' && !postalCode.trim()) return false;
@@ -173,6 +201,15 @@ export default function GetPaidStep1Screen({ navigation }) {
           onChangeText={setAddress1}
         />
         {touched && !address1.trim() && <ErrorRow message="Please enter address line 1" />}
+        <Text style={styles.inputLabel}>City</Text>
+        <TextInput
+          style={[styles.input, touched && !city.trim() && styles.inputError]}
+          placeholder="City"
+          placeholderTextColor={COLORS.GRAY_PLACEHOLDER}
+          value={city}
+          onChangeText={setCity}
+        />
+        {touched && !city.trim() && <ErrorRow message="Please enter city" />}
         <Text style={styles.inputLabel}>Address Line 2</Text>
         <TextInput
           style={styles.input}
@@ -336,13 +373,26 @@ export default function GetPaidStep1Screen({ navigation }) {
           keyboardType="phone-pad"
         />
         {touched && !mobile.trim() && <ErrorRow message="Please enter mobile number" />}
-        {/* Bottom Paragraph and Next Button */}
         <Text style={styles.bottomParagraph}>
-          By clicking next, you agree to the{' '}
-          <Text style={styles.link} onPress={() => {/* TODO: open Connected Account Agreement link */}}>
-            Connected Account Agreement
+          By saving, you agree to the{' '}
+          <Text
+            style={styles.link}
+            onPress={() => openLegalUrl(STRIPE_CONNECT_ACCOUNT_AGREEMENT_URL)}
+          >
+            Stripe Connected Account Agreement
           </Text>
-          {', to receiving autodialed text messages from Stripe, and you certify that the information you have provided to Stripe is complete and correct. Stripe, Inc. is a registered ISO of Wells Fargo Bank, N.A., Concord, CA'}
+          {' and '}
+          <Text style={styles.link} onPress={() => openLegalUrl(RYR_TERMS_URL)}>
+            RentYourRide's Terms
+          </Text>
+          . Our payment processor can obtain information from credit agencies to verify your identity, as described in{' '}
+          <Text
+            style={styles.link}
+            onPress={() => openLegalUrl(STRIPE_PRIVACY_POLICY_URL)}
+          >
+            Stripe's Privacy Policy
+          </Text>
+          .
         </Text>
         <TouchableOpacity
           style={[styles.nextBtn, !isFormValid() && { opacity: 0.5 }]}

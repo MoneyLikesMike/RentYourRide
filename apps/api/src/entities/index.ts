@@ -17,8 +17,10 @@ export * from './notification-dispatch-log.entity';
 export * from './notification-dispatch-claim.entity';
 export * from './in-app-notification.entity';
 export * from './sms-outbox.entity';
+export * from './connect-tos-acceptance.entity';
 
 import { UserEntity } from './user.entity';
+import { ConnectTosAcceptanceEntity } from './connect-tos-acceptance.entity';
 import { RefreshTokenEntity } from './refresh-token.entity';
 import { PasswordResetTokenEntity } from './password-reset-token.entity';
 import { ListingEntity } from './listing.entity';
@@ -58,4 +60,5 @@ export const entities = [
   NotificationDispatchClaimEntity,
   InAppNotificationEntity,
   SmsOutboxEntity,
+  ConnectTosAcceptanceEntity,
 ];
