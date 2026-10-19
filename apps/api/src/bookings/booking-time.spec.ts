@@ -21,9 +21,25 @@ describe('listingTimeZone', () => {
     assert.equal(listingTimeZone({ pickupAddress: '800 Robson St, Vancouver, British Columbia' }), 'America/Vancouver');
   });
 
-  it('ignores lowercase words that look like province codes and defaults to Winnipeg', () => {
-    assert.equal(listingTimeZone({ pickupAddress: '12 Lake on the Hill Rd, Winnipeg' }), WPG);
-    assert.equal(listingTimeZone({ pickupAddress: '', city: 'Winnipeg' }), WPG);
+  it('infers timezone from city when the address has no province', () => {
+    assert.equal(listingTimeZone({ city: 'West Vancouver', pickupAddress: 'West Vancouver' }), 'America/Vancouver');
+    assert.equal(listingTimeZone({ city: 'Toronto', pickupAddress: 'Toronto' }), 'America/Toronto');
+    assert.equal(listingTimeZone({ city: 'Winnipeg', pickupAddress: 'Winnipeg' }), WPG);
+  });
+
+  it('infers timezone from coordinates when city/province are missing', () => {
+    assert.equal(
+      listingTimeZone({ latitude: 49.35, longitude: -123.23 }),
+      'America/Vancouver',
+    );
+    assert.equal(
+      listingTimeZone({ city: 'Unknown Hamlet', latitude: 44.29, longitude: -77.47 }),
+      'America/Toronto',
+    );
+  });
+
+  it('defaults to Winnipeg when nothing usable is present', () => {
+    assert.equal(listingTimeZone({ pickupAddress: '12 Lake on the Hill Rd' }), WPG);
     assert.equal(listingTimeZone(null), WPG);
   });
 });

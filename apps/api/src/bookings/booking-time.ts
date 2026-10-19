@@ -29,11 +29,66 @@ function provinceTimeZone(segment: string): string | null {
   return hit ? hit[2] : null;
 }
 
-/** Listing timezone from its address (province), falling back to Winnipeg. */
-export function listingTimeZone(
-  listing: { pickupAddress?: string | null; city?: string | null } | null | undefined,
-): string {
-  const parts = [listing?.pickupAddress, listing?.city].filter(
+/**
+ * Many listings only store a city name (no "BC" / "ON" in the public address).
+ * Match well-known Canadian cities before falling back to coordinates / Winnipeg.
+ */
+const CITY_TZ: Array<[RegExp, string]> = [
+  [
+    /\b(west vancouver|north vancouver|vancouver|victoria|burnaby|richmond|surrey|kelowna|abbotsford|coquitlam|langley)\b/i,
+    'America/Vancouver',
+  ],
+  [/\b(calgary|edmonton|banff|red deer|lethbridge|fort mcmurray)\b/i, 'America/Edmonton'],
+  [/\b(saskatoon|regina|moose jaw|prince albert)\b/i, 'America/Regina'],
+  [/\b(winnipeg|brandon|headingley|steinbach)\b/i, 'America/Winnipeg'],
+  [
+    /\b(toronto|ottawa|mississauga|hamilton|london|kingston|quinte west|belleville|barrie|kitchener|waterloo|brampton|markham|vaughan|oakville|burlington|guelph|windsor|oshawa|thunder bay)\b/i,
+    'America/Toronto',
+  ],
+  [/\b(montr[eé]al|montreal|qu[eé]bec(?: city)?|gatineau|laval|longueuil|sherbrooke)\b/i, 'America/Toronto'],
+  [/\b(halifax|dartmouth|sydney)\b/i, 'America/Halifax'],
+  [/\b(moncton|saint john|fredericton)\b/i, 'America/Moncton'],
+  [/\b(charlottetown)\b/i, 'America/Halifax'],
+  [/\b(st\.?\s*john'?s|saint john'?s)\b/i, 'America/St_Johns'],
+  [/\b(whitehorse)\b/i, 'America/Whitehorse'],
+  [/\b(yellowknife)\b/i, 'America/Yellowknife'],
+  [/\b(iqaluit)\b/i, 'America/Iqaluit'],
+];
+
+function cityTimeZone(text: string): string | null {
+  const hit = CITY_TZ.find(([re]) => re.test(text));
+  return hit ? hit[1] : null;
+}
+
+/**
+ * Rough Canada (and nearby) longitude bands when the address has no province/city hit.
+ * Good enough for marketplace pickup TZ; province/city remain preferred when present.
+ */
+function coordsTimeZone(lat?: number | null, lng?: number | null): string | null {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  // Outside a generous Canada / northern US box — do not guess.
+  if (lat < 41 || lat > 84 || lng > -52 || lng < -141) return null;
+  if (lng <= -120) return 'America/Vancouver';
+  if (lng <= -110) return 'America/Edmonton';
+  if (lng <= -101.5) return 'America/Regina';
+  if (lng <= -90) return 'America/Winnipeg';
+  if (lng <= -66.5) return 'America/Toronto';
+  if (lng <= -56) return 'America/Halifax';
+  return 'America/St_Johns';
+}
+
+export type ListingTimeZoneInput = {
+  pickupAddress?: string | null;
+  city?: string | null;
+  licenseProvince?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+} | null | undefined;
+
+/** Listing timezone from address / city / coords, falling back to Winnipeg. */
+export function listingTimeZone(listing: ListingTimeZoneInput): string {
+  const parts = [listing?.pickupAddress, listing?.city, listing?.licenseProvince].filter(
     (p): p is string => typeof p === 'string' && p.trim() !== '',
   );
   for (const text of parts) {
@@ -44,7 +99,11 @@ export function listingTimeZone(
       if (tz) return tz;
     }
   }
-  return DEFAULT_BOOKING_TZ;
+  for (const text of parts) {
+    const tz = cityTimeZone(text);
+    if (tz) return tz;
+  }
+  return coordsTimeZone(listing?.latitude, listing?.longitude) ?? DEFAULT_BOOKING_TZ;
 }
 
 function zonedParts(ms: number, tz: string) {
