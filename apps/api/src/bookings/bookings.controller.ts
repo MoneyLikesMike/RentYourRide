@@ -122,13 +122,14 @@ export class BookingsController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   async complete(@ReqUser() user: UserEntity, @Param('id') id: string) {
-    return this.bookings.transitionStatus(user.id, id, 'completed', [
-      'checkout_pending',
-      'active',
-      'extended',
-      'extension_declined',
-      'checkin_pending',
-    ]);
+    return this.bookings.completeFromClient(user.id, id);
+  }
+
+  @Post(':id/late-return')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  async lateReturn(@ReqUser() user: UserEntity, @Param('id') id: string) {
+    return this.bookings.reportLateReturn(user.id, id);
   }
 
   @Post(':id/lifecycle')

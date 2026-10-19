@@ -14,8 +14,11 @@ import { ListingEntity } from '../entities/listing.entity';
 import { UserEntity } from '../entities/user.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PinpointService } from '../notifications/pinpoint.service';
 import { isConfirmedTripStatus } from '../notifications/host-cancel-notify';
 import { PaymentsService } from '../payments/payments.service';
+import { PayoutsService } from '../payouts/payouts.service';
+import { opsAlert } from '../ops/ops-alert';
 import { assertIdentityVerified } from '../common/user-verification';
 import {
   formatRentalStripeDescription,
@@ -45,10 +48,51 @@ import {
   hostNetCentsForPricing,
   planExtensionHostPayout,
 } from './host-earnings';
+import {
+  computeLateFee,
+  dailyRateCentsFromPricing,
+} from './late-fee';
+import {
+  COMPLETABLE_TRIP_STATUSES,
+  loadTripCompletionEnv,
+  NO_SHOW_ELIGIBLE_STATUSES,
+} from './trip-completion.config';
 
 export { getTripBillingDays } from './trip-billing-days';
 
 const MS_PER_HOUR = 60 * 60 * 1000;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
+
+export type CompleteTripBy =
+  | 'both_checkouts'
+  | 'auto'
+  | 'admin'
+  | 'client';
+
+function bookingScheduledEndMs(
+  bookingDates: Record<string, unknown> | null | undefined,
+): number | null {
+  const end = Number(bookingDates?.end);
+  return Number.isFinite(end) ? end : null;
+}
+
+function hasBothCheckouts(life: Record<string, unknown>): boolean {
+  return life.guestCheckedOutAt != null && life.hostCheckoutTripEndedAt != null;
+}
+
+function hasAnyCheckIn(life: Record<string, unknown>): boolean {
+  return (
+    life.guestCheckedInAt != null ||
+    life.hostCheckedInAt != null ||
+    life.guestTripStartedAt != null ||
+    life.hostTripStartedAt != null
+  );
+}
+
+function isOpenLateReturnHold(life: Record<string, unknown>): boolean {
+  const lr = life.lateReturn as { status?: string } | undefined;
+  return lr?.status === 'open';
+}
 
 function statusLabel(status: BookingStatus): string | null {
   switch (status) {
@@ -60,6 +104,8 @@ function statusLabel(status: BookingStatus): string | null {
       return 'Check-out started.';
     case 'completed':
       return 'Trip completed. Please leave a review.';
+    case 'no_show':
+      return 'Trip marked as no-show.';
     default:
       return null;
   }
@@ -119,6 +165,8 @@ export class BookingsService {
     private readonly messaging: MessagingService,
     private readonly notifications: NotificationsService,
     private readonly payments: PaymentsService,
+    private readonly payouts: PayoutsService,
+    private readonly pinpoint: PinpointService,
   ) {}
 
   quote(listing: ListingEntity, input: QuoteInput) {
@@ -679,14 +727,298 @@ export class BookingsService {
     }
     const before = (b.lifecycle ?? {}) as Record<string, unknown>;
     const justCheckedIn = before.guestCheckedInAt == null && patch.guestCheckedInAt != null;
-    const justCheckedOut = before.guestCheckedOutAt == null && patch.guestCheckedOutAt != null;
-    b.lifecycle = { ...before, ...patch };
+    const justGuestCheckedOut =
+      before.guestCheckedOutAt == null && patch.guestCheckedOutAt != null;
+    const justHostCheckedOut =
+      before.hostCheckoutTripEndedAt == null &&
+      patch.hostCheckoutTripEndedAt != null;
+    const justCheckedOut = justGuestCheckedOut || justHostCheckedOut;
+
+    let nextLife: Record<string, unknown> = { ...before, ...patch };
+
+    // Store late fee when guest check-out lands after scheduled end (charge via RYRA-476).
+    if (justGuestCheckedOut) {
+      const endMs = bookingScheduledEndMs(b.bookingDates);
+      const guestOut = Number(patch.guestCheckedOutAt);
+      if (endMs != null && Number.isFinite(guestOut) && guestOut > endMs) {
+        nextLife = {
+          ...nextLife,
+          lateFee: computeLateFee(
+            endMs,
+            guestOut,
+            dailyRateCentsFromPricing(b.pricing as Record<string, unknown>),
+          ),
+        };
+      }
+    }
+
+    b.lifecycle = nextLife;
     await this.bookingsRepo.save(b);
     // Check-in/out emails follow the guest finishing their own flow, not the
     // status change that waits on the host.
     if (justCheckedIn) this.notifications.bookingCheckedIn(b.id);
-    if (justCheckedOut) this.notifications.bookingCheckedOut(b.id);
+    if (justGuestCheckedOut) this.notifications.bookingCheckedOut(b.id);
+
+    // Both check-outs → complete once. Photos are never required (RYRA-479).
+    if (
+      justCheckedOut &&
+      (COMPLETABLE_TRIP_STATUSES as readonly string[]).includes(b.status) &&
+      hasBothCheckouts(nextLife)
+    ) {
+      return this.completeTrip(b.id, { by: 'both_checkouts' }, userId);
+    }
+
     return presentBooking(b, userId);
+  }
+
+  /**
+   * Idempotent trip completion. Conditional status update; side effects run once.
+   * Photos are never required. /complete and both-checkouts require both parties
+   * checked out; auto + admin force-complete may bypass.
+   */
+  async completeTrip(
+    bookingId: string,
+    opts: { by: CompleteTripBy; requireBothCheckouts?: boolean },
+    viewerUserId?: string,
+  ) {
+    const b = await this.bookingsRepo.findOne({ where: { id: bookingId } });
+    if (!b) throw new NotFoundException('Booking not found');
+
+    if (b.status === 'completed') {
+      return presentBooking(b, viewerUserId || b.guestUserId);
+    }
+
+    if (b.status === 'confirmed') {
+      this.logRejectedTransition(b.id, b.status, 'completed');
+      throw new BadRequestException('Cannot complete a confirmed trip');
+    }
+
+    if (!(COMPLETABLE_TRIP_STATUSES as readonly string[]).includes(b.status)) {
+      this.logRejectedTransition(b.id, b.status, 'completed');
+      throw new BadRequestException('Invalid transition');
+    }
+
+    const life = (b.lifecycle ?? {}) as Record<string, unknown>;
+    const requireBoth =
+      opts.requireBothCheckouts !== undefined
+        ? opts.requireBothCheckouts
+        : opts.by === 'both_checkouts' || opts.by === 'client';
+
+    if (requireBoth && !hasBothCheckouts(life)) {
+      this.logRejectedTransition(b.id, b.status, 'completed');
+      throw new ConflictException(
+        'Both guest and host check-outs are required to complete',
+      );
+    }
+
+    const prev = b.status;
+    const now = Date.now();
+    const mergedLifecycle: Record<string, unknown> = {
+      ...life,
+      completedAt: life.completedAt ?? now,
+      completedBy: opts.by,
+      claimsWindow: life.claimsWindow ?? {
+        damageUntil: now + MS_PER_DAY,
+        incidentalsUntil: now + 3 * MS_PER_DAY,
+      },
+    };
+
+    const updateResult = await this.bookingsRepo.update(
+      { id: bookingId, status: prev } as never,
+      { status: 'completed', lifecycle: mergedLifecycle } as never,
+    );
+
+    if (!updateResult.affected) {
+      const latest = await this.bookingsRepo.findOne({ where: { id: bookingId } });
+      if (!latest) throw new NotFoundException('Booking not found');
+      return presentBooking(latest, viewerUserId || latest.guestUserId);
+    }
+
+    b.status = 'completed';
+    b.lifecycle = mergedLifecycle;
+
+    const label = statusLabel('completed');
+    if (label) {
+      await this.messaging.postBookingSystemMessage(b.id, label, {
+        event: 'status',
+        status: 'completed',
+        by: opts.by,
+      });
+    }
+    this.notifications.reviewReminder(b.id);
+    await this.payouts.scheduleForCompletedBooking(b.id);
+
+    return presentBooking(b, viewerUserId || b.guestUserId);
+  }
+
+  /** POST /v1/bookings/:id/complete — requires both check-outs; rejects confirmed. */
+  async completeFromClient(userId: string, id: string) {
+    const b = await this.bookingsRepo.findOne({ where: { id } });
+    if (!b) throw new NotFoundException('Booking not found');
+    if (b.guestUserId !== userId && b.hostUserId !== userId) {
+      throw new ForbiddenException();
+    }
+    if (b.status === 'completed') {
+      return presentBooking(b, userId);
+    }
+    return this.completeTrip(id, { by: 'client', requireBothCheckouts: true }, userId);
+  }
+
+  /** Admin force-complete (RYRA-148) — bypasses both-checkout requirement. */
+  async forceCompleteAdmin(adminUserId: string, id: string) {
+    return this.completeTrip(
+      id,
+      { by: 'admin', requireBothCheckouts: false },
+      adminUserId,
+    );
+  }
+
+  /**
+   * Host reports late return within 24h of scheduled end — pauses auto-complete.
+   */
+  async reportLateReturn(userId: string, id: string) {
+    const b = await this.bookingsRepo.findOne({ where: { id } });
+    if (!b) throw new NotFoundException('Booking not found');
+    if (b.hostUserId !== userId) throw new ForbiddenException();
+    if (!(COMPLETABLE_TRIP_STATUSES as readonly string[]).includes(b.status)) {
+      throw new BadRequestException('Late return only applies to started trips');
+    }
+    const endMs = bookingScheduledEndMs(b.bookingDates);
+    if (endMs == null) throw new BadRequestException('Booking has no end time');
+    const now = Date.now();
+    if (now < endMs) {
+      throw new BadRequestException('Cannot report late return before scheduled end');
+    }
+    if (now > endMs + MS_PER_DAY) {
+      throw new BadRequestException('Late return must be reported within 24h of end');
+    }
+    const life = (b.lifecycle ?? {}) as Record<string, unknown>;
+    if (isOpenLateReturnHold(life)) {
+      return presentBooking(b, userId);
+    }
+    const guestOut = Number(life.guestCheckedOutAt);
+    const lateFee =
+      Number.isFinite(guestOut) && guestOut > 0
+        ? computeLateFee(
+            endMs,
+            guestOut,
+            dailyRateCentsFromPricing(b.pricing as Record<string, unknown>),
+          )
+        : undefined;
+    b.lifecycle = {
+      ...life,
+      lateReturn: { reportedAt: now, status: 'open', reportedBy: userId },
+      ...(lateFee ? { lateFee } : {}),
+    };
+    await this.bookingsRepo.save(b);
+    return presentBooking(b, userId);
+  }
+
+  async resolveLateReturnAdmin(adminUserId: string, id: string) {
+    const b = await this.bookingsRepo.findOne({ where: { id } });
+    if (!b) throw new NotFoundException('Booking not found');
+    const life = (b.lifecycle ?? {}) as Record<string, unknown>;
+    const prev = (life.lateReturn as Record<string, unknown> | undefined) || {};
+    b.lifecycle = {
+      ...life,
+      lateReturn: {
+        ...prev,
+        status: 'resolved',
+        resolvedAt: Date.now(),
+        resolvedBy: adminUserId,
+      },
+    };
+    await this.bookingsRepo.save(b);
+    return presentBooking(b, adminUserId);
+  }
+
+  /**
+   * Never-started trip past end + NO_SHOW_AFTER_HOURS → status no_show.
+   * Refunds stubbed for RYRA-459.
+   */
+  async markNeverStartedNoShow(bookingId: string): Promise<boolean> {
+    const b = await this.bookingsRepo.findOne({ where: { id: bookingId } });
+    if (!b) return false;
+    if (!(NO_SHOW_ELIGIBLE_STATUSES as readonly string[]).includes(b.status)) {
+      return false;
+    }
+    const life = (b.lifecycle ?? {}) as Record<string, unknown>;
+    if (hasAnyCheckIn(life)) return false;
+
+    const prev = b.status;
+    const now = Date.now();
+    const merged = { ...life, noShowAt: now, noShowSource: 'auto' };
+    const updateResult = await this.bookingsRepo.update(
+      { id: bookingId, status: prev } as never,
+      { status: 'no_show', lifecycle: merged } as never,
+    );
+    if (!updateResult.affected) return false;
+    b.status = 'no_show';
+    b.lifecycle = merged;
+
+    await this.messaging.postBookingSystemMessage(
+      bookingId,
+      'Trip marked as no-show (never started).',
+      { event: 'no_show', by: 'auto' },
+    );
+    await opsAlert(
+      '[RYR] Trip no-show (never started)',
+      `booking=${bookingId} previousStatus=${prev}`,
+      (s, body) => this.pinpoint.sendSimpleAdminEmail(s, body),
+    );
+    // RYRA-459 stub — refunds/charges via cancellation no-show outcome later.
+    await this.stubNoShowRefund(bookingId);
+    return true;
+  }
+
+  /** @internal test seam / RYRA-459 placeholder */
+  async stubNoShowRefund(_bookingId: string): Promise<{ stub: true }> {
+    return { stub: true };
+  }
+
+  /** Candidates for auto-complete / no-show (scheduler + backfill). */
+  async findStaleTripCandidates(nowMs: number = Date.now()): Promise<{
+    autoComplete: BookingEntity[];
+    noShow: BookingEntity[];
+  }> {
+    const { autoCompleteHours, noShowAfterHours } = loadTripCompletionEnv();
+    const autoCutoff = nowMs - autoCompleteHours * MS_PER_HOUR;
+    const noShowCutoff = nowMs - noShowAfterHours * MS_PER_HOUR;
+
+    const started = await this.bookingsRepo.find({
+      where: { status: In([...COMPLETABLE_TRIP_STATUSES]) },
+    });
+    const autoComplete = started.filter((b) => {
+      const endMs = bookingScheduledEndMs(b.bookingDates);
+      if (endMs == null || endMs > autoCutoff) return false;
+      const life = (b.lifecycle ?? {}) as Record<string, unknown>;
+      if (isOpenLateReturnHold(life)) return false;
+      // Auto-complete only when at least one party has not checked out.
+      if (hasBothCheckouts(life)) return false;
+      return true;
+    });
+
+    const neverStarted = await this.bookingsRepo.find({
+      where: { status: In([...NO_SHOW_ELIGIBLE_STATUSES]) },
+    });
+    const noShow = neverStarted.filter((b) => {
+      const endMs = bookingScheduledEndMs(b.bookingDates);
+      if (endMs == null || endMs > noShowCutoff) return false;
+      const life = (b.lifecycle ?? {}) as Record<string, unknown>;
+      return !hasAnyCheckIn(life);
+    });
+
+    return { autoComplete, noShow };
+  }
+
+  private logRejectedTransition(
+    bookingId: string,
+    from: string,
+    to: string,
+  ): void {
+    this.log.warn(
+      `Rejected transition bookingId=${bookingId} from=${from} to=${to}`,
+    );
   }
 
   async transitionStatus(
@@ -700,7 +1032,12 @@ export class BookingsService {
     if (b.guestUserId !== userId && b.hostUserId !== userId) {
       throw new ForbiddenException();
     }
+    if (b.status === next) {
+      // Already in target — idempotent success for clients.
+      return presentBooking(b, userId);
+    }
     if (!allowedFrom.includes(b.status)) {
+      this.logRejectedTransition(b.id, b.status, next);
       throw new BadRequestException('Invalid transition');
     }
     const prev = b.status;
@@ -715,9 +1052,6 @@ export class BookingsService {
     }
     if (next === 'active' && prev === 'checkin_pending') {
       await this.transferHostPayoutIfNeeded(b);
-    }
-    if (next === 'completed' && prev === 'checkout_pending') {
-      this.notifications.reviewReminder(b.id);
     }
     return presentBooking(b, userId);
   }

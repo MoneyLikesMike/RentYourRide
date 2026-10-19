@@ -213,4 +213,14 @@ export class PayoutsService {
       transfers: [],
     };
   }
+
+  /**
+   * RYRA-457 stub: schedule host payout after trip completion.
+   * Idempotent by bookingId when the real queue lands.
+   */
+  async scheduleForCompletedBooking(
+    bookingId: string,
+  ): Promise<{ ok: true; stub: true; bookingId: string }> {
+    return { ok: true, stub: true, bookingId };
+  }
 }

@@ -605,9 +605,9 @@ export function statusesForPhase(phase: BookingPhase): string[] {
     case 'successfullyFinished':
       return ['completed'];
     case 'history':
-      return ['declined', 'cancelled'];
+      return ['declined', 'cancelled', 'no_show'];
     case 'canceled':
-      return ['cancelled'];
+      return ['cancelled', 'no_show'];
     default:
       return [];
   }

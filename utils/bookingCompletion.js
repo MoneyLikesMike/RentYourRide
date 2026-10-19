@@ -3,13 +3,13 @@
  * or the booking is already marked completed on the server.
  */
 export function isTripFullyCheckedOut(booking) {
-  if (booking?.status === 'completed') return true;
+  if (booking?.status === 'completed' || booking?.status === 'no_show') return true;
   return booking?.guestCheckedOutAt != null && booking?.hostCheckoutTripEndedAt != null;
 }
 
 /** Has this party finished their own checkout / end-trip flow? */
 export function hasPartyCheckedOut(booking, isHost) {
-  if (booking?.status === 'completed') return true;
+  if (booking?.status === 'completed' || booking?.status === 'no_show') return true;
   if (isHost) return booking?.hostCheckoutTripEndedAt != null;
   return booking?.guestCheckedOutAt != null;
 }

@@ -10,14 +10,18 @@ import {
 } from '../api/bookings';
 import { isTripFullyCheckedOut } from './trips';
 
+/**
+ * Ignore only "already in target status" races. Surface every other transition error.
+ */
 async function swallowInvalidTransition<T>(fn: () => Promise<T>): Promise<T | null> {
   try {
     return await fn();
   } catch (e) {
     const msg = (e instanceof Error ? e.message : String(e)).toLowerCase();
     if (
-      msg.includes('invalid') &&
-      (msg.includes('transition') || msg.includes('status'))
+      msg.includes('already in target') ||
+      msg.includes('already completed') ||
+      (msg.includes('already') && msg.includes('status'))
     ) {
       return null;
     }
