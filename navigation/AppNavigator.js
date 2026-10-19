@@ -314,8 +314,9 @@ export default function AppNavigator() {
     return () => sub.remove();
   }, [isReady]);
 
+  // Mint hold while auth boots — matches splash so unmounting LaunchSplash is seamless.
   if (!isReady) {
-    return null;
+    return <View style={authBootStyles.root} />;
   }
 
   return (
@@ -345,6 +346,13 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+const authBootStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#DFF2F1',
+  },
+});
 
 const tabBarStyles = StyleSheet.create({
   menuBar: {
