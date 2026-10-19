@@ -4,6 +4,7 @@ import "./index.scss";
 import { images } from "../../../../assets/images";
 import ModalService from "../../../../services/modals";
 import Button from "../../../../components/Button";
+import Avatar from "../../../../components/Avatar";
 import { Link } from "react-router-dom";
 
 const { trash, group, processing, searchGreen, confirm, EditIcon } = images;
@@ -254,12 +255,8 @@ const InformationScreen = ({ selectedUser, verifyEmail }) => {
           </span>
           <div className="block-wrapper profile-wrapper">
             <div className="profile-photo">
-              <img
-                src={
-                  selectedUser?.avatar
-                    ? selectedUser.avatar.imageUrl
-                    : "https://i.ya-webdesign.com/images/teacher-clip-filipino-3.png"
-                }
+              <Avatar
+                src={selectedUser?.avatar?.imageUrl}
                 alt="profile "
                 className="photo"
               />

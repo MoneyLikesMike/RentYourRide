@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import "./index.scss";
 import { images } from "../../../../assets/images";
 import Button from "../../../../components/Button";
+import Avatar from "../../../../components/Avatar";
 import { withRouter } from "react-router";
 import DropdownDate from "react-dropdown-date";
 import { aboutValidation } from "../../../../services/validations";
@@ -101,12 +102,8 @@ const EditProfileInformation = ({
         <div className="detail-info photo">
           <span className="detail-caption">Photo</span>
           <div className="edit-avatar">
-            <img
-              src={
-                values.avatar
-                  ? values.avatar
-                  : "https://i.ya-webdesign.com/images/teacher-clip-filipino-3.png"
-              }
+            <Avatar
+              src={values.avatar || undefined}
               alt="avatar"
               className="avatar"
             />

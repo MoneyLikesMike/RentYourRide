@@ -4,6 +4,7 @@ import "./index.scss";
 import Button from "../Button";
 
 import { images } from "../../assets/images";
+import Avatar from "../Avatar";
 import AlertsService from "../../services/alerts";
 const { returnArrow } = images;
 
@@ -23,11 +24,7 @@ const Header = ({ history, logout, isLoggedIn }) => {
       )}
       <div />
       <div className="right-side">
-        <img
-          src="https://i.ya-webdesign.com/images/teacher-clip-filipino-3.png"
-          alt="avatar"
-          className="avatar"
-        />
+        <Avatar alt="avatar" className="avatar" />
         {isLoggedIn && (
           <Button
             title="Logout"
