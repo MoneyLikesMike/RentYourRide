@@ -14,8 +14,7 @@ import { Svg, Path } from 'react-native-svg';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
 import { useAccountSetupSteps } from '../hooks/useAccountSetupSteps';
-import { startEmailVerification } from '../services/authApi';
-import * as tokens from '../services/authTokens';
+import { startEmailVerification } from '../services/apiClient';
 import { useAuth } from '../context/AuthContext';
 
 const BASE_WIDTH = 375;
@@ -81,9 +80,7 @@ export default function VerificationStepsScreen({ navigation }) {
     if (emailBusy) return;
     setEmailBusy(true);
     try {
-      const access = await tokens.getAccessToken();
-      if (!access) throw new Error('Sign in again to verify your email.');
-      const result = await startEmailVerification(access);
+      const result = await startEmailVerification();
       if (result?.alreadyVerified) {
         Alert.alert('Already verified', 'Your email address is already verified.');
         return;

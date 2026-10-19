@@ -10,8 +10,7 @@ import {
 } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { FONTS } from '../constants/fonts';
-import { startEmailVerification } from '../services/authApi';
-import * as tokens from '../services/authTokens';
+import { startEmailVerification } from '../services/apiClient';
 
 const scale = uiScale;
 
@@ -27,9 +26,7 @@ export default function EmailVerificationScreen({ navigation, route }) {
   const sendLink = async ({ announce } = { announce: true }) => {
     setBusy(true);
     try {
-      const access = await tokens.getAccessToken();
-      if (!access) throw new Error('Sign in again to verify your email.');
-      const result = await startEmailVerification(access);
+      const result = await startEmailVerification();
       if (result?.alreadyVerified) {
         Alert.alert('Already verified', 'Your email address is already verified.', [
           { text: 'OK', onPress: () => navigation.goBack() },
