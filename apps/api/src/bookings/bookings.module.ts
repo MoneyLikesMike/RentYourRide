@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BookingEntity } from '../entities/booking.entity';
 import { BookingExtensionEntity } from '../entities/booking-extension.entity';
@@ -8,12 +8,19 @@ import { BookingsService } from './bookings.service';
 import { BookingsController } from './bookings.controller';
 import { MessagingModule } from '../messaging/messaging.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { PayoutsModule } from '../payouts/payouts.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BookingEntity, BookingExtensionEntity, ListingEntity, UserEntity]),
+    TypeOrmModule.forFeature([
+      BookingEntity,
+      BookingExtensionEntity,
+      ListingEntity,
+      UserEntity,
+    ]),
     MessagingModule,
-    PaymentsModule,
+    forwardRef(() => PaymentsModule),
+    PayoutsModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

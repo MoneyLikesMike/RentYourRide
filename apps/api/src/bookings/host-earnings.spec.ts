@@ -272,6 +272,11 @@ describe('respondExtension', () => {
           return null;
         },
       } as never,
+      {
+        scheduleCancellationPayout: async () => ({ ok: true, stub: true }),
+        scheduleForCompletedBooking: async () => ({ ok: true, stub: true }),
+      } as never,
+      { sendSimpleAdminEmail: async () => undefined } as never,
     );
     return { service, ext, savedExtensions, calls };
   }

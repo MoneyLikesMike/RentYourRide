@@ -213,4 +213,30 @@ export class PayoutsService {
       transfers: [],
     };
   }
+
+  /**
+   * RYRA-457 stub: schedule host payout after trip completion.
+   * Idempotent by bookingId when the real service lands.
+   */
+  async scheduleForCompletedBooking(
+    bookingId: string,
+  ): Promise<{ ok: true; stub: true; bookingId: string }> {
+    return { ok: true, stub: true, bookingId };
+  }
+
+  /**
+   * Schedule a cancellation host share payout (idempotent: bookingId + type).
+   * Never transfer inline — RYRA-457 will process the queue.
+   */
+  async scheduleCancellationPayout(
+    bookingId: string,
+    hostShareCents: number,
+  ): Promise<{ ok: true; stub: true; bookingId: string; hostShareCents: number }> {
+    return {
+      ok: true,
+      stub: true,
+      bookingId,
+      hostShareCents: Math.max(0, Math.round(hostShareCents)),
+    };
+  }
 }
