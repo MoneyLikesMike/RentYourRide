@@ -103,6 +103,7 @@ const DAILY_KM_OPTIONS = [
 ] as const;
 
 const DISCOUNT_OPTIONS = [
+  '0%',
   '5%',
   '10%',
   '15%',

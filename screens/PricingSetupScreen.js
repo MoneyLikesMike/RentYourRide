@@ -24,7 +24,23 @@ import { useSaveListingStep } from '../hooks/useSaveListingStep';
 const { width: screenWidth } = Dimensions.get('window');
 const scale = uiScale;
 
-const DISCOUNT_OPTIONS = ['5%', '10%', '15%', '20%', '25%', '30%', '35%', '40%', '45%', '50%', '55%', '60%', '65%', '70%'];
+const DISCOUNT_OPTIONS = [
+  '0%',
+  '5%',
+  '10%',
+  '15%',
+  '20%',
+  '25%',
+  '30%',
+  '35%',
+  '40%',
+  '45%',
+  '50%',
+  '55%',
+  '60%',
+  '65%',
+  '70%',
+];
 
 /** $0.25/km through $1.00/km in $0.05 steps */
 const KM_OVERAGE_OPTIONS = (() => {
@@ -67,12 +83,15 @@ const PricingSetupScreen = ({ navigation }) => {
       if (d.pricePerDay != null && d.pricePerDay !== '') {
         setDailyPrice(String(d.pricePerDay));
       }
-      if (d.weeklyDiscount != null && d.weeklyDiscount !== '') {
-        setWeeklyDiscount(String(d.weeklyDiscount));
-      }
-      if (d.monthlyDiscount != null && d.monthlyDiscount !== '') {
-        setMonthlyDiscount(String(d.monthlyDiscount));
-      }
+      // Empty / missing discount means no discount — show 0% so hosts can keep or clear it.
+      const normalizeDiscount = (value) => {
+        if (value == null || value === '') return '0%';
+        const s = String(value).trim();
+        if (!s || s === '0') return '0%';
+        return s.includes('%') ? s : `${s}%`;
+      };
+      setWeeklyDiscount(normalizeDiscount(d.weeklyDiscount));
+      setMonthlyDiscount(normalizeDiscount(d.monthlyDiscount));
       if (typeof d.kmOverageFee === 'number') {
         setKmOverageFee(d.kmOverageFee);
       }
