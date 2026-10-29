@@ -5,6 +5,7 @@ import { hashOpaque } from '../common/crypto.util';
 import { LEGAL_VERSIONS } from './assisted.constants';
 import {
   checklistFromState,
+  isFlagTrue,
   inviteTtlMs,
   nextIncompleteStep,
   quotesDifferCents,
@@ -74,6 +75,27 @@ describe('assisted finish booking helpers', () => {
     assert.equal(inviteTtlMs('sms'), 24 * HOUR);
     assert.equal(inviteTtlMs('email'), 72 * HOUR);
     assert.ok(Date.now() + inviteTtlMs('sms') < Date.now() + inviteTtlMs('email'));
+  });
+
+  it('1b. phone is not done for PG/JSON falsey flag strings', () => {
+    assert.equal(isFlagTrue(true), true);
+    assert.equal(isFlagTrue(false), false);
+    assert.equal(isFlagTrue(null), false);
+    assert.equal(isFlagTrue(undefined), false);
+    assert.equal(isFlagTrue('f'), false);
+    assert.equal(isFlagTrue('false'), false);
+    const check = checklistFromState({
+      termsAccepted: true,
+      privacyAccepted: true,
+      boundUserId: 'u1',
+      emailVerified: true,
+      phoneVerified: 'f' as unknown as boolean,
+      licenseVerified: false,
+      hasCard: false,
+      bookingId: null,
+    });
+    assert.equal(check.phone, false);
+    assert.equal(nextIncompleteStep(check), 'phone');
   });
 
   it('2. stepper skips completed steps and resumes at the first incomplete', () => {
@@ -230,7 +252,16 @@ describe('AssistedService token + accept + auth binding', () => {
     const listings = {
       findOne: async () => drafts.rows[0].listing,
     };
-    const users = repoMap<any>([]);
+    const users = repoMap<any>([
+      {
+        id: 'user-new',
+        email: 'fresh@example.com',
+        phone: '+12045550100',
+        phoneVerified: true,
+        licenseVerified: true,
+        emailVerified: true,
+      },
+    ]);
     const authCalls: string[] = [];
     const bookingsCreated: unknown[] = [];
     const smsCalls: string[] = [];

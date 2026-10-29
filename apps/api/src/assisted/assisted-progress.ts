@@ -26,12 +26,22 @@ export type AssistedChecklist = {
   review: boolean;
 };
 
+/** PG/JSON flags must be real true — `!!'f'` and `!!'false'` are true in JS. */
+export function isFlagTrue(value: unknown): boolean {
+  if (value === true || value === 1) return true;
+  if (typeof value === 'string') {
+    const s = value.trim().toLowerCase();
+    return s === 't' || s === 'true' || s === '1' || s === 'yes';
+  }
+  return false;
+}
+
 export function checklistFromState(input: AssistedChecklistInput): AssistedChecklist {
   return {
     legal: input.termsAccepted && input.privacyAccepted,
-    account: Boolean(input.boundUserId) && input.emailVerified,
-    phone: input.phoneVerified,
-    licence: input.licenseVerified,
+    account: Boolean(input.boundUserId) && isFlagTrue(input.emailVerified),
+    phone: isFlagTrue(input.phoneVerified),
+    licence: isFlagTrue(input.licenseVerified),
     card: input.hasCard,
     review: Boolean(input.bookingId),
   };

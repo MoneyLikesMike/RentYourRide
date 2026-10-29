@@ -11,6 +11,7 @@ import {
   type FinishSession,
 } from '../api/assisted';
 import { ApiError } from '../api/http';
+import { getAccessToken } from '../api/storage';
 import { startEmailVerification } from '../api/users';
 import { getMe, type MeUser } from '../api/users';
 import { useAuth } from '../auth/AuthContext';
@@ -21,8 +22,55 @@ import LicenseVerificationModal from '../components/LicenseVerificationModal';
 import PageMeta from '../components/PageMeta';
 import PhoneVerificationModal from '../components/PhoneVerificationModal';
 import SiteHeader from '../components/SiteHeader';
+import { AppleLogo, GoogleLogo } from '../components/SocialLogos';
 
-const STEPS = ['legal', 'account', 'phone', 'licence', 'card', 'review'] as const;
+function LegalAgree({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label className="finish-legal">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span>
+        I agree to the Rent Your Ride{' '}
+        <Link to="/terms-conditions?section=terms-of-service" target="_blank" rel="noreferrer">
+          Terms of Service
+        </Link>
+        ,{' '}
+        <Link to="/terms-conditions?section=terms-conditions" target="_blank" rel="noreferrer">
+          Terms &amp; Conditions
+        </Link>
+        , and{' '}
+        <Link to="/terms-conditions?section=privacy" target="_blank" rel="noreferrer">
+          Privacy Policy
+        </Link>
+        .
+      </span>
+    </label>
+  );
+}
+
+function money(n: number | undefined): string {
+  if (typeof n !== 'number' || Number.isNaN(n)) return '—';
+  return `$${n.toFixed(2)}`;
+}
+
+function formatDraftWhen(dates: Record<string, unknown>, which: 'start' | 'end'): string {
+  const ms = Number(dates[which]);
+  const timeKey = which === 'start' ? 'startTime' : 'endTime';
+  const time = typeof dates[timeKey] === 'string' ? String(dates[timeKey]) : '';
+  if (!Number.isFinite(ms) || ms <= 0) return time || '—';
+  const day = new Date(ms).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  return time ? `${day} · ${time}` : day;
+}
 
 export default function FinishBookingPage() {
   const { token = '' } = useParams();
@@ -39,16 +87,21 @@ export default function FinishBookingPage() {
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [licenceOpen, setLicenceOpen] = useState(false);
   const [doneId, setDoneId] = useState<string | null>(null);
+  const [agreedLegal, setAgreedLegal] = useState(false);
+  const [agreedRental, setAgreedRental] = useState(false);
 
   const load = async () => {
     const data = await getFinishSession(token);
     setSession(data);
-    if (isAuthenticated) {
+    setError(null);
+    if (getAccessToken()) {
       try {
         setMe(await getMe());
       } catch {
         setMe(null);
       }
+    } else {
+      setMe(null);
     }
     return data;
   };
@@ -75,6 +128,26 @@ export default function FinishBookingPage() {
   };
 
   const step = session?.nextStep ?? 'legal';
+  const legalDone = Boolean(session?.legal.terms && session?.legal.privacy);
+  const booked = Boolean(doneId || session?.bookingId);
+  const showAccount = Boolean(session && !booked && (step === 'legal' || step === 'account'));
+  const showComplete = Boolean(session && !booked && !showAccount);
+  const phase = booked ? 2 : showAccount ? 1 : 2;
+  const progressRatio = booked ? 1 : showAccount ? 0.5 : 0.85;
+
+  const phoneDone = me?.phoneVerified === true && Boolean(me.phone);
+  const licenceDone = me?.licenseVerified === true;
+  const cardDone = Boolean(session?.checklist.card);
+
+  const ensureLegalAccepted = async () => {
+    if (legalDone) return;
+    if (!agreedLegal) {
+      throw new Error(
+        'Please agree to the Terms of Service, Terms & Conditions, and Privacy Policy.',
+      );
+    }
+    await acceptFinishLegal(token, ['terms', 'privacy']);
+  };
 
   return (
     <>
@@ -84,22 +157,54 @@ export default function FinishBookingPage() {
         <h1>Finish your booking</h1>
         {session ? (
           <p className="finish-muted">
-            Hi {session.leadFirstName}. This secure Rent Your Ride link expires{' '}
+            Hi {session.leadFirstName} — this {session.draft.title} is held for you until{' '}
             {new Date(session.expiresAt).toLocaleString()}.
           </p>
         ) : null}
-        {error ? <p className="finish-error">{error}</p> : null}
 
         {session ? (
-          <div className="finish-steps">
-            {STEPS.map((s) => (
-              <span
-                key={s}
-                className={`finish-step${session.checklist[s] ? ' is-done' : ''}${step === s ? ' is-current' : ''}`}
-              >
-                {s}
-              </span>
-            ))}
+          <section className="finish-ride" aria-label="Trip details">
+            {session.draft.photoUri ? (
+              <img
+                className="finish-ride-cover"
+                src={session.draft.photoUri}
+                alt={session.draft.title}
+              />
+            ) : (
+              <div className="finish-ride-cover" aria-hidden />
+            )}
+            <h2 className="finish-ride-title">{session.draft.title}</h2>
+            <p className="finish-ride-row">
+              {session.draft.city || '—'}
+              {session.draft.hostName ? ` · ${session.draft.hostName}` : ''}
+            </p>
+            <p className="finish-ride-row">
+              <span className="finish-ride-label">Pick up</span>
+              {formatDraftWhen(session.draft.bookingDates, 'start')}
+            </p>
+            <p className="finish-ride-row">
+              <span className="finish-ride-label">Drop off</span>
+              {formatDraftWhen(session.draft.bookingDates, 'end')}
+            </p>
+            <p className="finish-ride-row finish-ride-total">
+              <span className="finish-ride-label">Total</span>
+              {money(session.draft.quote.grandTotal)}
+            </p>
+          </section>
+        ) : null}
+        {error ? <p className="finish-error">{error}</p> : null}
+
+        {session && !booked ? (
+          <div className="finish-progress" aria-label={`Step ${phase} of 2`}>
+            <div className="finish-progress-track">
+              <div
+                className="finish-progress-fill"
+                style={{ width: `${Math.round(progressRatio * 100)}%` }}
+              />
+            </div>
+            <p className="finish-progress-label">
+              {showAccount ? 'Step 1 of 2 · Account' : 'Step 2 of 2 · Send request'}
+            </p>
           </div>
         ) : null}
 
@@ -110,104 +215,36 @@ export default function FinishBookingPage() {
           </div>
         ) : null}
 
-        {session && step === 'legal' ? (
+        {showAccount ? (
           <div className="finish-card">
-            <p>
-              Before we continue, please accept Rent Your Ride’s{' '}
-              <Link to="/terms-conditions">Terms</Link> (v{session.legalVersions.terms}) and{' '}
-              <Link to="/terms-conditions">Privacy Policy</Link> (v{session.legalVersions.privacy}).
-            </p>
+            <h2 className="finish-card-title">Create your account</h2>
+            <p>Takes a minute. You will use this same login in the app later.</p>
             <div className="finish-actions">
               <button
                 type="button"
-                className="trips-btn trips-btn--primary"
-                disabled={busy}
-                onClick={() => run(() => acceptFinishLegal(token, ['terms', 'privacy']))}
+                className={`trips-btn ${mode === 'register' ? 'trips-btn--primary' : 'trips-btn--ghost'}`}
+                onClick={() => setMode('register')}
               >
-                I agree
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {session && step === 'account' ? (
-          <div className="finish-card">
-            <p>Create your own Rent Your Ride account on this device. Staff cannot set a password for you.</p>
-            <div className="finish-actions">
-              <button type="button" onClick={() => setMode('register')}>
                 Create account
               </button>
-              <button type="button" onClick={() => setMode('login')}>
+              <button
+                type="button"
+                className={`trips-btn ${mode === 'login' ? 'trips-btn--primary' : 'trips-btn--ghost'}`}
+                onClick={() => setMode('login')}
+              >
                 Sign in
               </button>
             </div>
-            {mode === 'register' ? (
-              <form
-                onSubmit={(e: FormEvent) => {
-                  e.preventDefault();
-                  void run(() =>
-                    finishRegister(token, {
-                      email,
-                      password,
-                      firstName,
-                      lastName,
-                    }),
-                  );
-                }}
-              >
-                <label>First name</label>
-                <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-                <label>Last name</label>
-                <input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
-                <label>Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                <label>Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
-                <div className="finish-actions">
-                  <button type="submit" className="trips-btn trips-btn--primary" disabled={busy}>
-                    Create account
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <form
-                onSubmit={(e: FormEvent) => {
-                  e.preventDefault();
-                  void run(() => finishLogin(token, { email, password }));
-                }}
-              >
-                <label>Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                <label>Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                <div className="finish-actions">
-                  <button type="submit" className="trips-btn trips-btn--primary" disabled={busy}>
-                    Sign in
-                  </button>
-                </div>
-              </form>
-            )}
-            <div className="finish-actions">
-              {isGoogleSignInConfigured() ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    run(async () => {
-                      const g = await signInWithGoogleWeb();
-                      await finishGoogle(token, { idToken: g.idToken, firstName: g.firstName, lastName: g.lastName });
-                    })
-                  }
-                >
-                  Continue with Google
-                </button>
-              ) : null}
+            {!legalDone ? <LegalAgree checked={agreedLegal} onChange={setAgreedLegal} /> : null}
+            <div className="finish-social">
               {isAppleSignInConfigured() ? (
                 <button
                   type="button"
+                  className="auth-apple"
                   disabled={busy}
                   onClick={() =>
                     run(async () => {
+                      await ensureLegalAccepted();
                       const a = await signInWithAppleWeb();
                       await finishApple(token, {
                         identityToken: a.identityToken,
@@ -218,14 +255,96 @@ export default function FinishBookingPage() {
                     })
                   }
                 >
-                  Continue with Apple
+                  <AppleLogo />
+                  <span>
+                    {busy
+                      ? 'Continuing…'
+                      : mode === 'login'
+                        ? 'Log in with Apple'
+                        : 'Sign up with Apple'}
+                  </span>
+                </button>
+              ) : null}
+              {isGoogleSignInConfigured() ? (
+                <button
+                  type="button"
+                  className="auth-google"
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      await ensureLegalAccepted();
+                      const g = await signInWithGoogleWeb();
+                      await finishGoogle(token, {
+                        idToken: g.idToken,
+                        firstName: g.firstName,
+                        lastName: g.lastName,
+                      });
+                    })
+                  }
+                >
+                  <GoogleLogo />
+                  <span>
+                    {busy
+                      ? 'Continuing…'
+                      : mode === 'login'
+                        ? 'Log in with Google'
+                        : 'Sign up with Google'}
+                  </span>
                 </button>
               ) : null}
             </div>
+            <p className="auth-note">or use email</p>
+            {mode === 'register' ? (
+              <form
+                onSubmit={(e: FormEvent) => {
+                  e.preventDefault();
+                  void run(async () => {
+                    await ensureLegalAccepted();
+                    await finishRegister(token, {
+                      email,
+                      password,
+                      firstName,
+                      lastName,
+                    });
+                  });
+                }}
+              >
+                <label>First name</label>
+                <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                <label>Last name</label>
+                <input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+                <label>Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <label>Password</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+                <p className="auth-note">You must be 18 or older to use Rent Your Ride.</p>
+                <button className="auth-cta" type="submit" disabled={busy}>
+                  {busy ? 'Signing up…' : 'SIGN UP'}
+                </button>
+              </form>
+            ) : (
+              <form
+                onSubmit={(e: FormEvent) => {
+                  e.preventDefault();
+                  void run(async () => {
+                    await ensureLegalAccepted();
+                    await finishLogin(token, { email, password });
+                  });
+                }}
+              >
+                <label>Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <label>Password</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <button className="auth-cta" type="submit" disabled={busy}>
+                  {busy ? 'Logging in…' : 'LOG IN'}
+                </button>
+              </form>
+            )}
             {isAuthenticated && me && !me.emailVerified ? (
               <p>
                 Check your inbox, then{' '}
-                <button type="button" onClick={() => void startEmailVerification()}>
+                <button type="button" className="auth-link-btn" onClick={() => void startEmailVerification()}>
                   resend verification
                 </button>
                 .
@@ -234,12 +353,24 @@ export default function FinishBookingPage() {
           </div>
         ) : null}
 
-        {session && step === 'phone' ? (
+        {showComplete && session ? (
           <div className="finish-card">
-            <p>Verify your mobile number. We’ll text a one-time code to you, not to staff.</p>
-            <button type="button" className="trips-btn trips-btn--primary" onClick={() => setPhoneOpen(true)}>
-              Verify phone
-            </button>
+            <h2 className="finish-card-title">Send this request</h2>
+            <p>Only what’s left. You can do these on this page without leaving the car.</p>
+
+            <div className={`finish-task${phoneDone ? ' is-done' : ''}`}>
+              <div>
+                <strong>Phone</strong>
+                <p>{phoneDone ? 'Verified' : 'A one-time code to your phone — not to staff.'}</p>
+              </div>
+              {phoneDone ? (
+                <span className="finish-task-ok">Done</span>
+              ) : (
+                <button type="button" className="trips-btn trips-btn--primary" onClick={() => setPhoneOpen(true)}>
+                  Verify
+                </button>
+              )}
+            </div>
             <PhoneVerificationModal
               open={phoneOpen}
               onClose={() => setPhoneOpen(false)}
@@ -251,66 +382,88 @@ export default function FinishBookingPage() {
               initialCallingCode="1"
               initialNationalPhone=""
             />
-          </div>
-        ) : null}
 
-        {session && step === 'licence' && me ? (
-          <div className="finish-card">
-            <p>Upload your driver’s licence through Didit’s secure flow.</p>
-            <button type="button" className="trips-btn trips-btn--primary" onClick={() => setLicenceOpen(true)}>
-              Verify licence
-            </button>
-            <LicenseVerificationModal
-              open={licenceOpen}
-              onClose={() => setLicenceOpen(false)}
-              me={me}
-              reload={async () => {
-                await load();
-              }}
-            />
-          </div>
-        ) : null}
-
-        {session && step === 'card' ? (
-          <div className="finish-card">
-            <p>Add your card on this device. Card numbers never go to Rent Your Ride staff or this page’s server logs.</p>
-            <AddCardPanel
-              onSaved={() => {
-                void load();
-              }}
-              onCancel={() => undefined}
-            />
-          </div>
-        ) : null}
-
-        {session && step === 'review' ? (
-          <div className="finish-card">
-            <h2>{session.draft.title}</h2>
-            <p>
-              {session.draft.city} · total{' '}
-              {typeof session.draft.quote.grandTotal === 'number'
-                ? `$${session.draft.quote.grandTotal.toFixed(2)}`
-                : '—'}
-            </p>
-            <p>
-              I agree to the rental agreement (v{session.legalVersions.rental_agreement}) for this trip.
-            </p>
-            <div className="finish-actions">
-              <button
-                type="button"
-                className="trips-btn trips-btn--primary"
-                disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    await acceptFinishLegal(token, ['rental_agreement']);
-                    const booking = (await acceptFinishBooking(token)) as { id?: string };
-                    if (booking?.id) setDoneId(booking.id);
-                  })
-                }
-              >
-                Accept and send request
-              </button>
+            <div className={`finish-task${licenceDone ? ' is-done' : ''}`}>
+              <div>
+                <strong>Licence</strong>
+                <p>{licenceDone ? 'Verified' : 'Secure Didit check on this device.'}</p>
+              </div>
+              {licenceDone ? (
+                <span className="finish-task-ok">Done</span>
+              ) : (
+                <button
+                  type="button"
+                  className="trips-btn trips-btn--primary"
+                  disabled={!me}
+                  onClick={() => setLicenceOpen(true)}
+                >
+                  Verify
+                </button>
+              )}
             </div>
+            {me ? (
+              <LicenseVerificationModal
+                open={licenceOpen}
+                onClose={() => setLicenceOpen(false)}
+                me={me}
+                reload={async () => {
+                  await load();
+                }}
+              />
+            ) : null}
+
+            <div className={`finish-task${cardDone ? ' is-done' : ''}`}>
+              <div>
+                <strong>Card</strong>
+                <p>{cardDone ? 'Saved' : 'Added on your device. Staff never see the number.'}</p>
+              </div>
+              {cardDone ? <span className="finish-task-ok">Done</span> : null}
+            </div>
+            {!cardDone ? (
+              <AddCardPanel
+                onSaved={() => {
+                  void load();
+                }}
+              />
+            ) : null}
+
+            <label className="finish-legal">
+              <input
+                type="checkbox"
+                checked={agreedRental || session.legal.rentalAgreement}
+                onChange={(e) => setAgreedRental(e.target.checked)}
+              />
+              <span>
+                I agree to the{' '}
+                <Link to="/terms-conditions?section=terms-conditions" target="_blank" rel="noreferrer">
+                  rental agreement
+                </Link>{' '}
+                for this trip.
+              </span>
+            </label>
+            <button
+              type="button"
+              className="auth-cta"
+              disabled={
+                busy ||
+                !phoneDone ||
+                !licenceDone ||
+                !cardDone ||
+                !(agreedRental || session.legal.rentalAgreement)
+              }
+              onClick={() =>
+                run(async () => {
+                  if (!(agreedRental || session.legal.rentalAgreement)) {
+                    throw new Error('Please agree to the rental agreement.');
+                  }
+                  await acceptFinishLegal(token, ['rental_agreement']);
+                  const booking = (await acceptFinishBooking(token)) as { id?: string };
+                  if (booking?.id) setDoneId(booking.id);
+                })
+              }
+            >
+              {busy ? 'Sending…' : 'SEND BOOKING REQUEST'}
+            </button>
           </div>
         ) : null}
       </main>

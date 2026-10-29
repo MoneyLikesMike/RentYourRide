@@ -21,10 +21,20 @@ export type FinishSession = {
     listingId: string;
     title: string;
     city: string | null;
+    photoUri?: string | null;
+    hostName?: string | null;
     bookingDates: Record<string, unknown>;
     extras: unknown;
     deliveryEnabled: boolean;
-    quote: { grandTotal?: number; tripDays?: number };
+    introMessage?: string | null;
+    quote: {
+      grandTotal?: number;
+      tripDays?: number;
+      pricePerDay?: number;
+      tripFee?: number;
+      subtotal?: number;
+      kmIncludedLabel?: string;
+    };
   };
   bookingId: string | null;
 };

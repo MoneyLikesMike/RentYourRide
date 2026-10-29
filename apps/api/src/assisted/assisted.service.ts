@@ -22,6 +22,7 @@ import { BookingsService, QuoteInput } from '../bookings/bookings.service';
 import { PaymentsService } from '../payments/payments.service';
 import { PinpointService } from '../notifications/pinpoint.service';
 import { publicWebUrl } from '../common/public-web-origin';
+import { publicHostDisplayName } from '../listings/public-listing.dto';
 import { ConfigService } from '@nestjs/config';
 import {
   EMAIL_INVITE_TTL_MS,
@@ -34,6 +35,7 @@ import {
 import {
   checklistFromState,
   inviteTtlMs,
+  isFlagTrue,
   nextIncompleteStep,
   quotesDifferCents,
   scrubAuditMetadata,
@@ -411,6 +413,13 @@ export class AssistedService {
     if (!rental) {
       throw new BadRequestException('Accept the rental agreement before finishing this booking');
     }
+    const guest = await this.users.findOne({ where: { id: userId } });
+    if (!isFlagTrue(guest?.phoneVerified) || !guest?.phone) {
+      throw new BadRequestException('Verify your phone before finishing this booking');
+    }
+    if (!isFlagTrue(guest?.licenseVerified)) {
+      throw new BadRequestException('Verify your licence before finishing this booking');
+    }
 
     const listing = await this.requireListing(draft.listingId);
     const quote = this.bookings.quote(listing, this.quoteInputFromDraft(draft));
@@ -507,9 +516,9 @@ export class AssistedService {
       termsAccepted: terms,
       privacyAccepted: privacy,
       boundUserId: lead.linkedUserId,
-      emailVerified: !!user?.emailVerified,
-      phoneVerified: !!user?.phoneVerified,
-      licenseVerified: !!user?.licenseVerified,
+      emailVerified: isFlagTrue(user?.emailVerified),
+      phoneVerified: isFlagTrue(user?.phoneVerified) && Boolean(user?.phone),
+      licenseVerified: isFlagTrue(user?.licenseVerified),
       hasCard,
       bookingId: draft?.bookingId ?? null,
     });
@@ -581,13 +590,23 @@ export class AssistedService {
       termsAccepted: terms,
       privacyAccepted: privacy,
       boundUserId: signedInAsBound ? boundId : null,
-      emailVerified: signedInAsBound ? !!user?.emailVerified : false,
-      phoneVerified: signedInAsBound ? !!user?.phoneVerified : false,
-      licenseVerified: signedInAsBound ? !!user?.licenseVerified : false,
+      emailVerified: signedInAsBound ? isFlagTrue(user?.emailVerified) : false,
+      phoneVerified: signedInAsBound
+        ? isFlagTrue(user?.phoneVerified) && Boolean(user?.phone)
+        : false,
+      licenseVerified: signedInAsBound ? isFlagTrue(user?.licenseVerified) : false,
       hasCard: signedInAsBound ? hasCard : false,
       bookingId: draft.bookingId,
     });
     const listing = draft.listing;
+    const photos = Array.isArray(listing.photos) ? listing.photos : [];
+    const cover = photos.find((p) => {
+      const uri = typeof p?.uri === 'string' ? p.uri : '';
+      if (!uri) return false;
+      const type = String((p as { type?: string }).type ?? '').toLowerCase();
+      if (type === 'video') return false;
+      return !/\.(mov|mp4|webm|m4v)(\?|$)/i.test(uri);
+    });
     return {
       leadFirstName: lead.name.split(' ')[0] || lead.name,
       expiresAt: invite.expiresAt.toISOString(),
@@ -600,9 +619,12 @@ export class AssistedService {
         listingId: listing.id,
         title: listing.title,
         city: listing.city,
+        photoUri: cover?.uri ?? null,
+        hostName: publicHostDisplayName(listing.host),
         bookingDates: draft.bookingDates,
         extras: draft.extras,
         deliveryEnabled: draft.deliveryEnabled,
+        introMessage: draft.introMessage,
         quote: draft.quotedPricing,
       },
       bookingId: draft.bookingId,
