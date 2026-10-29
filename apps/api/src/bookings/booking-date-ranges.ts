@@ -2,7 +2,7 @@ import type { BookingStatus } from '../entities/booking.entity';
 
 /** Statuses that reserve listing dates for other guests. */
 export const DATE_BLOCKING_BOOKING_STATUSES: BookingStatus[] = [
-  'pending_host',
+  'awaiting_payment',
   'confirmed',
   'checkin_pending',
   'active',

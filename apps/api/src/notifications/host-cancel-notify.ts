@@ -20,6 +20,7 @@ export type DispatchStatus = 'sent' | 'failed' | 'skipped';
 
 /** Statuses that mean the guest had a confirmed trip, not an unanswered request. */
 export const CONFIRMED_TRIP_STATUSES = [
+  'awaiting_payment',
   'confirmed',
   'checkin_pending',
   'active',

@@ -25,6 +25,7 @@ function makeLocalId() {
 }
 
 const ACTIVE_STATUSES = new Set([
+  'awaiting_payment',
   'confirmed',
   'checkin_pending',
   'active',

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { paymentFailureMessage } from '../bookings/booking-payment';
 
 /** How long after Stripe creates a card we still treat it as newly added. */
 const NEW_CARD_WINDOW_MS = 30 * 60 * 1000;
@@ -289,8 +290,8 @@ export class PaymentsService {
   }
 
   /**
-   * Legacy parity: uncaptured hold on booking create.
-   * Credit cards authorize $1; debit/prepaid authorize the full trip amount.
+   * Uncaptured hold on booking create. Always authorizes the full guest total.
+   * In-flight $1 credit holds are still captured via captureOrChargeBooking().
    */
   async createBookingPreauth(opts: {
     guestUserId: string;
@@ -298,6 +299,7 @@ export class PaymentsService {
     fullAmountCents: number;
     description: string;
     metadata?: Record<string, string>;
+    idempotencyKey?: string;
   }): Promise<BookingPaymentResult> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured');
@@ -307,100 +309,205 @@ export class PaymentsService {
       throw new BadRequestException('Invalid booking amount');
     }
     const funding = await this.fundingForPaymentMethod(opts.paymentMethodId);
-    const holdCents = funding === 'credit' ? 100 : fullAmountCents;
     const { customerId } = await this.ensureStripeCustomer(opts.guestUserId);
 
-    const pi = await this.stripe.paymentIntents.create({
-      amount: holdCents,
-      currency: 'cad',
-      customer: customerId,
-      payment_method: opts.paymentMethodId,
-      capture_method: 'manual',
-      confirm: true,
-      off_session: true,
-      description: opts.description,
-      metadata: {
-        guestId: opts.guestUserId,
-        purpose: 'booking_preauth',
-        fullAmountCents: String(fullAmountCents),
-        funding: funding ?? '',
-        ...(opts.metadata || {}),
-      },
-    });
+    let pi: Stripe.PaymentIntent;
+    try {
+      pi = await this.stripe.paymentIntents.create(
+        {
+          amount: fullAmountCents,
+          currency: 'cad',
+          customer: customerId,
+          payment_method: opts.paymentMethodId,
+          capture_method: 'manual',
+          confirm: true,
+          off_session: true,
+          description: opts.description,
+          metadata: {
+            guestId: opts.guestUserId,
+            purpose: 'booking_preauth',
+            fullAmountCents: String(fullAmountCents),
+            funding: funding ?? '',
+            ...(opts.metadata || {}),
+          },
+        },
+        opts.idempotencyKey
+          ? { idempotencyKey: `preauth:${opts.idempotencyKey}` }
+          : undefined,
+      );
+    } catch (err) {
+      throw new BadRequestException(paymentFailureMessage(err));
+    }
 
     if (pi.status !== 'requires_capture' && pi.status !== 'succeeded') {
       this.log.error(`Preauth unexpected status=${pi.status} pi=${pi.id}`);
+      try {
+        await this.stripe.paymentIntents.cancel(pi.id);
+      } catch {
+        /* hold may already be closed */
+      }
       throw new BadRequestException('Could not authorize payment method');
     }
 
     return {
       paymentIntentId: pi.id,
       chargeId: this.chargeIdFromPi(pi),
-      amountCents: holdCents,
+      amountCents: fullAmountCents,
       funding,
     };
   }
 
   /**
-   * Legacy parity on host approve:
-   * - credit: refund/cancel $1 hold, then charge full amount
-   * - debit: capture the existing hold
+   * Capture the booking hold on host approve.
+   * Full-amount manual holds are captured in place. Legacy $1 credit holds
+   * still cancel/refund then charge the full amount off-session.
    */
   async captureOrChargeBooking(opts: {
     paymentIntentId: string;
     fullAmountCents: number;
     description: string;
     paymentMethodId?: string | null;
+    idempotencyKey?: string;
   }): Promise<BookingPaymentResult> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured');
     }
     const fullAmountCents = Math.round(Number(opts.fullAmountCents));
-    const pi = await this.stripe.paymentIntents.retrieve(opts.paymentIntentId, {
-      expand: ['payment_method'],
-    });
-
-    const funding =
-      (typeof pi.payment_method === 'object' && pi.payment_method && 'card' in pi.payment_method
-        ? pi.payment_method.card?.funding
-        : null) ||
-      pi.metadata?.funding ||
-      null;
-
-    if (funding === 'credit') {
-      if (pi.status === 'requires_capture') {
-        await this.stripe.paymentIntents.cancel(pi.id);
-      } else if (pi.status === 'succeeded') {
-        await this.stripe.refunds.create({ payment_intent: pi.id });
-      }
-
-      const customerId =
-        typeof pi.customer === 'string' ? pi.customer : pi.customer?.id || undefined;
-      const paymentMethodId =
-        opts.paymentMethodId ||
-        (typeof pi.payment_method === 'string'
-          ? pi.payment_method
-          : pi.payment_method?.id) ||
-        undefined;
-      if (!customerId || !paymentMethodId) {
-        throw new BadRequestException('Missing payment method for capture');
-      }
-
-      const charged = await this.stripe.paymentIntents.create({
-        amount: fullAmountCents,
-        currency: 'cad',
-        customer: customerId,
-        payment_method: paymentMethodId,
-        confirm: true,
-        off_session: true,
-        capture_method: 'automatic',
-        description: opts.description,
-        metadata: {
-          ...(pi.metadata || {}),
-          purpose: 'booking_capture',
-          replacedPreauth: pi.id,
-        },
+    const requestOpts = opts.idempotencyKey
+      ? { idempotencyKey: opts.idempotencyKey }
+      : { idempotencyKey: `capture:${opts.paymentIntentId}` };
+    try {
+      const pi = await this.stripe.paymentIntents.retrieve(opts.paymentIntentId, {
+        expand: ['payment_method'],
       });
+
+      const funding =
+        (typeof pi.payment_method === 'object' && pi.payment_method && 'card' in pi.payment_method
+          ? pi.payment_method.card?.funding
+          : null) ||
+        pi.metadata?.funding ||
+        null;
+
+      if (pi.status === 'succeeded' && (pi.amount_received || pi.amount) >= fullAmountCents) {
+        return {
+          paymentIntentId: pi.id,
+          chargeId: this.chargeIdFromPi(pi),
+          amountCents: pi.amount_received || pi.amount,
+          funding,
+        };
+      }
+
+      const isFullHold = pi.amount >= fullAmountCents;
+
+      if (pi.status === 'requires_capture' && isFullHold) {
+        if (opts.description?.trim()) {
+          await this.stripe.paymentIntents.update(pi.id, {
+            description: opts.description.trim(),
+          });
+        }
+        const captured = await this.stripe.paymentIntents.capture(
+          pi.id,
+          undefined,
+          requestOpts,
+        );
+        return {
+          paymentIntentId: captured.id,
+          chargeId: this.chargeIdFromPi(captured),
+          amountCents: captured.amount_received || captured.amount,
+          funding,
+        };
+      }
+
+      if (!isFullHold) {
+        if (pi.status === 'requires_capture') {
+          await this.stripe.paymentIntents.cancel(pi.id);
+        } else if (pi.status === 'succeeded') {
+          await this.stripe.refunds.create({ payment_intent: pi.id });
+        }
+
+        const customerId =
+          typeof pi.customer === 'string' ? pi.customer : pi.customer?.id || undefined;
+        const paymentMethodId =
+          opts.paymentMethodId ||
+          (typeof pi.payment_method === 'string'
+            ? pi.payment_method
+            : pi.payment_method?.id) ||
+          undefined;
+        if (!customerId || !paymentMethodId) {
+          throw new BadRequestException('Missing payment method for capture');
+        }
+
+        const charged = await this.stripe.paymentIntents.create(
+          {
+            amount: fullAmountCents,
+            currency: 'cad',
+            customer: customerId,
+            payment_method: paymentMethodId,
+            confirm: true,
+            off_session: true,
+            capture_method: 'automatic',
+            description: opts.description,
+            metadata: {
+              ...(pi.metadata || {}),
+              purpose: 'booking_capture',
+              replacedPreauth: pi.id,
+            },
+          },
+          { idempotencyKey: `legacy-charge:${opts.paymentIntentId}` },
+        );
+        if (charged.status !== 'succeeded') {
+          throw new BadRequestException(paymentFailureMessage({ message: 'Could not charge payment method' }));
+        }
+        return {
+          paymentIntentId: charged.id,
+          chargeId: this.chargeIdFromPi(charged),
+          amountCents: fullAmountCents,
+          funding,
+        };
+      }
+
+      throw new BadRequestException(`Cannot capture payment in status ${pi.status}`);
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException(paymentFailureMessage(err));
+    }
+  }
+
+  async authorizeAndCaptureBooking(opts: {
+    guestUserId: string;
+    paymentMethodId: string;
+    fullAmountCents: number;
+    description: string;
+    metadata?: Record<string, string>;
+    idempotencyKey: string;
+  }): Promise<BookingPaymentResult> {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+    const fullAmountCents = Math.round(Number(opts.fullAmountCents));
+    if (!Number.isFinite(fullAmountCents) || fullAmountCents < 50) {
+      throw new BadRequestException('Invalid booking amount');
+    }
+    const { customerId } = await this.ensureStripeCustomer(opts.guestUserId);
+    try {
+      const charged = await this.stripe.paymentIntents.create(
+        {
+          amount: fullAmountCents,
+          currency: 'cad',
+          customer: customerId,
+          payment_method: opts.paymentMethodId,
+          confirm: true,
+          off_session: true,
+          capture_method: 'automatic',
+          description: opts.description,
+          metadata: {
+            guestId: opts.guestUserId,
+            purpose: 'booking_retry_capture',
+            ...(opts.metadata || {}),
+          },
+        },
+        { idempotencyKey: opts.idempotencyKey },
+      );
       if (charged.status !== 'succeeded') {
         throw new BadRequestException('Could not charge payment method');
       }
@@ -408,33 +515,24 @@ export class PaymentsService {
         paymentIntentId: charged.id,
         chargeId: this.chargeIdFromPi(charged),
         amountCents: fullAmountCents,
-        funding,
+        funding: charged.metadata?.funding || null,
       };
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException(paymentFailureMessage(err));
     }
+  }
 
-    if (pi.status === 'requires_capture') {
-      if (opts.description?.trim()) {
-        await this.stripe.paymentIntents.update(pi.id, {
-          description: opts.description.trim(),
-        });
-      }
-      const captured = await this.stripe.paymentIntents.capture(pi.id);
-      return {
-        paymentIntentId: captured.id,
-        chargeId: this.chargeIdFromPi(captured),
-        amountCents: captured.amount_received || captured.amount,
-        funding,
-      };
+  constructWebhookEvent(raw: Buffer | string, signature: string): Stripe.Event {
+    const secret = this.config.get<string>('STRIPE_WEBHOOK_SECRET')?.trim();
+    if (!secret) {
+      throw new BadRequestException('Stripe webhook is not configured');
     }
-    if (pi.status === 'succeeded') {
-      return {
-        paymentIntentId: pi.id,
-        chargeId: this.chargeIdFromPi(pi),
-        amountCents: pi.amount_received || pi.amount,
-        funding,
-      };
+    try {
+      return Stripe.webhooks.constructEvent(raw, signature, secret);
+    } catch {
+      throw new BadRequestException('Invalid Stripe webhook signature');
     }
-    throw new BadRequestException(`Cannot capture payment in status ${pi.status}`);
   }
 
   async updatePaymentIntentDescription(

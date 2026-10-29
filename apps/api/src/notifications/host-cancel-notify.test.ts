@@ -139,7 +139,10 @@ describe('RYRA-422 confirmed-trip cancel host notify', () => {
 
   it('reopens listing dates when the Njeb × Em booking is cancelled', () => {
     assert.equal(DATE_BLOCKING_BOOKING_STATUSES.includes('cancelled'), false);
+    assert.equal(DATE_BLOCKING_BOOKING_STATUSES.includes('pending_host'), false);
+    assert.equal(DATE_BLOCKING_BOOKING_STATUSES.includes('expired'), false);
     assert.equal(DATE_BLOCKING_BOOKING_STATUSES.includes('confirmed'), true);
+    assert.equal(DATE_BLOCKING_BOOKING_STATUSES.includes('awaiting_payment'), true);
     const bookings = [
       {
         id: 'njeb-em-glc',

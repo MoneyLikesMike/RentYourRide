@@ -121,6 +121,9 @@ export function getTripCardStatus(
   if (!bounds) return { key: 'unknown', label: '' };
 
   const { startMs, endMs } = bounds;
+  if (booking?.status === 'awaiting_payment') {
+    return { key: 'awaiting_payment', label: 'Awaiting payment' };
+  }
   const ext =
     booking?.tripExtended === true && booking?.extensionApprovedByHost === true;
   if (ext || booking?.status === 'extended') {
@@ -173,7 +176,12 @@ export function getTripCardPrimaryAction(
   opts: { isHost: boolean; booking: BookingDto },
 ): { type: 'check_in' | 'checkout' | 'extend' | null } {
   const { isHost, booking } = opts;
-  if (statusKey === 'extended' || statusKey === 'extension_pending') {
+  if (
+    statusKey === 'extended' ||
+    statusKey === 'extension_pending' ||
+    statusKey === 'awaiting_payment' ||
+    booking?.status === 'awaiting_payment'
+  ) {
     return { type: null };
   }
   if (statusKey === 'completed' || hasPartyCheckedOut(booking, isHost)) {

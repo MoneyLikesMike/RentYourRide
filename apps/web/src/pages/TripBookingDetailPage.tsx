@@ -6,6 +6,7 @@ import {
   declineBooking,
   getBooking,
   respondExtension,
+  retryBookingPayment,
   type BookingDto,
 } from '../api/bookings';
 import { ApiError } from '../api/http';
@@ -69,9 +70,13 @@ function DetailBody() {
 
   const isHost = isHostForBooking(booking || ({} as BookingDto), user?.id);
   const isPending = booking?.status === 'pending_host';
+  const isAwaitingPayment = booking?.status === 'awaiting_payment';
   const isExtensionPending = booking?.status === 'extension_pending';
   const canCancel =
-    booking != null && !CANCELLED_OR_DONE.has(booking.status) && !isPending;
+    booking != null &&
+    !CANCELLED_OR_DONE.has(booking.status) &&
+    !isPending &&
+    !(isHost && isAwaitingPayment);
 
   const pricing = booking?.pricing || {};
   const extras = useMemo(() => {
@@ -152,6 +157,9 @@ function DetailBody() {
       () => void load(),
     );
   };
+
+  const onRetryPayment = () =>
+    void run(() => retryBookingPayment(bookingId), () => void load());
 
   const onCancelConfirm = () =>
     void run(
@@ -296,6 +304,30 @@ function DetailBody() {
       </div>
 
       <div className="trips-detail-actions">
+        {isAwaitingPayment ? (
+          <p className="trips-error">
+            Awaiting payment. {isHost
+              ? 'The guest needs to update their card.'
+              : 'Update your card and retry to keep this trip.'}
+          </p>
+        ) : null}
+
+        {!isHost && isAwaitingPayment ? (
+          <>
+            <button
+              type="button"
+              className="trips-btn trips-btn--primary"
+              disabled={busy}
+              onClick={onRetryPayment}
+            >
+              Retry payment
+            </button>
+            <Link to="/profile/payment-information" className="trips-btn trips-btn--ghost">
+              Update card
+            </Link>
+          </>
+        ) : null}
+
         {isHost && isPending ? (
           <>
             <button

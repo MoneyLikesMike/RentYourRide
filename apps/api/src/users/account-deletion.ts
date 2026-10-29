@@ -3,6 +3,7 @@ import { BookingStatus } from '../entities/booking.entity';
 /** Bookings that are still in progress or upcoming — not history. */
 export const OPEN_BOOKING_STATUSES: BookingStatus[] = [
   'pending_host',
+  'awaiting_payment',
   'confirmed',
   'checkin_pending',
   'active',

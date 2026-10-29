@@ -7,10 +7,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { BookingEntity, BookingStatus } from '../entities/booking.entity';
 import { BookingExtensionEntity } from '../entities/booking-extension.entity';
 import { ListingEntity } from '../entities/listing.entity';
+import { StripeWebhookEventEntity } from '../entities/stripe-webhook-event.entity';
 import { UserEntity } from '../entities/user.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -29,6 +30,13 @@ import {
   manualAvailabilityToDayRanges,
   toDayRangeMs,
 } from './booking-date-ranges';
+import {
+  PENDING_REQUEST_STATUSES,
+  isPendingRequestExpired,
+  paymentDeadlineMs,
+  paymentFailureMessage,
+  stripePiEventAction,
+} from './booking-payment';
 import {
   bookingSnapshotAccess,
   redactListingSnapshotForViewer,
@@ -115,6 +123,8 @@ export class BookingsService {
     private readonly listingsRepo: Repository<ListingEntity>,
     @InjectRepository(UserEntity)
     private readonly usersRepo: Repository<UserEntity>,
+    @InjectRepository(StripeWebhookEventEntity)
+    private readonly stripeEvents: Repository<StripeWebhookEventEntity>,
     private readonly dataSource: DataSource,
     private readonly messaging: MessagingService,
     private readonly notifications: NotificationsService,
@@ -311,8 +321,16 @@ export class BookingsService {
         },
       });
 
+      const pendingRows = await manager.find(BookingEntity, {
+        where: {
+          listingId: listing.id,
+          status: In(PENDING_REQUEST_STATUSES),
+        },
+      });
+
       // Same guest + exact dates → return existing booking (idempotent retry).
-      const exactDuplicate = openRows.find(
+      // pending_host is not date-blocking, so it must be queried separately.
+      const exactDuplicate = [...openRows, ...pendingRows].find(
         (row) =>
           row.guestUserId === guestId &&
           Number(row.bookingDates?.start) === startMs &&
@@ -426,6 +444,7 @@ export class BookingsService {
           fullAmountCents,
           description: rentalDescription,
           metadata: { listingId: listing.id },
+          idempotencyKey: key ?? undefined,
         });
         stripePaymentIntentId = preauth.paymentIntentId;
         lifecycle = {
@@ -435,18 +454,26 @@ export class BookingsService {
         };
 
         if (instantBooking) {
-          const captured = await this.payments.captureOrChargeBooking({
-            paymentIntentId: preauth.paymentIntentId,
-            fullAmountCents,
-            description: rentalDescription,
-            paymentMethodId,
-          });
-          stripePaymentIntentId = captured.paymentIntentId;
-          lifecycle = {
-            ...lifecycle,
-            stripeChargeId: captured.chargeId,
-            paymentCapturedAt: Date.now(),
-          };
+          try {
+            const captured = await this.payments.captureOrChargeBooking({
+              paymentIntentId: preauth.paymentIntentId,
+              fullAmountCents,
+              description: rentalDescription,
+              paymentMethodId,
+              idempotencyKey: `instant-capture:${preauth.paymentIntentId}`,
+            });
+            stripePaymentIntentId = captured.paymentIntentId;
+            lifecycle = {
+              ...lifecycle,
+              stripeChargeId: captured.chargeId,
+              paymentCapturedAt: Date.now(),
+            };
+          } catch (err) {
+            await this.payments.refundBookingPayment(preauth.paymentIntentId).catch(() => null);
+            throw err instanceof BadRequestException
+              ? err
+              : new BadRequestException(paymentFailureMessage(err));
+          }
         }
       } else {
         throw new BadRequestException('Payments are not configured on this server');
@@ -547,7 +574,7 @@ export class BookingsService {
     if (b.guestUserId !== userId && b.hostUserId !== userId) {
       throw new ForbiddenException();
     }
-    if (['completed', 'cancelled', 'declined'].includes(b.status)) {
+    if (['completed', 'cancelled', 'declined', 'expired'].includes(b.status)) {
       throw new BadRequestException('Cannot cancel');
     }
     const previousStatus = b.status;
@@ -600,42 +627,127 @@ export class BookingsService {
   }
 
   async acceptHost(userId: string, id: string) {
-    const b = await this.bookingsRepo.findOne({
-      where: { id },
-      relations: ['listing', 'host'],
-    });
-    if (!b) throw new NotFoundException('Booking not found');
-    if (b.hostUserId !== userId) throw new ForbiddenException();
-    if (b.status !== 'pending_host') {
-      throw new BadRequestException('Invalid status');
-    }
-
-    if (b.stripePaymentIntentId && this.payments.isConfigured()) {
-      const captured = await this.payments.captureOrChargeBooking({
-        paymentIntentId: b.stripePaymentIntentId,
-        fullAmountCents: this.guestPayCents(b),
-        description: formatRentalStripeDescriptionFromBooking(b, b.host),
-        paymentMethodId: this.paymentMethodIdFromBooking(b),
+    const result = await this.dataSource.transaction(async (manager) => {
+      const b = await manager.findOne(BookingEntity, {
+        where: { id },
+        relations: ['listing', 'host'],
       });
-      b.stripePaymentIntentId = captured.paymentIntentId;
-      b.lifecycle = {
-        ...(b.lifecycle ?? {}),
-        stripeChargeId: captured.chargeId,
-        paymentCapturedAt: Date.now(),
-        paymentFunding: captured.funding,
+      if (!b) throw new NotFoundException('Booking not found');
+      if (b.hostUserId !== userId) throw new ForbiddenException();
+      if (b.status === 'confirmed') {
+        return { kind: 'already' as const, booking: b };
+      }
+      if (b.status !== 'pending_host') {
+        throw new BadRequestException('Invalid status');
+      }
+
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [
+        `book:listing:${b.listingId}`,
+      ]);
+
+      const requestedRange = bookingDatesToDayRange(
+        b.bookingDates as Record<string, unknown>,
+      );
+      if (!requestedRange) {
+        throw new BadRequestException('Invalid booking date range');
+      }
+      const openRows = await manager.find(BookingEntity, {
+        where: {
+          listingId: b.listingId,
+          status: In(DATE_BLOCKING_BOOKING_STATUSES),
+        },
+      });
+      const taken = openRows.find((row) => {
+        if (row.id === b.id) return false;
+        const existing = bookingDatesToDayRange(
+          row.bookingDates as Record<string, unknown>,
+        );
+        return existing ? dayRangesOverlap(existing, requestedRange) : false;
+      });
+      if (taken) {
+        throw new ConflictException(
+          'Those dates are no longer available for this vehicle',
+        );
+      }
+
+      let captureFailed = false;
+      if (b.stripePaymentIntentId && this.payments.isConfigured()) {
+        try {
+          const captured = await this.payments.captureOrChargeBooking({
+            paymentIntentId: b.stripePaymentIntentId,
+            fullAmountCents: this.guestPayCents(b),
+            description: formatRentalStripeDescriptionFromBooking(b, b.host),
+            paymentMethodId: this.paymentMethodIdFromBooking(b),
+            idempotencyKey: `accept-capture:${b.id}:${b.stripePaymentIntentId}`,
+          });
+          b.stripePaymentIntentId = captured.paymentIntentId;
+          b.lifecycle = {
+            ...(b.lifecycle ?? {}),
+            stripeChargeId: captured.chargeId,
+            paymentCapturedAt: Date.now(),
+            paymentFunding: captured.funding,
+          };
+        } catch (err) {
+          captureFailed = true;
+          const failedAt = Date.now();
+          const pickupMs = Number(
+            (b.bookingDates as { start?: number } | null)?.start,
+          );
+          b.status = 'awaiting_payment';
+          b.paymentDeadlineAt = new Date(
+            paymentDeadlineMs(
+              failedAt,
+              Number.isFinite(pickupMs) ? pickupMs : failedAt + 48 * MS_PER_HOUR,
+            ),
+          );
+          b.lifecycle = {
+            ...(b.lifecycle ?? {}),
+            acceptedAt: failedAt,
+            paymentCaptureFailedAt: failedAt,
+            paymentCaptureError: paymentFailureMessage(err),
+          };
+        }
+      }
+
+      if (!captureFailed) {
+        b.status = 'confirmed';
+        b.lifecycle = { ...(b.lifecycle ?? {}), acceptedAt: Date.now() };
+      }
+      await manager.save(b);
+
+      const declined = await this.autoDeclineOverlappingPending(
+        manager,
+        b,
+        requestedRange,
+      );
+      return {
+        kind: 'accepted' as const,
+        booking: b,
+        captureFailed,
+        declined,
       };
+    });
+
+    if (result.kind === 'already') {
+      return presentBooking(result.booking, userId);
     }
 
-    b.status = 'confirmed';
-    b.lifecycle = { ...(b.lifecycle ?? {}), acceptedAt: Date.now() };
-    await this.bookingsRepo.save(b);
+    for (const other of result.declined) {
+      this.notifications.bookingDenied(other.id);
+    }
+
+    if (result.captureFailed) {
+      this.notifications.bookingAwaitingPayment(result.booking.id);
+      return presentBooking(result.booking, userId);
+    }
+
     await this.messaging.postBookingSystemMessage(
-      b.id,
+      result.booking.id,
       'Trip approved by the host. Coordinate pickup details below.',
       { event: 'accepted' },
     );
-    this.notifications.bookingApproved(b.id);
-    return presentBooking(b, userId);
+    this.notifications.bookingApproved(result.booking.id);
+    return presentBooking(result.booking, userId);
   }
 
   async declineHost(userId: string, id: string) {
@@ -645,6 +757,9 @@ export class BookingsService {
     });
     if (!b) throw new NotFoundException('Booking not found');
     if (b.hostUserId !== userId) throw new ForbiddenException();
+    if (b.status === 'awaiting_payment') {
+      throw new BadRequestException('Cannot decline while payment is pending');
+    }
     if (b.status !== 'pending_host') {
       throw new BadRequestException('Invalid status');
     }
@@ -1014,6 +1129,226 @@ export class BookingsService {
       );
       return null;
     }
+  }
+
+  async retryPayment(
+    userId: string,
+    id: string,
+    body: { paymentMethodId?: string } = {},
+  ) {
+    const b = await this.bookingsRepo.findOne({
+      where: { id },
+      relations: ['host', 'listing'],
+    });
+    if (!b) throw new NotFoundException('Booking not found');
+    if (b.guestUserId !== userId) throw new ForbiddenException();
+    if (b.status === 'confirmed') return presentBooking(b, userId);
+    if (b.status !== 'awaiting_payment') {
+      throw new BadRequestException('Payment is not awaiting retry');
+    }
+    const deadline = b.paymentDeadlineAt?.getTime() ?? 0;
+    if (deadline && Date.now() > deadline) {
+      throw new BadRequestException('The payment deadline has passed');
+    }
+    const paymentMethodId =
+      (typeof body.paymentMethodId === 'string' && body.paymentMethodId.startsWith('pm_')
+        ? body.paymentMethodId
+        : null) || this.paymentMethodIdFromBooking(b);
+    if (!paymentMethodId) {
+      throw new BadRequestException('A valid card payment method is required');
+    }
+    if (!this.payments.isConfigured()) {
+      throw new BadRequestException('Payments are not configured on this server');
+    }
+    const captured = await this.payments.authorizeAndCaptureBooking({
+      guestUserId: userId,
+      paymentMethodId,
+      fullAmountCents: this.guestPayCents(b),
+      description: formatRentalStripeDescriptionFromBooking(b, b.host),
+      metadata: { bookingId: b.id, listingId: b.listingId },
+      idempotencyKey: `retry-capture:${b.id}:${paymentMethodId}:${deadline || 0}`,
+    });
+    b.status = 'confirmed';
+    b.stripePaymentIntentId = captured.paymentIntentId;
+    b.paymentDeadlineAt = null;
+    b.lifecycle = {
+      ...(b.lifecycle ?? {}),
+      stripeChargeId: captured.chargeId,
+      paymentCapturedAt: Date.now(),
+      paymentRetriedAt: Date.now(),
+    };
+    await this.bookingsRepo.save(b);
+    this.notifications.bookingApproved(b.id);
+    return presentBooking(b, userId);
+  }
+
+  async expireStalePendingRequests(nowMs = Date.now()): Promise<number> {
+    const pending = await this.bookingsRepo.find({
+      where: { status: In(PENDING_REQUEST_STATUSES) },
+      relations: ['host'],
+    });
+    let count = 0;
+    for (const b of pending) {
+      if (!isPendingRequestExpired(b.createdAt.getTime(), nowMs)) continue;
+      await this.releaseAndClose(b, 'expired', 'This booking request expired.');
+      this.notifications.bookingRequestExpired(b.id);
+      count += 1;
+    }
+    return count;
+  }
+
+  async expireUnpaidAcceptedTrips(nowMs = Date.now()): Promise<number> {
+    const rows = await this.bookingsRepo.find({
+      where: { status: 'awaiting_payment' },
+      relations: ['host'],
+    });
+    let count = 0;
+    for (const b of rows) {
+      const deadline = b.paymentDeadlineAt?.getTime();
+      if (!deadline || deadline > nowMs) continue;
+      await this.releaseAndClose(
+        b,
+        'cancelled',
+        'This trip was cancelled because payment was not completed in time.',
+      );
+      this.notifications.bookingPaymentDeadlineMissed(b.id);
+      count += 1;
+    }
+    return count;
+  }
+
+  async handleStripeWebhook(raw: Buffer, signature: string) {
+    const event = this.payments.constructWebhookEvent(raw, signature);
+    const first = await this.claimStripeEvent(event.id, event.type);
+    if (!first) {
+      return { received: true, duplicate: true };
+    }
+
+    const pi = event.data?.object as {
+      id?: string;
+      status?: string;
+      amount_capturable?: number;
+      metadata?: Record<string, string>;
+    } | null;
+    const piId = pi?.id;
+    if (!piId) return { received: true };
+
+    const booking = await this.bookingsRepo.findOne({
+      where: { stripePaymentIntentId: piId },
+    });
+    if (!booking) return { received: true, unmatched: true };
+
+    const action = stripePiEventAction(event.type, booking.status);
+    if (action === 'mark_canceled') {
+      booking.lifecycle = {
+        ...(booking.lifecycle ?? {}),
+        stripePiCanceledAt: Date.now(),
+        stripePiStatus: pi?.status ?? 'canceled',
+      };
+      await this.bookingsRepo.save(booking);
+    } else if (action === 'mark_capturable') {
+      booking.lifecycle = {
+        ...(booking.lifecycle ?? {}),
+        stripeAmountCapturable: pi?.amount_capturable ?? null,
+        stripePiStatus: pi?.status ?? 'requires_capture',
+      };
+      await this.bookingsRepo.save(booking);
+    } else if (action === 'confirm_if_awaiting' && booking.status === 'awaiting_payment') {
+      booking.status = 'confirmed';
+      booking.paymentDeadlineAt = null;
+      booking.lifecycle = {
+        ...(booking.lifecycle ?? {}),
+        paymentCapturedAt: Date.now(),
+        stripePiStatus: 'succeeded',
+      };
+      await this.bookingsRepo.save(booking);
+      this.notifications.bookingApproved(booking.id);
+    }
+    return { received: true };
+  }
+
+  private async claimStripeEvent(eventId: string, eventType: string): Promise<boolean> {
+    try {
+      await this.stripeEvents.insert({ eventId, eventType });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async autoDeclineOverlappingPending(
+    manager: EntityManager,
+    accepted: BookingEntity,
+    requestedRange: { start: number; end: number },
+  ): Promise<BookingEntity[]> {
+    const pending = await manager.find(BookingEntity, {
+      where: {
+        listingId: accepted.listingId,
+        status: In(PENDING_REQUEST_STATUSES),
+      },
+      relations: ['host'],
+    });
+    const declined: BookingEntity[] = [];
+    for (const other of pending) {
+      if (other.id === accepted.id) continue;
+      const existing = bookingDatesToDayRange(
+        other.bookingDates as Record<string, unknown>,
+      );
+      if (!existing || !dayRangesOverlap(existing, requestedRange)) continue;
+      if (other.stripePaymentIntentId) {
+        await this.payments
+          .refundBookingPayment(
+            other.stripePaymentIntentId,
+            formatTripOutcomeStripeDescription({
+              outcome: 'Declined',
+              by: 'host',
+              booking: other,
+              host: other.host,
+            }),
+          )
+          .catch(() => null);
+      }
+      other.status = 'declined';
+      other.lifecycle = {
+        ...(other.lifecycle ?? {}),
+        paymentRefundedAt: Date.now(),
+        autoDeclinedForBookingId: accepted.id,
+      };
+      await manager.save(other);
+      declined.push(other);
+    }
+    return declined;
+  }
+
+  private async releaseAndClose(
+    b: BookingEntity,
+    status: 'expired' | 'cancelled',
+    message: string,
+  ): Promise<void> {
+    if (b.stripePaymentIntentId) {
+      await this.payments
+        .refundBookingPayment(
+          b.stripePaymentIntentId,
+          formatTripOutcomeStripeDescription({
+            outcome: status === 'expired' ? 'Declined' : 'Cancelled',
+            by: 'guest',
+            booking: b,
+            host: b.host,
+          }),
+        )
+        .catch(() => null);
+    }
+    b.status = status;
+    b.paymentDeadlineAt = null;
+    b.lifecycle = {
+      ...(b.lifecycle ?? {}),
+      paymentRefundedAt: Date.now(),
+      closedReason: status,
+    };
+    await this.bookingsRepo.save(b);
+    await this.messaging
+      .postBookingSystemMessage(b.id, message, { event: status })
+      .catch(() => null);
   }
 
   private async requireBookingForExtension(

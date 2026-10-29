@@ -25,7 +25,7 @@ import { InAppNotificationEntity } from '../entities/in-app-notification.entity'
 import { NotificationDispatchClaimEntity } from '../entities/notification-dispatch-claim.entity';
 import { NotificationDispatchLogEntity } from '../entities/notification-dispatch-log.entity';
 import { SmsOutboxEntity } from '../entities/sms-outbox.entity';
-import { publicWebOrigin, welcomeEmailCtaUrls } from '../common/public-web-origin';
+import { publicWebOrigin, publicWebUrl, welcomeEmailCtaUrls } from '../common/public-web-origin';
 import {
   HOST_CANCEL_CHANNELS,
   HOST_CANCEL_EMAIL_IS_TRANSACTIONAL,
@@ -55,6 +55,7 @@ type Recipient = Pick<
 type NotifyOpts = {
   sms?: string;
   email?: { template: TemplateName; vars: Record<string, string[]> };
+  simpleEmail?: { subject: string; body: string };
   /** Pass only when push should be sent. Body defaults to `sms` when omitted. */
   push?: { body?: string; data?: Record<string, unknown> };
   /** Auth / OTP — ignore user email/text/push toggles. */
@@ -125,6 +126,15 @@ export class NotificationsService {
     if (opts.email && this.wantsEmail(user, transactional)) {
       jobs.push(
         this.pinpoint.sendTemplateEmail(user.email, opts.email.template, opts.email.vars),
+      );
+    }
+    if (opts.simpleEmail && user.email && this.wantsEmail(user, transactional)) {
+      jobs.push(
+        this.pinpoint.sendSimpleEmail(
+          user.email,
+          opts.simpleEmail.subject,
+          opts.simpleEmail.body,
+        ),
       );
     }
     if (opts.sms && user.phone && this.wantsSms(user, transactional)) {
@@ -287,6 +297,111 @@ export class NotificationsService {
             err instanceof Error ? err.stack : err,
           );
         }
+      })(),
+    );
+  }
+
+  bookingAwaitingPayment(bookingId: string): void {
+    this.run(
+      (async () => {
+        const ctx = await this.loadBooking(bookingId);
+        if (!ctx) return;
+        const payUrl = publicWebUrl(`/profile/trips/${bookingId}`, this.config);
+        const guestSms = SmsCopy.bookingAwaitingPaymentGuest();
+        const hostSms = SmsCopy.bookingAwaitingPaymentHost(
+          ctx.guest.firstName ?? 'Guest',
+        );
+        await this.notifyUser(ctx.guest, {
+          transactional: true,
+          sms: guestSms,
+          simpleEmail: {
+            subject: 'Payment failed — update your card',
+            body: [
+              `Hi ${ctx.guest.firstName || 'there'},`,
+              '',
+              'Your host accepted this trip, but we could not capture payment.',
+              'Update your card and retry so the booking stays confirmed.',
+              '',
+              payUrl,
+            ].join('\n'),
+          },
+          push: { body: guestSms, data: { type: 'awaiting_payment', bookingId } },
+        });
+        await this.notifyUser(ctx.host, {
+          transactional: true,
+          sms: hostSms,
+          simpleEmail: {
+            subject: 'Pending guest payment',
+            body: [
+              `Hi ${ctx.host.firstName || 'there'},`,
+              '',
+              `${ctx.guest.firstName || 'Your guest'}'s trip is awaiting payment. Dates stay blocked until they update their card or the deadline passes.`,
+            ].join('\n'),
+          },
+          push: { body: hostSms, data: { type: 'awaiting_payment', bookingId } },
+        });
+      })(),
+    );
+  }
+
+  bookingRequestExpired(bookingId: string): void {
+    this.run(
+      (async () => {
+        const ctx = await this.loadBooking(bookingId);
+        if (!ctx) return;
+        const guestSms = SmsCopy.bookingRequestExpiredGuest();
+        const hostSms = SmsCopy.bookingRequestExpiredHost(
+          ctx.guest.firstName ?? 'Guest',
+        );
+        await this.notifyUser(ctx.guest, {
+          transactional: true,
+          sms: guestSms,
+          simpleEmail: {
+            subject: 'Your booking request expired',
+            body: `${guestSms}\n\nThe host did not respond in time, so this request is no longer active.`,
+          },
+          push: { body: guestSms, data: { type: 'request_expired', bookingId } },
+        });
+        await this.notifyUser(ctx.host, {
+          transactional: true,
+          sms: hostSms,
+          simpleEmail: {
+            subject: 'A booking request expired',
+            body: hostSms,
+          },
+          push: { body: hostSms, data: { type: 'request_expired', bookingId } },
+        });
+      })(),
+    );
+  }
+
+  bookingPaymentDeadlineMissed(bookingId: string): void {
+    this.run(
+      (async () => {
+        const ctx = await this.loadBooking(bookingId);
+        if (!ctx) return;
+        const guestSms = SmsCopy.bookingPaymentDeadlineMissedGuest();
+        const hostSms = SmsCopy.bookingPaymentDeadlineMissedHost(
+          ctx.guest.firstName ?? 'Guest',
+        );
+        await this.notifyUser(ctx.guest, {
+          transactional: true,
+          sms: guestSms,
+          simpleEmail: {
+            subject: 'Trip cancelled — payment not completed',
+            body: guestSms,
+          },
+          push: { body: guestSms, data: { type: 'payment_deadline_missed', bookingId } },
+        });
+        await this.notifyUser(ctx.host, {
+          transactional: true,
+          sms: hostSms,
+          simpleEmail: {
+            subject: 'Trip cancelled — guest payment not completed',
+            body: hostSms,
+          },
+          push: { body: hostSms, data: { type: 'payment_deadline_missed', bookingId } },
+        });
       })(),
     );
   }

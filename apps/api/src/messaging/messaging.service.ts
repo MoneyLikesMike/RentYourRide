@@ -178,7 +178,12 @@ export class MessagingService {
   private isMediaUnlocked(status?: string | null): boolean {
     const s = String(status || '').trim();
     if (!s) return false;
-    return s !== 'pending_host' && s !== 'declined' && s !== 'cancelled';
+    return (
+      s !== 'pending_host' &&
+      s !== 'declined' &&
+      s !== 'cancelled' &&
+      s !== 'expired'
+    );
   }
 
   private async requireConversationForUser(

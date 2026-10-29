@@ -164,8 +164,8 @@ export class ListingsService {
 
   /**
    * Public blocked date ranges for a listing = host manual blocks + open bookings.
-   * Cancelled, declined, and completed bookings are not in DATE_BLOCKING_BOOKING_STATUSES,
-   * so cancelling a confirmed trip reopens those dates.
+   * Cancelled, declined, expired, completed, and pending_host bookings are not in
+   * DATE_BLOCKING_BOOKING_STATUSES, so unanswered requests never hold the calendar.
    * Safe to expose (no guest/payment details).
    * Timestamps are the stored booking/manual bounds so mobile local calendars align.
    */
