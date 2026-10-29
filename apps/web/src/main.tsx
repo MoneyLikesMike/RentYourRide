@@ -9,6 +9,7 @@ import './styles/fyc.css';
 import './styles/listing.css';
 import './styles/footer.css';
 import './styles/checkout.css';
+import './styles/finish.css';
 import './styles/profile.css';
 import './styles/payment-information.css';
 import './styles/add-payment-modal.css';

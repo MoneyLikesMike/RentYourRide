@@ -17,6 +17,11 @@ export * from './notification-dispatch-log.entity';
 export * from './notification-dispatch-claim.entity';
 export * from './in-app-notification.entity';
 export * from './sms-outbox.entity';
+export * from './assisted-lead.entity';
+export * from './assisted-booking-draft.entity';
+export * from './assisted-invite-token.entity';
+export * from './legal-acceptance.entity';
+export * from './admin-audit-log.entity';
 
 import { UserEntity } from './user.entity';
 import { RefreshTokenEntity } from './refresh-token.entity';
@@ -37,6 +42,11 @@ import { NotificationDispatchLogEntity } from './notification-dispatch-log.entit
 import { NotificationDispatchClaimEntity } from './notification-dispatch-claim.entity';
 import { InAppNotificationEntity } from './in-app-notification.entity';
 import { SmsOutboxEntity } from './sms-outbox.entity';
+import { AssistedLeadEntity } from './assisted-lead.entity';
+import { AssistedBookingDraftEntity } from './assisted-booking-draft.entity';
+import { AssistedInviteTokenEntity } from './assisted-invite-token.entity';
+import { LegalAcceptanceEntity } from './legal-acceptance.entity';
+import { AdminAuditLogEntity } from './admin-audit-log.entity';
 
 export const entities = [
   UserEntity,
@@ -58,4 +68,9 @@ export const entities = [
   NotificationDispatchClaimEntity,
   InAppNotificationEntity,
   SmsOutboxEntity,
+  AssistedLeadEntity,
+  AssistedBookingDraftEntity,
+  AssistedInviteTokenEntity,
+  LegalAcceptanceEntity,
+  AdminAuditLogEntity,
 ];

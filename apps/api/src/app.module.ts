@@ -20,6 +20,7 @@ import { TeamModule } from './team/team.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MailerliteModule } from './mailerlite/mailerlite.module';
 import { OpsModule } from './ops/ops.module';
+import { AssistedModule } from './assisted/assisted.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { OpsModule } from './ops/ops.module';
     DiditModule,
     MessagingModule,
     AdminModule,
+    AssistedModule,
     ArticlesModule,
     TeamModule,
   ],

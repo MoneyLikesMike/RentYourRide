@@ -14,6 +14,7 @@ import SiteFooter from './components/SiteFooter';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import CheckoutPage from './pages/CheckoutPage';
 import DiditCallbackPage from './pages/DiditCallbackPage';
+import FinishBookingPage from './pages/FinishBookingPage';
 import EditProfilePage from './pages/EditProfilePage';
 import FindYourCarPage from './pages/FindYourCarPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -188,6 +189,7 @@ function AppRoutes() {
           element={<ConfirmEmailChangePage />}
         />
         <Route path="/didit/callback" element={<DiditCallbackPage />} />
+        <Route path="/finish/:token" element={<FinishBookingPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {isStudio ? null : <SiteFooter />}

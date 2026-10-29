@@ -1,0 +1,61 @@
+.finish-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+.finish-page h1 {
+  font-family: Nunito, sans-serif;
+  font-size: 1.75rem;
+  margin: 0 0 8px;
+}
+.finish-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 24px;
+}
+.finish-step {
+  border: 1px solid #d7e3e2;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+.finish-step.is-done {
+  background: #e7f6f4;
+  color: #0b6b64;
+}
+.finish-step.is-current {
+  background: #4cb6b1;
+  color: #fff;
+  border-color: #4cb6b1;
+}
+.finish-card {
+  background: #fff;
+  border: 1px solid #e5eceb;
+  border-radius: 16px;
+  padding: 20px;
+}
+.finish-card label {
+  display: block;
+  margin: 10px 0 4px;
+  font-weight: 700;
+}
+.finish-card input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #cfd8d7;
+  border-radius: 10px;
+}
+.finish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.finish-error {
+  color: #b42318;
+}
+.finish-muted {
+  color: #5b6b6a;
+}
