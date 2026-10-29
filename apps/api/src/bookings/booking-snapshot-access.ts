@@ -12,6 +12,7 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 const PLATE_VIN_WINDOW_MS = 24 * MS_PER_HOUR;
 
 const HOST_CONTACT_STATUSES: ReadonlySet<BookingStatus> = new Set([
+  'awaiting_payment',
   'confirmed',
   'checkin_pending',
   'active',

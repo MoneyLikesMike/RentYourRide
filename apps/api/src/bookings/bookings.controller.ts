@@ -91,6 +91,17 @@ export class BookingsController {
     return this.bookings.declineHost(user.id, id);
   }
 
+  @Post(':id/retry-payment')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  async retryPayment(
+    @ReqUser() user: UserEntity,
+    @Param('id') id: string,
+    @Body() body: { paymentMethodId?: string },
+  ) {
+    return this.bookings.retryPayment(user.id, id, body ?? {});
+  }
+
   @Post(':id/checkin/start')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()

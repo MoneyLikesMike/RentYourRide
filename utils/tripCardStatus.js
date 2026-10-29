@@ -47,6 +47,10 @@ export function getTripCardStatus(booking, nowMs = Date.now()) {
   }
 
   const { startMs, endMs } = bounds;
+  if (booking?.status === 'awaiting_payment') {
+    return { key: 'awaiting_payment', label: 'Awaiting payment' };
+  }
+
   const ext = booking?.tripExtended === true && booking?.extensionApprovedByHost === true;
   const apiExtended = booking?.status === 'extended';
   if (ext || apiExtended) {

@@ -6,6 +6,7 @@ export * from './favorite.entity';
 export * from './booking.entity';
 export * from './geocode-cache.entity';
 export * from './didit-webhook-event.entity';
+export * from './stripe-webhook-event.entity';
 export * from './conversation.entity';
 export * from './message.entity';
 export * from './push-device-token.entity';
@@ -26,6 +27,7 @@ import { FavoriteEntity } from './favorite.entity';
 import { BookingEntity } from './booking.entity';
 import { GeocodeCacheEntity } from './geocode-cache.entity';
 import { DiditWebhookEventEntity } from './didit-webhook-event.entity';
+import { StripeWebhookEventEntity } from './stripe-webhook-event.entity';
 import { ConversationEntity } from './conversation.entity';
 import { MessageEntity } from './message.entity';
 import { PushDeviceTokenEntity } from './push-device-token.entity';
@@ -49,6 +51,7 @@ export const entities = [
   BookingExtensionEntity,
   GeocodeCacheEntity,
   DiditWebhookEventEntity,
+  StripeWebhookEventEntity,
   ConversationEntity,
   MessageEntity,
   PushDeviceTokenEntity,

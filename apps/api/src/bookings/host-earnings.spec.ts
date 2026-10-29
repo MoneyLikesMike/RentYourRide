@@ -258,6 +258,7 @@ describe('respondExtension', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       { postBookingSystemMessage: async () => undefined } as never,
       { extensionApproved: () => undefined, extensionDenied: () => undefined } as never,
       {

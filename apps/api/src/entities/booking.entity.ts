@@ -12,6 +12,7 @@ import { ListingEntity } from './listing.entity';
 
 export type BookingStatus =
   | 'pending_host'
+  | 'awaiting_payment'
   | 'confirmed'
   | 'checkin_pending'
   | 'active'
@@ -21,7 +22,8 @@ export type BookingStatus =
   | 'checkout_pending'
   | 'completed'
   | 'cancelled'
-  | 'declined';
+  | 'declined'
+  | 'expired';
 
 @Entity('bookings')
 export class BookingEntity {
@@ -57,6 +59,9 @@ export class BookingEntity {
 
   @Column({ name: 'stripe_payment_intent_id', type: 'varchar', length: 128, nullable: true })
   stripePaymentIntentId: string | null;
+
+  @Column({ name: 'payment_deadline_at', type: 'timestamptz', nullable: true })
+  paymentDeadlineAt: Date | null;
 
   @Column({ name: 'instant_booking', type: 'boolean', default: false })
   instantBooking: boolean;
@@ -120,6 +125,9 @@ export class BookingEntity {
       pricing: this.pricing,
       selectedPaymentMethod: this.selectedPaymentMethod ?? null,
       status: this.status,
+      paymentDeadlineAt: this.paymentDeadlineAt
+        ? this.paymentDeadlineAt.getTime()
+        : null,
       lifecycle,
       // Flatten lifecycle so the mobile app can read check-in/out timestamps at top level.
       ...lifecycle,

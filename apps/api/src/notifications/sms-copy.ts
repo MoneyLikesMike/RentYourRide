@@ -38,6 +38,34 @@ export const SmsCopy = {
   bookingDeniedHost: (guestFirstName: string) =>
     withPrefix(`You Denied ${guestFirstName}'s Booking Request.`),
 
+  bookingAwaitingPaymentGuest: () =>
+    withPrefix(
+      'Payment failed. Update your card and retry so this trip can stay confirmed.',
+    ),
+
+  bookingAwaitingPaymentHost: (guestFirstName: string) =>
+    withPrefix(
+      `Pending guest payment. ${guestFirstName}'s trip is on hold until they update their card.`,
+    ),
+
+  bookingRequestExpiredGuest: () =>
+    withPrefix('Your booking request expired before the host responded.'),
+
+  bookingRequestExpiredHost: (guestFirstName: string) =>
+    withPrefix(
+      `${guestFirstName}'s booking request expired because it wasn't answered in time.`,
+    ),
+
+  bookingPaymentDeadlineMissedGuest: () =>
+    withPrefix(
+      'This trip was cancelled because payment was not completed in time. There is no penalty.',
+    ),
+
+  bookingPaymentDeadlineMissedHost: (guestFirstName: string) =>
+    withPrefix(
+      `${guestFirstName}'s trip was cancelled because payment was not completed in time. Your calendar is open again.`,
+    ),
+
   bookingCheckedInGuest: (hostFirstName: string) =>
     withPrefix(
       `You have successfully checked in for your trip with ${hostFirstName}'s ride.`,

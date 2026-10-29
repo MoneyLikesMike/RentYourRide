@@ -250,7 +250,21 @@ export async function fetchAllBookings(): Promise<BookingDto[]> {
   return [...byId.values()];
 }
 
+export async function retryBookingPayment(
+  id: string,
+  paymentMethodId?: string,
+): Promise<BookingDto> {
+  return apiFetch<BookingDto>(
+    `v1/bookings/${encodeURIComponent(id)}/retry-payment`,
+    {
+      method: 'POST',
+      json: paymentMethodId ? { paymentMethodId } : {},
+    },
+  );
+}
+
 export const ACTIVE_BOOKING_STATUSES = new Set([
+  'awaiting_payment',
   'confirmed',
   'checkin_pending',
   'active',

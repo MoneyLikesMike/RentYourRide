@@ -601,11 +601,17 @@ export function statusesForPhase(phase: BookingPhase): string[] {
     case 'requests':
       return ['pending_host'];
     case 'active':
-      return ['confirmed', 'checkin_pending', 'active', 'checkout_pending'];
+      return [
+        'awaiting_payment',
+        'confirmed',
+        'checkin_pending',
+        'active',
+        'checkout_pending',
+      ];
     case 'successfullyFinished':
       return ['completed'];
     case 'history':
-      return ['declined', 'cancelled'];
+      return ['declined', 'cancelled', 'expired'];
     case 'canceled':
       return ['cancelled'];
     default:

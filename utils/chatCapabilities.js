@@ -3,6 +3,7 @@ const CHAT_MEDIA_LOCKED_STATUSES = new Set([
   'pending_host',
   'declined',
   'cancelled',
+  'expired',
 ]);
 
 /**
