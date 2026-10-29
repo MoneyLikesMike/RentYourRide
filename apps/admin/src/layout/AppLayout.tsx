@@ -17,6 +17,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import PeopleIcon from '@mui/icons-material/People';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '../auth/AuthContext';
 
@@ -24,6 +25,7 @@ const drawerWidth = 240;
 
 const nav = [
   { to: '/members', label: 'Members', icon: PeopleIcon },
+  { to: '/leads', label: 'Leads', icon: SupportAgentIcon },
   { to: '/trips', label: 'Trips', icon: DirectionsCarIcon },
   { to: '/validation', label: 'Validation', icon: VerifiedUserIcon },
 ];

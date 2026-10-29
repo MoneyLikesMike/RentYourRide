@@ -7,6 +7,8 @@ import MembersPage from './pages/MembersPage';
 import MemberProfilePlaceholder from './pages/MemberProfilePlaceholder';
 import TripsPage from './pages/TripsPage';
 import ValidationPage from './pages/ValidationPage';
+import LeadsPage from './pages/LeadsPage';
+import LeadDetailPage from './pages/LeadDetailPage';
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { isAuthenticated } = useAuth();
@@ -30,6 +32,8 @@ function AppRoutes() {
       >
         <Route path="/" element={<Navigate to="/members" replace />} />
         <Route path="/members" element={<MembersPage />} />
+        <Route path="/leads" element={<LeadsPage />} />
+        <Route path="/leads/:id" element={<LeadDetailPage />} />
         <Route
           path="/members/profile/info/:id"
           element={<MemberProfilePlaceholder />}
